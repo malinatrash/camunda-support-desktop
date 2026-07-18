@@ -80,6 +80,7 @@
 Для удалённой сборки предусмотрен GitHub Actions workflow `Windows installers`.
 После ручного запуска через **Actions → Windows installers → Run workflow** оба
 установщика можно скачать одним artifact `camunda-support-windows-1.0.0`.
+Опубликованные версии доступны в разделе **Releases** репозитория.
 
 Windows-пакеты пока не подписываются сертификатом, поэтому при первом запуске
 Windows SmartScreen может показать предупреждение.
