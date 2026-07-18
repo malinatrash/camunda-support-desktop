@@ -35,7 +35,9 @@ jobs:
         shell: bash
         run: |
           cd dist/windows
-          sha256sum *.msi *.exe > SHA256SUMS.txt
+          find . -type f \( -name '*.msi' -o -name '*.exe' \) -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS.txt
 
       - name: Create GitHub release
         env:
@@ -43,7 +45,12 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
-          gh release create "$RELEASE_TAG" dist/windows/* \
+          mapfile -d '' assets < <(
+            find dist/windows -type f \( -name '*.msi' -o -name '*.exe' \) -print0
+          )
+          assets+=("dist/windows/SHA256SUMS.txt")
+
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Camunda Support 1.0.0" \
