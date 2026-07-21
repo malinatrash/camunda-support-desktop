@@ -1,7 +1,9 @@
+import org.gradle.api.tasks.JavaExec
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 val currentOs = System.getProperty("os.name").lowercase()
 val currentArch = System.getProperty("os.arch").lowercase()
+val appBuild = extensions.extraProperties["appBuild"].toString()
 val javafxPlatform = when {
     currentOs.contains("mac") && (currentArch.contains("aarch64") || currentArch.contains("arm64")) -> "mac-aarch64"
     currentOs.contains("mac") -> "mac"
@@ -58,6 +60,7 @@ compose.desktop {
         mainClass = "com.malinatrash.camundasupport.MainKt"
         javaHome = System.getProperty("java.home")
         jvmArgs("-Dcamunda.support.version=${project.version}")
+        jvmArgs("-Dcamunda.support.build=$appBuild")
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
             modules(
@@ -80,4 +83,9 @@ compose.desktop {
             }
         }
     }
+}
+
+tasks.withType<JavaExec>().configureEach {
+    systemProperty("camunda.support.version", project.version.toString())
+    systemProperty("camunda.support.build", appBuild)
 }

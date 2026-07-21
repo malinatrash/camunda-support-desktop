@@ -1,6 +1,7 @@
 package com.malinatrash.camundasupport.data
 
 expect val APP_VERSION: String
+expect val APP_BUILD: String
 
 data class AppUpdateAsset(
     val name: String,

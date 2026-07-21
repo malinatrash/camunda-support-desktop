@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malinatrash.camundasupport.data.APP_BUILD
 import com.malinatrash.camundasupport.data.APP_VERSION
 import com.malinatrash.camundasupport.model.AppDestination
 import com.malinatrash.camundasupport.model.CamundaConnection
@@ -125,7 +126,8 @@ fun AppSidebar(
         HorizontalDivider(color = Border)
         Spacer(Modifier.height(12.dp))
         Text("Поддержка Camunda", color = TextSecondary, fontSize = 11.sp)
-        Text("Предварительная версия · $APP_VERSION", color = TextSecondary.copy(alpha = 0.65f), fontSize = 10.sp)
+        Text("Версия $APP_VERSION", color = TextSecondary.copy(alpha = 0.75f), fontSize = 10.sp)
+        Text("Сборка $APP_BUILD", color = TextSecondary.copy(alpha = 0.65f), fontSize = 10.sp)
     }
 }
 
