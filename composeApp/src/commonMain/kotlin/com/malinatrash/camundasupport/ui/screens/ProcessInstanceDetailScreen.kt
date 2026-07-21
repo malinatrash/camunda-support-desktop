@@ -90,6 +90,7 @@ fun ProcessInstanceDetailScreen(
     camundaApi: CamundaApi,
     onBack: () -> Unit,
     onOpenBrowser: () -> Unit,
+    onCopyLink: () -> Boolean,
 ) {
     var details by remember { mutableStateOf<ProcessInstanceDetails?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -162,6 +163,14 @@ fun ProcessInstanceDetailScreen(
             onBack = onBack,
             onRefresh = { refreshToken += 1 },
             onOpenBrowser = onOpenBrowser,
+            onCopyLink = {
+                if (onCopyLink()) {
+                    operationMessage = "Ссылка на заявку скопирована. При клике она откроется в приложении."
+                    error = null
+                } else {
+                    error = "Не удалось скопировать ссылку на заявку."
+                }
+            },
             onTeleport = {
                 teleportTargetId = null
                 teleportOpen = true
@@ -306,6 +315,7 @@ private fun CompactInstanceHeader(
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onOpenBrowser: () -> Unit,
+    onCopyLink: () -> Unit,
     onTeleport: () -> Unit,
     onToggleSuspension: (ProcessInstanceDetails) -> Unit,
 ) {
@@ -325,6 +335,8 @@ private fun CompactInstanceHeader(
             }
             Spacer(Modifier.width(6.dp))
             OutlinedButton(onClick = onOpenBrowser) { Text("В браузере ↗") }
+            Spacer(Modifier.width(6.dp))
+            OutlinedButton(onClick = onCopyLink) { Text("Скопировать ссылку") }
             if (details != null) {
                 Spacer(Modifier.width(6.dp))
                 OutlinedButton(onClick = { onToggleSuspension(details) }, enabled = !operationBusy) {

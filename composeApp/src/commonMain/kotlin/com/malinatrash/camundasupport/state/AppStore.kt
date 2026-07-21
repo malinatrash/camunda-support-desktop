@@ -9,7 +9,20 @@ import com.malinatrash.camundasupport.model.AppDestination
 import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.ConnectionDraft
 import com.malinatrash.camundasupport.model.DashboardDateFilter
+import com.malinatrash.camundasupport.model.ProcessInstanceDeepLink
+import com.malinatrash.camundasupport.model.matchesOrigin
 import com.malinatrash.camundasupport.model.toConnection
+
+sealed interface DeepLinkNavigationResult {
+    data object Opened : DeepLinkNavigationResult
+
+    data class ConnectionNotFound(val link: ProcessInstanceDeepLink) : DeepLinkNavigationResult
+
+    data class ConnectionChoiceRequired(
+        val link: ProcessInstanceDeepLink,
+        val connections: List<CamundaConnection>,
+    ) : DeepLinkNavigationResult
+}
 
 class AppStore(
     private val connectionRepository: ConnectionRepository,
@@ -87,6 +100,23 @@ class AppStore(
         processInstanceReturnDestination = destination
         selectedProcessInstanceId = processInstanceId
         destination = AppDestination.ProcessInstance
+    }
+
+    fun openDeepLink(link: ProcessInstanceDeepLink): DeepLinkNavigationResult {
+        val matchingConnections = connections.filter { it.matchesOrigin(link.origin) }
+        if (matchingConnections.isEmpty()) return DeepLinkNavigationResult.ConnectionNotFound(link)
+
+        val target = matchingConnections.singleOrNull()
+            ?: matchingConnections.firstOrNull { it.id == selectedConnectionId }
+            ?: return DeepLinkNavigationResult.ConnectionChoiceRequired(link, matchingConnections)
+        openDeepLinkWithConnection(target.id, link)
+        return DeepLinkNavigationResult.Opened
+    }
+
+    fun openDeepLinkWithConnection(connectionId: String, link: ProcessInstanceDeepLink) {
+        val connection = connections.firstOrNull { it.id == connectionId && it.matchesOrigin(link.origin) } ?: return
+        selectConnection(connection.id)
+        openProcessInstance(link.processInstanceId)
     }
 
     fun backFromProcessDefinition() {

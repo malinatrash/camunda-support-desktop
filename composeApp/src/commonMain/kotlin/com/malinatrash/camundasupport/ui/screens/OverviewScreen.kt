@@ -20,6 +20,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.IntOffset
@@ -96,6 +99,7 @@ internal fun OverviewScreen(
     onOpenDefinition: (String, DashboardDateFilter) -> Unit,
     onOpenIncidents: (String?, DashboardDateFilter) -> Unit,
     onOpenInstance: (String) -> Unit,
+    onOpenLink: (String) -> Unit,
 ) {
     var sort by remember { mutableStateOf(DeploymentSort.NewestFirst) }
     var view by remember { mutableStateOf(DefinitionView.List) }
@@ -104,6 +108,7 @@ internal fun OverviewScreen(
     var appliedDateFilter by remember { mutableStateOf(DashboardDateFilter()) }
     var customFromDate by remember { mutableStateOf("") }
     var customToDate by remember { mutableStateOf("") }
+    var deepLinkValue by remember { mutableStateOf("") }
     val pageScrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     var processSectionOffset by remember { mutableIntStateOf(0) }
@@ -153,6 +158,12 @@ internal fun OverviewScreen(
                 }
             }
         }
+
+        OpenByLinkBar(
+            value = deepLinkValue,
+            onValueChange = { deepLinkValue = it },
+            onOpen = { onOpenLink(deepLinkValue.trim()) },
+        )
 
         if (connection == null) {
             EmptyPanel(
@@ -322,6 +333,41 @@ internal fun OverviewScreen(
                 onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, appliedDateFilter) },
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+    }
+}
+
+@Composable
+private fun OpenByLinkBar(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onOpen: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        border = BorderStroke(1.dp, Border),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.width(190.dp)) {
+                Text("Открыть заявку по ссылке", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("Cockpit или camunda-support://", color = TextSecondary, fontSize = 10.sp)
+            }
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                placeholder = { Text("Вставьте ссылку на process-instance") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { if (value.isNotBlank()) onOpen() }),
+            )
+            Button(onClick = onOpen, enabled = value.isNotBlank()) { Text("Открыть") }
         }
     }
 }

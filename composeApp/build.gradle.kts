@@ -4,6 +4,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 val currentOs = System.getProperty("os.name").lowercase()
 val currentArch = System.getProperty("os.arch").lowercase()
 val appBuild = extensions.extraProperties["appBuild"].toString()
+val launcherFileName = if (currentOs.contains("win")) "Camunda Support.exe" else "Camunda Support"
 val javafxPlatform = when {
     currentOs.contains("mac") && (currentArch.contains("aarch64") || currentArch.contains("arm64")) -> "mac-aarch64"
     currentOs.contains("mac") -> "mac"
@@ -61,6 +62,7 @@ compose.desktop {
         javaHome = System.getProperty("java.home")
         jvmArgs("-Dcamunda.support.version=${project.version}")
         jvmArgs("-Dcamunda.support.build=$appBuild")
+        jvmArgs("-Dcamunda.support.launcher.path=\$BINDIR/$launcherFileName")
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
             modules(
@@ -80,6 +82,21 @@ compose.desktop {
             vendor = "malinatrash"
             macOS {
                 bundleID = "com.malinatrash.camundasupport"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>CFBundleURLTypes</key>
+                        <array>
+                          <dict>
+                            <key>CFBundleURLName</key>
+                            <string>com.malinatrash.camundasupport</string>
+                            <key>CFBundleURLSchemes</key>
+                            <array>
+                              <string>camunda-support</string>
+                            </array>
+                          </dict>
+                        </array>
+                    """.trimIndent()
+                }
             }
         }
     }

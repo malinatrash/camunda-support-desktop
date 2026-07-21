@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -33,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.malinatrash.camundasupport.data.ConnectionRepository
 import com.malinatrash.camundasupport.data.ConnectionTester
 import com.malinatrash.camundasupport.data.CamundaApi
+import com.malinatrash.camundasupport.data.DeepLinkEvent
+import com.malinatrash.camundasupport.data.DeepLinkSource
 import com.malinatrash.camundasupport.data.ExternalNavigator
 import com.malinatrash.camundasupport.data.InMemoryThemeRepository
 import com.malinatrash.camundasupport.data.APP_VERSION
@@ -40,6 +44,9 @@ import com.malinatrash.camundasupport.data.AppUpdate
 import com.malinatrash.camundasupport.data.AppUpdateService
 import com.malinatrash.camundasupport.data.AppThemeMode
 import com.malinatrash.camundasupport.data.NoOpAppUpdateService
+import com.malinatrash.camundasupport.data.NoOpDeepLinkSource
+import com.malinatrash.camundasupport.data.NoOpTextClipboard
+import com.malinatrash.camundasupport.data.TextClipboard
 import com.malinatrash.camundasupport.data.ThemeRepository
 import com.malinatrash.camundasupport.data.UpdateCheckResult
 import com.malinatrash.camundasupport.data.UpdateDownloadProgress
@@ -49,9 +56,11 @@ import com.malinatrash.camundasupport.model.AppDestination
 import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.cockpitDashboardUrl
 import com.malinatrash.camundasupport.model.processDefinitionCockpitUrl
+import com.malinatrash.camundasupport.model.processInstanceDeepLink
 import com.malinatrash.camundasupport.model.processInstanceCockpitUrl
 import com.malinatrash.camundasupport.state.AppStore
 import com.malinatrash.camundasupport.state.DashboardPollingStore
+import com.malinatrash.camundasupport.state.DeepLinkNavigationResult
 import com.malinatrash.camundasupport.ui.components.AppSidebar
 import com.malinatrash.camundasupport.ui.components.ConnectionDialog
 import com.malinatrash.camundasupport.ui.components.EnvironmentBadge
@@ -82,6 +91,8 @@ fun CamundaSupportApp(
     externalNavigator: ExternalNavigator,
     themeRepository: ThemeRepository = InMemoryThemeRepository(),
     onThemeChanged: (AppThemeMode) -> Unit = {},
+    deepLinkSource: DeepLinkSource = NoOpDeepLinkSource,
+    textClipboard: TextClipboard = NoOpTextClipboard,
     updateService: AppUpdateService = NoOpAppUpdateService,
 ) {
     val store = remember(connectionRepository) { AppStore(connectionRepository) }
@@ -94,11 +105,34 @@ fun CamundaSupportApp(
     var updateError by remember { mutableStateOf<String?>(null) }
     var openedInstaller by remember { mutableStateOf<String?>(null) }
     var themeMode by remember(themeRepository) { mutableStateOf(themeRepository.load()) }
+    var deepLinkError by remember { mutableStateOf<DeepLinkOpenError?>(null) }
+    var deepLinkChoice by remember { mutableStateOf<DeepLinkNavigationResult.ConnectionChoiceRequired?>(null) }
     SideEffect { dashboardStore.selectConnection(store.selectedConnection) }
     val dashboardQuery = dashboardStore.activeQuery
 
     LaunchedEffect(themeMode) {
         onThemeChanged(themeMode)
+    }
+
+    LaunchedEffect(deepLinkSource) {
+        deepLinkSource.events.collect { event ->
+            when (event) {
+                is DeepLinkEvent.Invalid -> deepLinkError = DeepLinkOpenError(event.message)
+                is DeepLinkEvent.OpenProcessInstance -> when (val result = store.openDeepLink(event.link)) {
+                    DeepLinkNavigationResult.Opened -> {
+                        deepLinkError = null
+                        deepLinkChoice = null
+                    }
+                    is DeepLinkNavigationResult.ConnectionNotFound -> {
+                        deepLinkError = DeepLinkOpenError(
+                            message = "Не найдено сохранённое подключение для ${result.link.origin}.",
+                            canOpenConnections = true,
+                        )
+                    }
+                    is DeepLinkNavigationResult.ConnectionChoiceRequired -> deepLinkChoice = result
+                }
+            }
+        }
     }
 
     LaunchedEffect(dashboardQuery) {
@@ -195,6 +229,7 @@ fun CamundaSupportApp(
                             onOpenDefinition = store::openProcessDefinition,
                             onOpenIncidents = store::openIncidents,
                             onOpenInstance = store::openProcessInstance,
+                            onOpenLink = deepLinkSource::open,
                         )
 
                         AppDestination.Processes -> ProcessesScreen(
@@ -262,6 +297,11 @@ fun CamundaSupportApp(
                                         connection.processInstanceCockpitUrl(instanceId)
                                             ?.let(externalNavigator::open)
                                     },
+                                    onCopyLink = {
+                                        connection.processInstanceDeepLink(instanceId)
+                                            ?.let(textClipboard::copy)
+                                            ?: false
+                                    },
                                 )
                             }
                         }
@@ -277,10 +317,64 @@ fun CamundaSupportApp(
                 onSave = store::addConnection,
             )
         }
+
+        deepLinkError?.let { failure ->
+            DisableSelection {
+                AlertDialog(
+                    onDismissRequest = { deepLinkError = null },
+                    title = { Text("Не удалось открыть ссылку") },
+                    text = { Text(failure.message) },
+                    confirmButton = {
+                        Button(onClick = {
+                            deepLinkError = null
+                            if (failure.canOpenConnections) store.navigate(AppDestination.Connections)
+                        }) {
+                            Text(if (failure.canOpenConnections) "Подключения" else "Закрыть")
+                        }
+                    },
+                    dismissButton = if (failure.canOpenConnections) {
+                        { OutlinedButton(onClick = { deepLinkError = null }) { Text("Закрыть") } }
+                    } else null,
+                )
+            }
+        }
+
+        deepLinkChoice?.let { choice ->
+            DisableSelection {
+                AlertDialog(
+                    onDismissRequest = { deepLinkChoice = null },
+                    title = { Text("Выберите подключение") },
+                    text = {
+                        Column {
+                            Text("Для домена ${choice.link.origin} найдено несколько подключений.")
+                            Spacer(Modifier.height(12.dp))
+                            choice.connections.forEach { connection ->
+                                OutlinedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = {
+                                        store.openDeepLinkWithConnection(connection.id, choice.link)
+                                        deepLinkChoice = null
+                                    },
+                                ) { Text(connection.name) }
+                                Spacer(Modifier.height(6.dp))
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        OutlinedButton(onClick = { deepLinkChoice = null }) { Text("Отмена") }
+                    },
+                )
+            }
+        }
     }
 }
 
 private const val UPDATE_CHECK_INTERVAL_MILLIS = 6L * 60 * 60 * 1_000
+
+private data class DeepLinkOpenError(
+    val message: String,
+    val canOpenConnections: Boolean = false,
+)
 
 @Composable
 private fun ContextBar(
