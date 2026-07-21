@@ -90,7 +90,10 @@ class DesktopAppUpdateService internal constructor(
         }
     }
 
-    override suspend fun downloadAndOpen(update: AppUpdate): UpdateInstallResult = withContext(Dispatchers.IO) {
+    override suspend fun downloadAndOpen(
+        update: AppUpdate,
+        onProgress: (UpdateDownloadProgress) -> Unit,
+    ): UpdateInstallResult = withContext(Dispatchers.IO) {
         val asset = update.asset
             ?: return@withContext UpdateInstallResult.Failure("Для этой платформы установщик не опубликован")
         runCatching {
@@ -100,15 +103,85 @@ class DesktopAppUpdateService internal constructor(
             val releaseDirectory = updatesDirectory.resolve(update.tag.safeFileName())
             Files.createDirectories(releaseDirectory)
             val target = releaseDirectory.resolve(Path.of(asset.name).fileName.toString())
+            val destinationPath = target.toString()
+            onProgress(UpdateDownloadProgress(UpdateDownloadStage.Preparing, 0, 0, 0, destinationPath))
             val expectedDigest = expectedDigest(update, asset)
-            if (!Files.exists(target) || target.sha256() != expectedDigest) {
+            val cachedInstallerValid = if (Files.exists(target)) {
+                onProgress(UpdateDownloadProgress(UpdateDownloadStage.Verifying, 0, 0, 0, destinationPath))
+                target.sha256() == expectedDigest
+            } else {
+                false
+            }
+            if (!cachedInstallerValid) {
                 val partial = target.resolveSibling("${target.fileName}.part")
                 Files.deleteIfExists(partial)
-                val response = client.send(downloadRequest(asset.downloadUrl), HttpResponse.BodyHandlers.ofFile(partial))
-                check(response.statusCode() in 200..299) { "GitHub не отдал установщик: HTTP ${response.statusCode()}" }
-                check(partial.sha256() == expectedDigest) { "Контрольная сумма установщика не совпала" }
+                val response = client.send(downloadRequest(asset.downloadUrl), HttpResponse.BodyHandlers.ofInputStream())
+                if (response.statusCode() !in 200..299) {
+                    response.body().close()
+                    error("GitHub не отдал установщик: HTTP ${response.statusCode()}")
+                }
+                val totalBytes = response.headers().firstValueAsLong("Content-Length").orElse(asset.sizeBytes)
+                    .takeIf { it > 0 }
+                    ?: asset.sizeBytes
+                val actualDigest = response.body().use { input ->
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    val startedAt = System.nanoTime()
+                    var lastReportedAt = 0L
+                    var downloadedBytes = 0L
+                    onProgress(UpdateDownloadProgress(UpdateDownloadStage.Downloading, 0, totalBytes, 0, destinationPath))
+                    Files.newOutputStream(partial).buffered().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
+                            digest.update(buffer, 0, read)
+                            downloadedBytes += read
+                            val now = System.nanoTime()
+                            if (now - lastReportedAt >= PROGRESS_INTERVAL_NANOS) {
+                                onProgress(
+                                    UpdateDownloadProgress(
+                                        stage = UpdateDownloadStage.Downloading,
+                                        downloadedBytes = downloadedBytes,
+                                        totalBytes = totalBytes,
+                                        bytesPerSecond = averageSpeed(downloadedBytes, now - startedAt),
+                                        destinationPath = destinationPath,
+                                    ),
+                                )
+                                lastReportedAt = now
+                            }
+                        }
+                    }
+                    onProgress(
+                        UpdateDownloadProgress(
+                            stage = UpdateDownloadStage.Downloading,
+                            downloadedBytes = downloadedBytes,
+                            totalBytes = totalBytes,
+                            bytesPerSecond = averageSpeed(downloadedBytes, System.nanoTime() - startedAt),
+                            destinationPath = destinationPath,
+                        ),
+                    )
+                    digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+                }
+                onProgress(
+                    UpdateDownloadProgress(
+                        UpdateDownloadStage.Verifying,
+                        totalBytes,
+                        totalBytes,
+                        destinationPath = destinationPath,
+                    ),
+                )
+                check(actualDigest == expectedDigest) { "Контрольная сумма установщика не совпала" }
                 Files.move(partial, target, StandardCopyOption.REPLACE_EXISTING)
             }
+            onProgress(
+                UpdateDownloadProgress(
+                    UpdateDownloadStage.OpeningInstaller,
+                    asset.sizeBytes,
+                    asset.sizeBytes,
+                    destinationPath = destinationPath,
+                ),
+            )
             openInstaller(target)
             UpdateInstallResult.InstallerOpened(asset.name)
         }.getOrElse { failure ->
@@ -184,9 +257,14 @@ class DesktopAppUpdateService internal constructor(
         const val LATEST_RELEASE_API =
             "https://api.github.com/repos/malinatrash/camunda-support-desktop/releases/latest"
         private const val SHA256_LENGTH = 64
+        private const val PROGRESS_INTERVAL_NANOS = 100_000_000L
         private val CONNECT_TIMEOUT = Duration.ofSeconds(10)
         private val REQUEST_TIMEOUT = Duration.ofSeconds(20)
         private val DOWNLOAD_TIMEOUT = Duration.ofMinutes(10)
+
+        private fun averageSpeed(downloadedBytes: Long, elapsedNanos: Long): Long =
+            if (elapsedNanos <= 0) 0
+            else (downloadedBytes.toDouble() * 1_000_000_000.0 / elapsedNanos.toDouble()).toLong()
 
         fun detectPlatform(): DesktopUpdatePlatform {
             val os = System.getProperty("os.name").lowercase()

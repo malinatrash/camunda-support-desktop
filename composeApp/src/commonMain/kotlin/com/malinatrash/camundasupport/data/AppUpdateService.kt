@@ -30,16 +30,37 @@ sealed interface UpdateInstallResult {
     data class Failure(val message: String) : UpdateInstallResult
 }
 
+enum class UpdateDownloadStage {
+    Preparing,
+    Downloading,
+    Verifying,
+    OpeningInstaller,
+}
+
+data class UpdateDownloadProgress(
+    val stage: UpdateDownloadStage,
+    val downloadedBytes: Long,
+    val totalBytes: Long,
+    val bytesPerSecond: Long = 0,
+    val destinationPath: String,
+)
+
 interface AppUpdateService {
     suspend fun checkForUpdate(currentVersion: String = APP_VERSION): UpdateCheckResult
 
-    suspend fun downloadAndOpen(update: AppUpdate): UpdateInstallResult
+    suspend fun downloadAndOpen(
+        update: AppUpdate,
+        onProgress: (UpdateDownloadProgress) -> Unit = {},
+    ): UpdateInstallResult
 }
 
 object NoOpAppUpdateService : AppUpdateService {
     override suspend fun checkForUpdate(currentVersion: String): UpdateCheckResult = UpdateCheckResult.UpToDate
 
-    override suspend fun downloadAndOpen(update: AppUpdate): UpdateInstallResult =
+    override suspend fun downloadAndOpen(
+        update: AppUpdate,
+        onProgress: (UpdateDownloadProgress) -> Unit,
+    ): UpdateInstallResult =
         UpdateInstallResult.Failure("Автообновление недоступно на этой платформе")
 }
 

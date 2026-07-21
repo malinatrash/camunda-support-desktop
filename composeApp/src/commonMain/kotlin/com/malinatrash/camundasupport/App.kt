@@ -15,7 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -40,6 +39,7 @@ import com.malinatrash.camundasupport.data.AppUpdate
 import com.malinatrash.camundasupport.data.AppUpdateService
 import com.malinatrash.camundasupport.data.NoOpAppUpdateService
 import com.malinatrash.camundasupport.data.UpdateCheckResult
+import com.malinatrash.camundasupport.data.UpdateDownloadProgress
 import com.malinatrash.camundasupport.data.UpdateInstallResult
 import com.malinatrash.camundasupport.data.VariableKeyRepository
 import com.malinatrash.camundasupport.model.AppDestination
@@ -52,6 +52,7 @@ import com.malinatrash.camundasupport.state.DashboardPollingStore
 import com.malinatrash.camundasupport.ui.components.AppSidebar
 import com.malinatrash.camundasupport.ui.components.ConnectionDialog
 import com.malinatrash.camundasupport.ui.components.EnvironmentBadge
+import com.malinatrash.camundasupport.ui.components.UpdateBanner
 import com.malinatrash.camundasupport.ui.screens.ConnectionsScreen
 import com.malinatrash.camundasupport.ui.screens.IncidentsScreen
 import com.malinatrash.camundasupport.ui.screens.OverviewScreen
@@ -61,8 +62,6 @@ import com.malinatrash.camundasupport.ui.screens.ProcessesScreen
 import com.malinatrash.camundasupport.ui.screens.SettingsScreen
 import com.malinatrash.camundasupport.ui.theme.AppBackground
 import com.malinatrash.camundasupport.ui.theme.Border
-import com.malinatrash.camundasupport.ui.theme.Danger
-import com.malinatrash.camundasupport.ui.theme.PrimaryMuted
 import com.malinatrash.camundasupport.ui.theme.SupportTheme
 import com.malinatrash.camundasupport.ui.theme.TextPrimary
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
@@ -86,6 +85,7 @@ fun CamundaSupportApp(
     var availableUpdate by remember { mutableStateOf<AppUpdate?>(null) }
     var dismissedUpdateTag by remember { mutableStateOf<String?>(null) }
     var updateDownloading by remember { mutableStateOf(false) }
+    var updateDownloadProgress by remember { mutableStateOf<UpdateDownloadProgress?>(null) }
     var updateError by remember { mutableStateOf<String?>(null) }
     var openedInstaller by remember { mutableStateOf<String?>(null) }
     SideEffect { dashboardStore.selectConnection(store.selectedConnection) }
@@ -114,6 +114,12 @@ fun CamundaSupportApp(
         }
     }
 
+    LaunchedEffect(availableUpdate?.tag) {
+        updateDownloadProgress = null
+        updateError = null
+        openedInstaller = null
+    }
+
     SupportTheme {
         Row(Modifier.fillMaxSize().background(AppBackground)) {
             AppSidebar(
@@ -139,6 +145,7 @@ fun CamundaSupportApp(
                         UpdateBanner(
                             update = update,
                             downloading = updateDownloading,
+                            progress = updateDownloadProgress,
                             error = updateError,
                             openedInstaller = openedInstaller,
                             onOpenRelease = { externalNavigator.open(update.releaseUrl) },
@@ -150,7 +157,12 @@ fun CamundaSupportApp(
                                         updateDownloading = true
                                         updateError = null
                                         openedInstaller = null
-                                        when (val result = updateService.downloadAndOpen(update)) {
+                                        updateDownloadProgress = null
+                                        when (
+                                            val result = updateService.downloadAndOpen(update) { progress ->
+                                                coroutineScope.launch { updateDownloadProgress = progress }
+                                            }
+                                        ) {
                                             is UpdateInstallResult.InstallerOpened -> openedInstaller = result.fileName
                                             is UpdateInstallResult.Failure -> updateError = result.message
                                         }
@@ -249,52 +261,6 @@ fun CamundaSupportApp(
                 onSave = store::addConnection,
             )
         }
-    }
-}
-
-@Composable
-private fun UpdateBanner(
-    update: AppUpdate,
-    downloading: Boolean,
-    error: String?,
-    openedInstaller: String?,
-    onOpenRelease: () -> Unit,
-    onInstall: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(PrimaryMuted).padding(horizontal = 20.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                "Доступна новая версия ${update.version}",
-                color = TextPrimary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-            )
-            val status = when {
-                openedInstaller != null -> "Установщик $openedInstaller открыт. Завершите установку в системном окне."
-                error != null -> error
-                update.asset == null -> "Для этой платформы нет автоматического установщика. Откройте страницу релиза."
-                else -> "Скачаем установщик с GitHub, проверим SHA-256 и откроем его."
-            }
-            Text(status, color = if (error == null) TextSecondary else Danger, fontSize = 10.sp)
-        }
-        TextButton(onClick = onOpenRelease) { Text("Что нового") }
-        Spacer(Modifier.width(6.dp))
-        Button(onClick = onInstall, enabled = !downloading && openedInstaller == null) {
-            Text(
-                when {
-                    downloading -> "Скачиваем…"
-                    openedInstaller != null -> "Установщик открыт"
-                    update.asset == null -> "Открыть релиз"
-                    else -> "Скачать и установить"
-                },
-            )
-        }
-        Spacer(Modifier.width(4.dp))
-        TextButton(onClick = onDismiss, enabled = !downloading) { Text("Позже") }
     }
 }
 

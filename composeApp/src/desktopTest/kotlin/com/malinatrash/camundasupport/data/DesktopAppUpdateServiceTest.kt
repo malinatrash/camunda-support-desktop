@@ -15,6 +15,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class DesktopAppUpdateServiceTest {
     @Test
@@ -93,9 +94,24 @@ class DesktopAppUpdateServiceTest {
 
             val check = assertIs<UpdateCheckResult.Available>(service.checkForUpdate("1.0.0"))
             assertEquals(installerName, check.update.asset?.name)
-            val install = assertIs<UpdateInstallResult.InstallerOpened>(service.downloadAndOpen(check.update))
+            val progress = mutableListOf<UpdateDownloadProgress>()
+            val install = assertIs<UpdateInstallResult.InstallerOpened>(
+                service.downloadAndOpen(check.update, progress::add),
+            )
 
             assertEquals(installerName, install.fileName)
+            assertEquals(UpdateDownloadStage.Preparing, progress.first().stage)
+            assertTrue(
+                progress.any {
+                    it.stage == UpdateDownloadStage.Downloading &&
+                        it.downloadedBytes == installerBytes.size.toLong() &&
+                        it.totalBytes == installerBytes.size.toLong() &&
+                        it.bytesPerSecond > 0
+                },
+            )
+            assertTrue(progress.any { it.stage == UpdateDownloadStage.Verifying })
+            assertEquals(UpdateDownloadStage.OpeningInstaller, progress.last().stage)
+            assertEquals(opened.get().toString(), progress.last().destinationPath)
             val openedFile = requireNotNull(opened.get())
             assertContentEquals(installerBytes, Files.readAllBytes(openedFile))
         } finally {
