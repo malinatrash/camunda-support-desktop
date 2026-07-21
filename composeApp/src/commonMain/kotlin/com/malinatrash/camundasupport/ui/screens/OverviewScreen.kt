@@ -789,12 +789,16 @@ private fun TimelineChart(
                     1,
                     points.maxOf { max(it.started, max(it.completed, it.incidents)) },
                 )
+                val gridColor = Border.copy(alpha = 0.75f)
+                val startedColor = Primary.copy(alpha = 0.82f)
+                val completedColor = Healthy.copy(alpha = 0.82f)
+                val incidentColor = Danger
                 Canvas(Modifier.fillMaxWidth().weight(1f)) {
                     val plotHeight = size.height - 8.dp.toPx()
                     repeat(4) { index ->
                         val y = plotHeight * index / 3f
                         drawLine(
-                            color = Border.copy(alpha = 0.75f),
+                            color = gridColor,
                             start = Offset(0f, y),
                             end = Offset(size.width, y),
                             strokeWidth = 1.dp.toPx(),
@@ -807,22 +811,22 @@ private fun TimelineChart(
                         val centerX = groupWidth * index + groupWidth / 2f
                         fun valueY(value: Int): Float = plotHeight - plotHeight * value / maximum.toFloat()
                         drawRect(
-                            color = Primary.copy(alpha = 0.82f),
+                            color = startedColor,
                             topLeft = Offset(centerX - barWidth - 1.dp.toPx(), valueY(point.started)),
                             size = Size(barWidth, plotHeight - valueY(point.started)),
                         )
                         drawRect(
-                            color = Healthy.copy(alpha = 0.82f),
+                            color = completedColor,
                             topLeft = Offset(centerX + 1.dp.toPx(), valueY(point.completed)),
                             size = Size(barWidth, plotHeight - valueY(point.completed)),
                         )
                         val incidentY = valueY(point.incidents)
                         if (index == 0) incidentPath.moveTo(centerX, incidentY) else incidentPath.lineTo(centerX, incidentY)
-                        drawCircle(Danger, radius = 2.dp.toPx(), center = Offset(centerX, incidentY))
+                        drawCircle(incidentColor, radius = 2.dp.toPx(), center = Offset(centerX, incidentY))
                     }
                     drawPath(
                         path = incidentPath,
-                        color = Danger,
+                        color = incidentColor,
                         style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
                     )
                 }

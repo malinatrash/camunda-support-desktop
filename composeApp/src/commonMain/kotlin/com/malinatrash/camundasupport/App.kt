@@ -34,10 +34,13 @@ import com.malinatrash.camundasupport.data.ConnectionRepository
 import com.malinatrash.camundasupport.data.ConnectionTester
 import com.malinatrash.camundasupport.data.CamundaApi
 import com.malinatrash.camundasupport.data.ExternalNavigator
+import com.malinatrash.camundasupport.data.InMemoryThemeRepository
 import com.malinatrash.camundasupport.data.APP_VERSION
 import com.malinatrash.camundasupport.data.AppUpdate
 import com.malinatrash.camundasupport.data.AppUpdateService
+import com.malinatrash.camundasupport.data.AppThemeMode
 import com.malinatrash.camundasupport.data.NoOpAppUpdateService
+import com.malinatrash.camundasupport.data.ThemeRepository
 import com.malinatrash.camundasupport.data.UpdateCheckResult
 import com.malinatrash.camundasupport.data.UpdateDownloadProgress
 import com.malinatrash.camundasupport.data.UpdateInstallResult
@@ -77,6 +80,8 @@ fun CamundaSupportApp(
     camundaApi: CamundaApi,
     variableKeyRepository: VariableKeyRepository,
     externalNavigator: ExternalNavigator,
+    themeRepository: ThemeRepository = InMemoryThemeRepository(),
+    onThemeChanged: (AppThemeMode) -> Unit = {},
     updateService: AppUpdateService = NoOpAppUpdateService,
 ) {
     val store = remember(connectionRepository) { AppStore(connectionRepository) }
@@ -88,8 +93,13 @@ fun CamundaSupportApp(
     var updateDownloadProgress by remember { mutableStateOf<UpdateDownloadProgress?>(null) }
     var updateError by remember { mutableStateOf<String?>(null) }
     var openedInstaller by remember { mutableStateOf<String?>(null) }
+    var themeMode by remember(themeRepository) { mutableStateOf(themeRepository.load()) }
     SideEffect { dashboardStore.selectConnection(store.selectedConnection) }
     val dashboardQuery = dashboardStore.activeQuery
+
+    LaunchedEffect(themeMode) {
+        onThemeChanged(themeMode)
+    }
 
     LaunchedEffect(dashboardQuery) {
         val query = dashboardQuery ?: return@LaunchedEffect
@@ -120,7 +130,7 @@ fun CamundaSupportApp(
         openedInstaller = null
     }
 
-    SupportTheme {
+    SupportTheme(themeMode) {
         Row(Modifier.fillMaxSize().background(AppBackground)) {
             AppSidebar(
                 connections = store.connections,
@@ -212,7 +222,13 @@ fun CamundaSupportApp(
                             onDeleteConnection = store::deleteConnection,
                         )
 
-                        AppDestination.Settings -> SettingsScreen()
+                        AppDestination.Settings -> SettingsScreen(
+                            selectedTheme = themeMode,
+                            onThemeSelected = { selectedTheme ->
+                                themeMode = selectedTheme
+                                themeRepository.save(selectedTheme)
+                            },
+                        )
 
                         AppDestination.ProcessDefinition -> {
                             val connection = store.selectedConnection

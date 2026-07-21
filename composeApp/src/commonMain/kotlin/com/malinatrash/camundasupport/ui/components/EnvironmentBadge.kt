@@ -37,6 +37,7 @@ fun EnvironmentBadge(
         )
     }
 }
+@Composable
 fun environmentColor(environment: Environment): Color = when (environment) {
     Environment.Production -> Danger
     Environment.Test -> Warning

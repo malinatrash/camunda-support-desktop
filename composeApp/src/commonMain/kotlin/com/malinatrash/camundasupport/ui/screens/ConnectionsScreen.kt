@@ -113,5 +113,6 @@ private fun ConnectionCard(
     }
 }
 
+@Composable
 private fun environmentColorForBorder(connection: CamundaConnection) =
     com.malinatrash.camundasupport.ui.components.environmentColor(connection.environment)

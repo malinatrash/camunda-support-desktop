@@ -70,6 +70,7 @@ import com.malinatrash.camundasupport.ui.theme.Healthy
 import com.malinatrash.camundasupport.ui.theme.Primary
 import com.malinatrash.camundasupport.ui.theme.PrimaryMuted
 import com.malinatrash.camundasupport.ui.theme.Surface
+import com.malinatrash.camundasupport.ui.theme.SurfaceElevated
 import com.malinatrash.camundasupport.ui.theme.TextPrimary
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
 import com.malinatrash.camundasupport.ui.theme.Warning
@@ -1051,7 +1052,7 @@ private fun TeleportDialog(
 private fun PickerPanel(title: String, subtitle: String, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = modifier.fillMaxHeight(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAFBFD)),
+        colors = CardDefaults.cardColors(containerColor = SurfaceElevated),
         border = BorderStroke(1.dp, Border),
         shape = RoundedCornerShape(10.dp),
     ) {

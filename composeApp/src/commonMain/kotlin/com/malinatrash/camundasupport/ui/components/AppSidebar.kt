@@ -133,18 +133,9 @@ fun AppSidebar(
 
 @Composable
 private fun Brand() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier.size(34.dp).background(Primary, RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("C", color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp)
-        }
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text("CAMUNDA", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 0.8.sp)
-            Text("ПОДДЕРЖКА", color = TextSecondary, fontSize = 9.sp, letterSpacing = 0.9.sp)
-        }
+    Column(modifier = Modifier.padding(horizontal = 2.dp)) {
+        Text("CAMUNDA", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 0.8.sp)
+        Text("ПОДДЕРЖКА", color = TextSecondary, fontSize = 9.sp, letterSpacing = 0.9.sp)
     }
 }
 
