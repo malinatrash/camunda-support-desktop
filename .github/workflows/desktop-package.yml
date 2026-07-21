@@ -101,6 +101,15 @@ jobs:
         shell: bash
         run: |
           cd dist
+          while IFS= read -r -d '' file; do
+            directory="$(dirname "$file")"
+            name="$(basename "$file")"
+            normalized="${name// /.}"
+            if [[ "$name" != "$normalized" ]]; then
+              mv "$file" "$directory/$normalized"
+            fi
+          done < <(find . -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.dmg' \) -print0)
+
           find . -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.dmg' \) -print0 \
             | sort -z \
             | xargs -0 sha256sum > SHA256SUMS.txt

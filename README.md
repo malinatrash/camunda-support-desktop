@@ -35,6 +35,8 @@
 - телепорт с выбором точного `activityInstanceId` и целевого BPMN-элемента;
 - retries заданий, разблокировка внешней задачи и приостановка/активация заявки;
 - Cockpit открывается только отдельной явной кнопкой;
+- проверка новых GitHub Releases при запуске и каждые шесть часов;
+- безопасное обновление через установщик нужной ОС с обязательной сверкой SHA-256;
 - локальные contract-тесты Camunda REST.
 
 ## Запуск
@@ -74,8 +76,8 @@
 
 Готовые файлы появятся здесь:
 
-- `composeApp\build\compose\binaries\main\msi\Camunda Support-1.1.0.msi`;
-- `composeApp\build\compose\binaries\main\exe\Camunda Support-1.1.0.exe`.
+- `composeApp\build\compose\binaries\main\msi\Camunda Support-1.2.0.msi`;
+- `composeApp\build\compose\binaries\main\exe\Camunda Support-1.2.0.exe`.
 
 Для удалённой сборки предусмотрен GitHub Actions workflow `Desktop installers`.
 Он параллельно собирает Windows `.msi/.exe` на `windows-2022` и macOS ARM64

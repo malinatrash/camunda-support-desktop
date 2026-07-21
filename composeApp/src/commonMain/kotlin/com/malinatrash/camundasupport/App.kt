@@ -15,10 +15,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -30,6 +35,12 @@ import com.malinatrash.camundasupport.data.ConnectionRepository
 import com.malinatrash.camundasupport.data.ConnectionTester
 import com.malinatrash.camundasupport.data.CamundaApi
 import com.malinatrash.camundasupport.data.ExternalNavigator
+import com.malinatrash.camundasupport.data.APP_VERSION
+import com.malinatrash.camundasupport.data.AppUpdate
+import com.malinatrash.camundasupport.data.AppUpdateService
+import com.malinatrash.camundasupport.data.NoOpAppUpdateService
+import com.malinatrash.camundasupport.data.UpdateCheckResult
+import com.malinatrash.camundasupport.data.UpdateInstallResult
 import com.malinatrash.camundasupport.data.VariableKeyRepository
 import com.malinatrash.camundasupport.model.AppDestination
 import com.malinatrash.camundasupport.model.CamundaConnection
@@ -50,11 +61,15 @@ import com.malinatrash.camundasupport.ui.screens.ProcessesScreen
 import com.malinatrash.camundasupport.ui.screens.SettingsScreen
 import com.malinatrash.camundasupport.ui.theme.AppBackground
 import com.malinatrash.camundasupport.ui.theme.Border
+import com.malinatrash.camundasupport.ui.theme.Danger
+import com.malinatrash.camundasupport.ui.theme.PrimaryMuted
 import com.malinatrash.camundasupport.ui.theme.SupportTheme
+import com.malinatrash.camundasupport.ui.theme.TextPrimary
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @Composable
 fun CamundaSupportApp(
@@ -63,9 +78,16 @@ fun CamundaSupportApp(
     camundaApi: CamundaApi,
     variableKeyRepository: VariableKeyRepository,
     externalNavigator: ExternalNavigator,
+    updateService: AppUpdateService = NoOpAppUpdateService,
 ) {
     val store = remember(connectionRepository) { AppStore(connectionRepository) }
     val dashboardStore = remember(camundaApi) { DashboardPollingStore(camundaApi) }
+    val coroutineScope = rememberCoroutineScope()
+    var availableUpdate by remember { mutableStateOf<AppUpdate?>(null) }
+    var dismissedUpdateTag by remember { mutableStateOf<String?>(null) }
+    var updateDownloading by remember { mutableStateOf(false) }
+    var updateError by remember { mutableStateOf<String?>(null) }
+    var openedInstaller by remember { mutableStateOf<String?>(null) }
     SideEffect { dashboardStore.selectConnection(store.selectedConnection) }
     val dashboardQuery = dashboardStore.activeQuery
 
@@ -78,6 +100,17 @@ fun CamundaSupportApp(
                 dashboardStore.updateCountdown(seconds)
                 delay(1_000)
             }
+        }
+    }
+
+    LaunchedEffect(updateService) {
+        while (currentCoroutineContext().isActive) {
+            when (val result = updateService.checkForUpdate(APP_VERSION)) {
+                is UpdateCheckResult.Available -> availableUpdate = result.update
+                is UpdateCheckResult.UpToDate -> availableUpdate = null
+                is UpdateCheckResult.Failure -> Unit
+            }
+            delay(UPDATE_CHECK_INTERVAL_MILLIS)
         }
     }
 
@@ -100,6 +133,34 @@ fun CamundaSupportApp(
                     onAddConnection = store::openConnectionDialog,
                     onOpenCockpit = { url -> externalNavigator.open(url) },
                 )
+                availableUpdate
+                    ?.takeIf { it.tag != dismissedUpdateTag }
+                    ?.let { update ->
+                        UpdateBanner(
+                            update = update,
+                            downloading = updateDownloading,
+                            error = updateError,
+                            openedInstaller = openedInstaller,
+                            onOpenRelease = { externalNavigator.open(update.releaseUrl) },
+                            onInstall = {
+                                if (update.asset == null) {
+                                    externalNavigator.open(update.releaseUrl)
+                                } else {
+                                    coroutineScope.launch {
+                                        updateDownloading = true
+                                        updateError = null
+                                        openedInstaller = null
+                                        when (val result = updateService.downloadAndOpen(update)) {
+                                            is UpdateInstallResult.InstallerOpened -> openedInstaller = result.fileName
+                                            is UpdateInstallResult.Failure -> updateError = result.message
+                                        }
+                                        updateDownloading = false
+                                    }
+                                }
+                            },
+                            onDismiss = { dismissedUpdateTag = update.tag },
+                        )
+                    }
                 HorizontalDivider(color = Border)
                 Box(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp),
@@ -190,6 +251,54 @@ fun CamundaSupportApp(
         }
     }
 }
+
+@Composable
+private fun UpdateBanner(
+    update: AppUpdate,
+    downloading: Boolean,
+    error: String?,
+    openedInstaller: String?,
+    onOpenRelease: () -> Unit,
+    onInstall: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().background(PrimaryMuted).padding(horizontal = 20.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Доступна новая версия ${update.version}",
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+            )
+            val status = when {
+                openedInstaller != null -> "Установщик $openedInstaller открыт. Завершите установку в системном окне."
+                error != null -> error
+                update.asset == null -> "Для этой платформы нет автоматического установщика. Откройте страницу релиза."
+                else -> "Скачаем установщик с GitHub, проверим SHA-256 и откроем его."
+            }
+            Text(status, color = if (error == null) TextSecondary else Danger, fontSize = 10.sp)
+        }
+        TextButton(onClick = onOpenRelease) { Text("Что нового") }
+        Spacer(Modifier.width(6.dp))
+        Button(onClick = onInstall, enabled = !downloading && openedInstaller == null) {
+            Text(
+                when {
+                    downloading -> "Скачиваем…"
+                    openedInstaller != null -> "Установщик открыт"
+                    update.asset == null -> "Открыть релиз"
+                    else -> "Скачать и установить"
+                },
+            )
+        }
+        Spacer(Modifier.width(4.dp))
+        TextButton(onClick = onDismiss, enabled = !downloading) { Text("Позже") }
+    }
+}
+
+private const val UPDATE_CHECK_INTERVAL_MILLIS = 6L * 60 * 60 * 1_000
 
 @Composable
 private fun ContextBar(
