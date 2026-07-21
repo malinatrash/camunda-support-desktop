@@ -57,8 +57,9 @@ compose.desktop {
     application {
         mainClass = "com.malinatrash.camundasupport.MainKt"
         javaHome = System.getProperty("java.home")
+        jvmArgs("-Dcamunda.support.version=${project.version}")
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
             modules(
                 "java.instrument",
                 "java.management",
@@ -71,7 +72,7 @@ compose.desktop {
                 "jdk.xml.dom",
             )
             packageName = "Camunda Support"
-            packageVersion = project.version.toString()
+            packageVersion = project.version.toString().substringBefore('-').substringBefore('+')
             description = "Desktop console for Camunda support operations"
             vendor = "malinatrash"
             macOS {

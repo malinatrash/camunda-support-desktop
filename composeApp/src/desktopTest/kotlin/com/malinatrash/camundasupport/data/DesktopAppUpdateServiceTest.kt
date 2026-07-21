@@ -14,8 +14,33 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 class DesktopAppUpdateServiceTest {
+    @Test
+    fun selectsInstallerForEverySupportedDesktopPlatform() {
+        val assets = listOf(
+            AppUpdateAsset("Camunda.Support-9.0.0.msi", "https://example.test/app.msi", 1, null),
+            AppUpdateAsset("Camunda.Support-9.0.0.exe", "https://example.test/app.exe", 1, null),
+            AppUpdateAsset("Camunda.Support-9.0.0.dmg", "https://example.test/app.dmg", 1, null),
+            AppUpdateAsset("Camunda.Support-9.0.0.deb", "https://example.test/app.deb", 1, null),
+        )
+
+        assertEquals(
+            "Camunda.Support-9.0.0.dmg",
+            DesktopAppUpdateService.selectInstaller(assets, DesktopUpdatePlatform.MacArm64)?.name,
+        )
+        assertEquals(
+            "Camunda.Support-9.0.0.exe",
+            DesktopAppUpdateService.selectInstaller(assets, DesktopUpdatePlatform.Windows)?.name,
+        )
+        assertEquals(
+            "Camunda.Support-9.0.0.deb",
+            DesktopAppUpdateService.selectInstaller(assets, DesktopUpdatePlatform.Linux)?.name,
+        )
+        assertNull(DesktopAppUpdateService.selectInstaller(assets, DesktopUpdatePlatform.Unsupported))
+    }
+
     @Test
     fun checksDownloadsVerifiesAndOpensPlatformInstaller() = runBlocking {
         val installerBytes = "проверенный dmg".encodeToByteArray()

@@ -1,6 +1,6 @@
 # Camunda Support Desktop
 
-Кроссплатформенное desktop-приложение для специалистов поддержки Bereke, которые расследуют и восстанавливают процессы Camunda 7 на macOS и Windows.
+Кроссплатформенное desktop-приложение для специалистов поддержки Bereke, которые расследуют и восстанавливают процессы Camunda 7 на macOS, Windows и Ubuntu.
 
 Приложение работает полностью на клиенте: напрямую обращается к настроенным Camunda REST endpoints и не требует backend-сервиса.
 
@@ -44,7 +44,7 @@
 Требования:
 
 - JDK 17 или новее; рекомендуется JDK 21;
-- macOS 13+ или Windows 10+.
+- macOS 13+, Windows 10+ или Ubuntu 22.04+.
 
 ```bash
 ./gradlew :composeApp:run
@@ -56,6 +56,7 @@
 ./gradlew :composeApp:packageDmg
 ./gradlew :composeApp:packageMsi
 ./gradlew :composeApp:packageExe
+./gradlew :composeApp:packageDeb
 ```
 
 Каждый нативный пакет собирается на своей операционной системе.
@@ -76,17 +77,32 @@
 
 Готовые файлы появятся здесь:
 
-- `composeApp\build\compose\binaries\main\msi\Camunda Support-1.2.0.msi`;
-- `composeApp\build\compose\binaries\main\exe\Camunda Support-1.2.0.exe`.
+- `composeApp\build\compose\binaries\main\msi\Camunda Support-<version>.msi`;
+- `composeApp\build\compose\binaries\main\exe\Camunda Support-<version>.exe`.
 
 Для удалённой сборки предусмотрен GitHub Actions workflow `Desktop installers`.
-Он параллельно собирает Windows `.msi/.exe` на `windows-2022` и macOS ARM64
-`.dmg` на `macos-15`. Workflow можно запустить вручную; при публикации тега
-`v*` он также создаёт GitHub Release с пакетами обеих платформ и `SHA256SUMS.txt`.
+Он параллельно собирает Windows `.msi/.exe` на `windows-2022`, macOS ARM64
+`.dmg` на `macos-15` и Ubuntu x64 `.deb` на `ubuntu-24.04`. Workflow можно
+запустить вручную; при публикации тега `v*` он также создаёт GitHub Release
+с пакетами всех платформ и `SHA256SUMS.txt`.
 Опубликованные версии доступны в разделе **Releases** репозитория.
 
 Windows-пакеты пока не подписываются сертификатом, поэтому при первом запуске
 Windows SmartScreen может показать предупреждение.
+
+### Выпуск новой версии
+
+Версия приложения, нативных пакетов и уведомления об обновлении автоматически
+берётся из Git-тега. Менять номер версии в исходниках не нужно. Для релиза из
+чистой ветки `main` выполните:
+
+```bash
+./scripts/release.sh v1.3.0
+```
+
+Скрипт проверит ветку и историю, прогонит desktop-тесты, создаст аннотированный
+тег и атомарно отправит `main` вместе с тегом. Между релизными тегами локальная
+сборка получает служебную dev-версию на основе последнего тега и SHA коммита.
 
 ## Документация
 
@@ -97,7 +113,7 @@ Windows SmartScreen может показать предупреждение.
 ## Технические границы
 
 - Kotlin Multiplatform + Compose Multiplatform;
-- desktop JVM target для macOS и Windows;
+- desktop JVM target для macOS, Windows и Linux;
 - прямое обращение к Camunda 7 REST;
 - локальное хранение метаданных;
 - в дальнейшем — OS Keychain/Credential Manager для авторизации;

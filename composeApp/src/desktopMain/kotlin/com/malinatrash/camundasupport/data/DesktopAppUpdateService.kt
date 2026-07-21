@@ -21,6 +21,7 @@ import kotlinx.serialization.json.jsonPrimitive
 internal enum class DesktopUpdatePlatform {
     MacArm64,
     Windows,
+    Linux,
     Unsupported,
 }
 
@@ -43,6 +44,7 @@ class DesktopAppUpdateService internal constructor(
             when (detectPlatform()) {
                 DesktopUpdatePlatform.MacArm64 -> ProcessBuilder("open", installer.toString()).start()
                 DesktopUpdatePlatform.Windows -> ProcessBuilder(installer.toString()).start()
+                DesktopUpdatePlatform.Linux -> ProcessBuilder("xdg-open", installer.toString()).start()
                 DesktopUpdatePlatform.Unsupported -> error("Автообновление недоступно на этой платформе")
             }
         },
@@ -67,12 +69,7 @@ class DesktopAppUpdateService internal constructor(
                     digest = asset["digest"]?.jsonPrimitive?.contentOrNull,
                 )
             }
-            val installer = when (platform) {
-                DesktopUpdatePlatform.MacArm64 -> assets.firstOrNull { it.name.endsWith(".dmg", ignoreCase = true) }
-                DesktopUpdatePlatform.Windows -> assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
-                    ?: assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
-                DesktopUpdatePlatform.Unsupported -> null
-            }
+            val installer = selectInstaller(assets, platform)
             val checksumUrl = assets
                 .firstOrNull { it.name.equals("SHA256SUMS.txt", ignoreCase = true) }
                 ?.downloadUrl
@@ -198,8 +195,20 @@ class DesktopAppUpdateService internal constructor(
                 os.contains("mac") && (arch.contains("aarch64") || arch.contains("arm64")) ->
                     DesktopUpdatePlatform.MacArm64
                 os.contains("win") -> DesktopUpdatePlatform.Windows
+                os.contains("linux") -> DesktopUpdatePlatform.Linux
                 else -> DesktopUpdatePlatform.Unsupported
             }
+        }
+
+        fun selectInstaller(
+            assets: List<AppUpdateAsset>,
+            platform: DesktopUpdatePlatform,
+        ): AppUpdateAsset? = when (platform) {
+            DesktopUpdatePlatform.MacArm64 -> assets.firstOrNull { it.name.endsWith(".dmg", ignoreCase = true) }
+            DesktopUpdatePlatform.Windows -> assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+                ?: assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+            DesktopUpdatePlatform.Linux -> assets.firstOrNull { it.name.endsWith(".deb", ignoreCase = true) }
+            DesktopUpdatePlatform.Unsupported -> null
         }
     }
 }
