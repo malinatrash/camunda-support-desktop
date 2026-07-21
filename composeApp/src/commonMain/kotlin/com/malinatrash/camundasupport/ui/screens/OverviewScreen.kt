@@ -80,6 +80,7 @@ import com.malinatrash.camundasupport.ui.theme.Danger
 import com.malinatrash.camundasupport.ui.theme.Healthy
 import com.malinatrash.camundasupport.ui.theme.Primary
 import com.malinatrash.camundasupport.ui.theme.PrimaryMuted
+import com.malinatrash.camundasupport.ui.theme.SelectionBorder
 import com.malinatrash.camundasupport.ui.theme.Surface
 import com.malinatrash.camundasupport.ui.theme.TextPrimary
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
@@ -1205,7 +1206,7 @@ private fun DefinitionPreviewCard(
             border = BorderStroke(
                 1.dp,
                 when {
-                    hovered -> Primary.copy(alpha = 0.65f)
+                    hovered -> SelectionBorder
                     definition.incidents > 0 -> Danger.copy(alpha = 0.5f)
                     else -> Border
                 },
@@ -1306,7 +1307,7 @@ private fun ProcessInfoPopup(definition: ProcessDefinitionSummary) {
     Card(
         modifier = Modifier.width(330.dp),
         colors = CardDefaults.cardColors(containerColor = Surface),
-        border = BorderStroke(1.dp, Primary.copy(alpha = 0.45f)),
+        border = BorderStroke(1.dp, SelectionBorder),
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {

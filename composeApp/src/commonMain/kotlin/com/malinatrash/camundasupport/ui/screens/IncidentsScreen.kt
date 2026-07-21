@@ -52,6 +52,7 @@ import com.malinatrash.camundasupport.ui.theme.Border
 import com.malinatrash.camundasupport.ui.theme.Danger
 import com.malinatrash.camundasupport.ui.theme.Primary
 import com.malinatrash.camundasupport.ui.theme.PrimaryMuted
+import com.malinatrash.camundasupport.ui.theme.SelectionBorder
 import com.malinatrash.camundasupport.ui.theme.Surface
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
 
@@ -312,7 +313,7 @@ fun IncidentsScreen(
 private fun IncidentTypeButton(label: String, selected: Boolean, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        border = BorderStroke(1.dp, if (selected) Primary else Border),
+        border = BorderStroke(1.dp, if (selected) SelectionBorder else Border),
     ) {
         Text(label, color = if (selected) Primary else TextSecondary, fontSize = 10.sp)
     }

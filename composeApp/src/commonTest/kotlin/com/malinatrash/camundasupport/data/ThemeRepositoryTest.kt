@@ -15,6 +15,14 @@ class ThemeRepositoryTest {
     }
 
     @Test
+    fun `dark selection surfaces and borders are neutral`() {
+        val darkPalette = paletteFor(AppThemeMode.Dark)
+
+        assertEquals(Color(0xFF282E38), darkPalette.primaryMuted)
+        assertEquals(Color(0xFF566273), darkPalette.selectionBorder)
+    }
+
+    @Test
     fun lightThemeIsDefaultAndSelectionIsRemembered() {
         val repository = InMemoryThemeRepository()
 

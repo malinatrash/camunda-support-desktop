@@ -28,6 +28,7 @@ import com.malinatrash.camundasupport.data.AppThemeMode
 import com.malinatrash.camundasupport.ui.components.SectionTitle
 import com.malinatrash.camundasupport.ui.theme.Border
 import com.malinatrash.camundasupport.ui.theme.Primary
+import com.malinatrash.camundasupport.ui.theme.SelectionBorder
 import com.malinatrash.camundasupport.ui.theme.Surface
 import com.malinatrash.camundasupport.ui.theme.TextPrimary
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
@@ -89,7 +90,7 @@ private fun ThemeOption(
     Card(
         modifier = modifier.clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Surface),
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Primary else Border),
+        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) SelectionBorder else Border),
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {

@@ -69,6 +69,7 @@ import com.malinatrash.camundasupport.ui.theme.Danger
 import com.malinatrash.camundasupport.ui.theme.Healthy
 import com.malinatrash.camundasupport.ui.theme.Primary
 import com.malinatrash.camundasupport.ui.theme.PrimaryMuted
+import com.malinatrash.camundasupport.ui.theme.SelectionBorder
 import com.malinatrash.camundasupport.ui.theme.Surface
 import com.malinatrash.camundasupport.ui.theme.SurfaceElevated
 import com.malinatrash.camundasupport.ui.theme.TextPrimary
@@ -505,7 +506,7 @@ private fun NodeActionsCard(
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = if (node == null) PrimaryMuted.copy(alpha = 0.35f) else Surface),
-        border = BorderStroke(1.dp, if (node == null) Primary.copy(alpha = 0.25f) else Primary.copy(alpha = 0.55f)),
+        border = BorderStroke(1.dp, SelectionBorder),
         shape = RoundedCornerShape(10.dp),
     ) {
         if (node == null) {

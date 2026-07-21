@@ -20,6 +20,7 @@ internal data class SupportPalette(
     val border: Color,
     val primary: Color,
     val primaryMuted: Color,
+    val selectionBorder: Color,
     val textPrimary: Color,
     val textSecondary: Color,
     val healthy: Color,
@@ -36,6 +37,7 @@ private val LightPalette = SupportPalette(
     border = Color(0xFFDCE5DC),
     primary = Color(0xFF00CD00),
     primaryMuted = Color(0xFFE4FBE4),
+    selectionBorder = Color(0xFF00CD00),
     textPrimary = Color(0xFF172017),
     textSecondary = Color(0xFF647064),
     healthy = Color(0xFF16896F),
@@ -51,7 +53,8 @@ private val DarkPalette = SupportPalette(
     surfaceElevated = Color(0xFF22272E),
     border = Color(0xFF303742),
     primary = Color(0xFF00CD00),
-    primaryMuted = Color(0xFF123512),
+    primaryMuted = Color(0xFF282E38),
+    selectionBorder = Color(0xFF566273),
     textPrimary = Color(0xFFEDF1F7),
     textSecondary = Color(0xFF98A2B3),
     healthy = Color(0xFF25C07A),
@@ -76,6 +79,8 @@ val Primary: Color
     @Composable get() = LocalSupportPalette.current.primary
 val PrimaryMuted: Color
     @Composable get() = LocalSupportPalette.current.primaryMuted
+val SelectionBorder: Color
+    @Composable get() = LocalSupportPalette.current.selectionBorder
 val TextPrimary: Color
     @Composable get() = LocalSupportPalette.current.textPrimary
 val TextSecondary: Color
