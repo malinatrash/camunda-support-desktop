@@ -74,12 +74,13 @@
 
 Готовые файлы появятся здесь:
 
-- `composeApp\build\compose\binaries\main\msi\Camunda Support-1.0.0.msi`;
-- `composeApp\build\compose\binaries\main\exe\Camunda Support-1.0.0.exe`.
+- `composeApp\build\compose\binaries\main\msi\Camunda Support-1.1.0.msi`;
+- `composeApp\build\compose\binaries\main\exe\Camunda Support-1.1.0.exe`.
 
-Для удалённой сборки предусмотрен GitHub Actions workflow `Windows installers`.
-После ручного запуска через **Actions → Windows installers → Run workflow** оба
-установщика можно скачать одним artifact `camunda-support-windows-1.0.0`.
+Для удалённой сборки предусмотрен GitHub Actions workflow `Desktop installers`.
+Он параллельно собирает Windows `.msi/.exe` на `windows-2022` и macOS ARM64
+`.dmg` на `macos-15`. Workflow можно запустить вручную; при публикации тега
+`v*` он также создаёт GitHub Release с пакетами обеих платформ и `SHA256SUMS.txt`.
 Опубликованные версии доступны в разделе **Releases** репозитория.
 
 Windows-пакеты пока не подписываются сертификатом, поэтому при первом запуске

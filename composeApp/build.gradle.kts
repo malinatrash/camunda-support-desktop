@@ -71,7 +71,7 @@ compose.desktop {
                 "jdk.xml.dom",
             )
             packageName = "Camunda Support"
-            packageVersion = "1.0.0"
+            packageVersion = project.version.toString()
             description = "Desktop console for Camunda support operations"
             vendor = "malinatrash"
             macOS {

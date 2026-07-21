@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -111,6 +112,36 @@ class DesktopCamundaApiTest {
         assertEquals("eq", variable["operator"]!!.jsonPrimitive.content)
         assertEquals("42", variable["value"]!!.jsonPrimitive.content)
         assertTrue(!variable["value"]!!.jsonPrimitive.isString)
+    }
+
+    @Test
+    fun automaticVariableSearchTriesStringAndDetectedPrimitiveType() = runBlocking {
+        val requests = AtomicInteger()
+        server.createContext("/engine-rest/process-instance") { exchange ->
+            requests.incrementAndGet()
+            val body = Json.parseToJsonElement(exchange.requestBody.bufferedReader().readText()).jsonObject
+            val value = body["variables"]!!.jsonArray.single().jsonObject["value"]!!.jsonPrimitive
+            exchange.respond(
+                200,
+                if (value.isString) {
+                    """[{"id":"instance-1","definitionId":"loan:3:def","definitionKey":"loan","ended":false,"suspended":false}]"""
+                } else {
+                    "[]"
+                },
+            )
+        }
+        server.start()
+
+        val result = DesktopCamundaApi().searchProcessInstances(
+            connection = connection(),
+            variableName = "applicationId",
+            variableValue = "42",
+            valueType = VariableValueType.Auto,
+        )
+
+        val instances = assertIs<CamundaApiResult.Success<List<com.malinatrash.camundasupport.model.ProcessInstanceSummary>>>(result).value
+        assertEquals(2, requests.get())
+        assertEquals(listOf("instance-1"), instances.map { it.id })
     }
 
     @Test
@@ -448,6 +479,12 @@ class DesktopCamundaApiTest {
                     """{"applicationId":{"type":"String","value":"APP-42","valueInfo":{}}}"""
                 "/engine-rest/process-instance/instance-1/activity-instances" ->
                     """{"id":"root","activityId":"loan","activityType":"processDefinition","childActivityInstances":[{"id":"activity-instance-1","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","executionIds":["exec-1"],"incidentIds":["incident-1"]}]}"""
+                "/engine-rest/history/activity-instance" ->
+                    """[
+                        {"id":"historic-1","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:00:00.000+0000","endTime":"2026-07-16T09:00:01.000+0000","canceled":false},
+                        {"id":"historic-2","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:01:00.000+0000","endTime":"2026-07-16T09:01:01.000+0000","canceled":false},
+                        {"id":"historic-3","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:02:00.000+0000","endTime":null,"canceled":false}
+                    ]""".trimIndent()
                 "/engine-rest/incident" ->
                     """[{"id":"incident-1","processInstanceId":"instance-1","incidentType":"failedJob","failedActivityId":"Task_1","incidentMessage":"boom"}]"""
                 "/engine-rest/job" ->
@@ -470,6 +507,8 @@ class DesktopCamundaApiTest {
         assertEquals("APP-42", details.instance.businessKey)
         assertEquals("APP-42", details.variables.single().value)
         assertEquals("activity-instance-1", details.activeActivities.single().id)
+        assertEquals(2, details.activityHistory.single().completedCount)
+        assertEquals(1, details.activityHistory.single().activeCount)
         assertEquals("boom", details.incidents.single().message)
         assertEquals(0, details.jobs.single().retries)
         assertEquals("worker-7", details.externalTasks.single().workerId)

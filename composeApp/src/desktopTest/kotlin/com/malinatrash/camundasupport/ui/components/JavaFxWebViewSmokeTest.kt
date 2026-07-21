@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import netscape.javascript.JSObject
 
 class JavaFxWebViewSmokeTest {
@@ -21,6 +22,7 @@ class JavaFxWebViewSmokeTest {
         if (GraphicsEnvironment.isHeadless()) return
 
         SwingUtilities.invokeAndWait { JFXPanel() }
+        Platform.setImplicitExit(false)
         val completed = CountDownLatch(1)
         val failure = AtomicReference<Throwable?>()
 
@@ -39,18 +41,20 @@ class JavaFxWebViewSmokeTest {
     }
 
     @Test
-    fun bpmnCubeClickIsDeliveredToKotlin() {
-        if (GraphicsEnvironment.isHeadless()) return
+    fun bpmnCubeClickIsDeliveredToKotlin() = runBlocking {
+        if (GraphicsEnvironment.isHeadless()) return@runBlocking
 
         SwingUtilities.invokeAndWait { JFXPanel() }
         val completed = CountDownLatch(1)
         val failure = AtomicReference<Throwable?>()
         val clickedActivityId = AtomicReference<String?>()
         val webViewReference = AtomicReference<WebView?>()
+        val svg = BpmnSvgRenderer.render(TEST_BPMN)
         val html = BpmnHtml.build(
-            xml = TEST_BPMN,
+            svg = svg,
             activeIds = setOf("Task_1"),
             incidentIds = emptySet(),
+            completedCounts = mapOf("Task_1" to 2),
             clickableIds = setOf("Task_1"),
         )
 
@@ -71,9 +75,42 @@ class JavaFxWebViewSmokeTest {
                                 executeScript(
                                     """
                                         window.supportTestTimer = setInterval(function() {
-                                          if (window.supportSelectActivity) {
+                                          if (window.supportDiagramError) {
                                             clearInterval(window.supportTestTimer);
-                                            window.supportSelectActivity('Task_1');
+                                            window.supportBridge.onActivityClick('__ERROR__:' + window.supportDiagramError);
+                                          }
+                                          if (window.supportDiagramReady && window.supportSelectActivity) {
+                                            if (document.getElementById('source-host')) {
+                                              clearInterval(window.supportTestTimer);
+                                              window.supportBridge.onActivityClick('__ERROR__:Исходный SVG остался в интерактивном DOM');
+                                              return;
+                                            }
+                                            if (!document.getElementById('diagram-bitmap')) {
+                                              clearInterval(window.supportTestTimer);
+                                              window.supportBridge.onActivityClick('__ERROR__:Bitmap-слой BPMN не создан');
+                                              return;
+                                            }
+                                            if (document.querySelectorAll('.support-hit').length !== 1) {
+                                              clearInterval(window.supportTestTimer);
+                                              window.supportBridge.onActivityClick('__ERROR__:Карта кликов BPMN не создана');
+                                              return;
+                                            }
+                                            if (!window.supportTestInteracted) {
+                                              window.supportTestInteracted = true;
+                                              for (var i = 0; i < 50; i++) {
+                                                window.supportQueuePan(1, -1);
+                                                window.supportQueueZoom(1.001);
+                                              }
+                                              return;
+                                            }
+                                            if (window.supportSharpReady) {
+                                              clearInterval(window.supportTestTimer);
+                                              if (!document.querySelector('#sharp-viewport img')) {
+                                                window.supportBridge.onActivityClick('__ERROR__:Чёткий SVG-слой не создан');
+                                                return;
+                                              }
+                                              window.supportSelectActivity('Task_1');
+                                            }
                                           }
                                         }, 20);
                                     """.trimIndent(),

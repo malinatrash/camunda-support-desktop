@@ -19,6 +19,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.ActiveActivityInstance
+import com.malinatrash.camundasupport.model.ActivityExecutionSummary
 import com.malinatrash.camundasupport.model.BpmnDiagram
 import com.malinatrash.camundasupport.model.DashboardDateFilter
 import com.malinatrash.camundasupport.model.DashboardDatePreset
@@ -77,6 +79,8 @@ class DesktopCamundaApi(
     private val bpmnXmlParser: BpmnXmlParser = BpmnXmlParser(),
     private val now: () -> Instant = Instant::now,
 ) : CamundaApi {
+    private val bpmnCache = ConcurrentHashMap<String, LoadedBpmn>()
+
     override suspend fun loadDashboard(
         connection: CamundaConnection,
         sort: DeploymentSort,
@@ -88,74 +92,100 @@ class DesktopCamundaApi(
         val statisticsUrl = "${connection.restUrl}/process-definition/statistics?incidents=true"
 
         apiCall("load process dashboard", definitionsUrl) {
-            val definitions = parseDefinitions(send(get(definitionsUrl)))
-            val historyRange = dateFilter.toDashboardRange()
-            val started = runCatching {
-                loadHistoricInstances(connection, historyRange, completed = false)
-            }.getOrElse { PagedResult(emptyList(), truncated = false) }
-            val completed = runCatching {
-                loadHistoricInstances(connection, historyRange, completed = true)
-            }.getOrElse { PagedResult(emptyList(), truncated = false) }
-            val historicIncidents = runCatching {
-                loadHistoricIncidents(connection, historyRange)
-            }.getOrElse { PagedResult(emptyList(), truncated = false) }
-            val statistics = if (dateFilter.isLive) {
-                parseStatistics(send(get(statisticsUrl)))
-            } else {
-                loadHistoricStatistics(connection, definitions, dateFilter)
-            }
-            val incidentsForBreakdown = if (dateFilter.isLive) {
-                runCatching { loadRuntimeIncidents(connection, processDefinitionId = null) }.getOrDefault(emptyList())
-            } else {
-                historicIncidents.values
-            }
-            val completedCountUrl = "${connection.restUrl}/history/process-instance/count" +
-                "?completed=true&finishedAfter=${encode(historyRange.after)}&finishedBefore=${encode(historyRange.before)}"
-            val incidentActivities = loadIncidentActivities(connection, incidentsForBreakdown)
-            val unfinishedActivities = runCatching { loadUnfinishedActivities(connection) }
-                .getOrElse { PagedResult(emptyList(), truncated = false) }
-            val processInstanceIdsFromSelectedPeriod = started.values
-                .mapTo(mutableSetOf(), ProcessInstanceSummary::id)
-            val longestWaitingActivities = loadLongestWaitingActivities(
-                connection = connection,
-                activities = unfinishedActivities.values.filter { activity ->
-                    activity.processInstanceId in processInstanceIdsFromSelectedPeriod
-                },
-            )
-            val completedDurations = completed.values.mapNotNull(::durationMillis).sorted()
-            ProcessDashboard(
-                definitions = definitions.map { definition ->
-                    val counts = statistics[definition.id] ?: DefinitionStatistics()
-                    definition.copy(
-                        instances = counts.instances,
-                        incidents = counts.incidents,
+            coroutineScope {
+                val historyRange = dateFilter.toDashboardRange()
+                val completedCountUrl = "${connection.restUrl}/history/process-instance/count" +
+                    "?completed=true&finishedAfter=${encode(historyRange.after)}&finishedBefore=${encode(historyRange.before)}"
+                val emptyPage = { PagedResult<ProcessInstanceSummary>(emptyList(), truncated = false) }
+                val emptyIncidentPage = { PagedResult<ProcessIncident>(emptyList(), truncated = false) }
+
+                val definitionsDeferred = async { parseDefinitions(send(get(definitionsUrl))) }
+                val startedDeferred = async {
+                    runCatching { loadHistoricInstances(connection, historyRange, completed = false) }
+                        .getOrElse { emptyPage() }
+                }
+                val completedDeferred = async {
+                    runCatching { loadHistoricInstances(connection, historyRange, completed = true) }
+                        .getOrElse { emptyPage() }
+                }
+                val historicIncidentsDeferred = async {
+                    runCatching { loadHistoricIncidents(connection, historyRange) }
+                        .getOrElse { emptyIncidentPage() }
+                }
+                val statisticsDeferred = async {
+                    if (dateFilter.isLive) {
+                        parseStatistics(send(get(statisticsUrl)))
+                    } else {
+                        loadHistoricStatistics(connection, definitionsDeferred.await(), dateFilter)
+                    }
+                }
+                val runtimeIncidentsDeferred = if (dateFilter.isLive) async {
+                    runCatching { loadRuntimeIncidents(connection, processDefinitionId = null) }.getOrDefault(emptyList())
+                } else null
+                val unfinishedActivitiesDeferred = async {
+                    runCatching { loadUnfinishedActivities(connection) }
+                        .getOrElse { PagedResult(emptyList(), truncated = false) }
+                }
+                val completedCountDeferred = async {
+                    runCatching { parseCount(send(get(completedCountUrl))) }.getOrNull()
+                }
+
+                val definitions = definitionsDeferred.await()
+                val started = startedDeferred.await()
+                val completed = completedDeferred.await()
+                val historicIncidents = historicIncidentsDeferred.await()
+                val statistics = statisticsDeferred.await()
+                val unfinishedActivities = unfinishedActivitiesDeferred.await()
+                val incidentsForBreakdown = runtimeIncidentsDeferred?.await() ?: historicIncidents.values
+                val processInstanceIdsFromSelectedPeriod = started.values
+                    .mapTo(mutableSetOf(), ProcessInstanceSummary::id)
+                val incidentActivitiesDeferred = async {
+                    loadIncidentActivities(connection, incidentsForBreakdown)
+                }
+                val longestWaitingActivitiesDeferred = async {
+                    loadLongestWaitingActivities(
+                        connection = connection,
+                        activities = unfinishedActivities.values.filter { activity ->
+                            activity.processInstanceId in processInstanceIdsFromSelectedPeriod
+                        },
                     )
-                },
-                timeline = buildTimeline(
-                    range = historyRange,
-                    started = started.values,
-                    completed = completed.values,
-                    incidents = historicIncidents.values,
-                ),
-                incidentTypes = incidentsForBreakdown
-                    .groupingBy(ProcessIncident::type)
-                    .eachCount()
-                    .map { (type, count) -> DashboardIncidentType(type, count) }
-                    .sortedByDescending(DashboardIncidentType::count),
-                incidentActivities = incidentActivities,
-                longestWaitingActivities = longestWaitingActivities,
-                durationBuckets = buildDurationBuckets(completedDurations),
-                timelineTitle = dateFilter.timelineTitle(),
-                averageDurationMillis = completedDurations
-                    .takeIf { it.isNotEmpty() }
-                    ?.average()
-                    ?.toLong(),
-                medianDurationMillis = completedDurations.percentile(0.50),
-                p95DurationMillis = completedDurations.percentile(0.95),
-                completedInstances = runCatching { parseCount(send(get(completedCountUrl))) }
-                    .getOrElse { completed.values.size },
-                timelineTruncated = started.truncated || completed.truncated || historicIncidents.truncated || unfinishedActivities.truncated,
-            )
+                }
+                val completedDurations = completed.values.mapNotNull(::durationMillis).sorted()
+
+                ProcessDashboard(
+                    definitions = definitions.map { definition ->
+                        val counts = statistics[definition.id] ?: DefinitionStatistics()
+                        definition.copy(
+                            instances = counts.instances,
+                            incidents = counts.incidents,
+                        )
+                    },
+                    timeline = buildTimeline(
+                        range = historyRange,
+                        started = started.values,
+                        completed = completed.values,
+                        incidents = historicIncidents.values,
+                    ),
+                    incidentTypes = incidentsForBreakdown
+                        .groupingBy(ProcessIncident::type)
+                        .eachCount()
+                        .map { (type, count) -> DashboardIncidentType(type, count) }
+                        .sortedByDescending(DashboardIncidentType::count),
+                    incidentActivities = incidentActivitiesDeferred.await(),
+                    longestWaitingActivities = longestWaitingActivitiesDeferred.await(),
+                    durationBuckets = buildDurationBuckets(completedDurations),
+                    timelineTitle = dateFilter.timelineTitle(),
+                    averageDurationMillis = completedDurations
+                        .takeIf { it.isNotEmpty() }
+                        ?.average()
+                        ?.toLong(),
+                    medianDurationMillis = completedDurations.percentile(0.50),
+                    p95DurationMillis = completedDurations.percentile(0.95),
+                    completedInstances = completedCountDeferred.await() ?: completed.values.size,
+                    timelineTruncated = started.truncated || completed.truncated ||
+                        historicIncidents.truncated || unfinishedActivities.truncated,
+                )
+            }
         }
     }
 
@@ -200,23 +230,31 @@ class DesktopCamundaApi(
     ): CamundaApiResult<List<ProcessInstanceSummary>> = withContext(Dispatchers.IO) {
         val url = "${connection.restUrl}/process-instance?firstResult=0&maxResults=$SEARCH_LIMIT"
         apiCall("search process instances", url) {
-            val typedValue = variableValue.toJsonValue(valueType)
-            val body = buildJsonObject {
-                put("variables", buildJsonArray {
-                    add(buildJsonObject {
-                        put("name", variableName.trim())
-                        put("operator", "eq")
-                        put("value", typedValue)
-                    })
-                })
-                put("sorting", buildJsonArray {
-                    add(buildJsonObject {
-                        put("sortBy", "instanceId")
-                        put("sortOrder", "desc")
-                    })
-                })
+            coroutineScope {
+                variableValue.toSearchJsonValues(valueType).map { typedValue ->
+                    async {
+                        val body = buildJsonObject {
+                            put("variables", buildJsonArray {
+                                add(buildJsonObject {
+                                    put("name", variableName.trim())
+                                    put("operator", "eq")
+                                    put("value", typedValue)
+                                })
+                            })
+                            put("sorting", buildJsonArray {
+                                add(buildJsonObject {
+                                    put("sortBy", "instanceId")
+                                    put("sortOrder", "desc")
+                                })
+                            })
+                        }
+                        parseInstances(send(post(url, body.toString())))
+                    }
+                }.awaitAll()
+                    .flatten()
+                    .distinctBy(ProcessInstanceSummary::id)
+                    .take(SEARCH_LIMIT)
             }
-            parseInstances(send(post(url, body.toString())))
         }
     }
 
@@ -285,6 +323,13 @@ class DesktopCamundaApi(
                 val activities = async {
                     parseActivityTree(send(get("${connection.restUrl}/process-instance/$pathId/activity-instances")))
                 }
+                val activityHistory = async {
+                    loadPaged(
+                        baseUrl = "${connection.restUrl}/history/activity-instance" +
+                            "?processInstanceId=$queryId&sortBy=startTime&sortOrder=asc",
+                        parser = ::parseHistoricActivityInstances,
+                    ).values.toActivityExecutionSummaries()
+                }
                 val incidents = async {
                     parseIncidents(send(get("${connection.restUrl}/incident?processInstanceId=$queryId&maxResults=$DETAIL_LIST_LIMIT")))
                         .map(ProcessIncidentWithInstance::incident)
@@ -303,6 +348,7 @@ class DesktopCamundaApi(
                     instance = instance,
                     variables = variables.await(),
                     activeActivities = activities.await(),
+                    activityHistory = activityHistory.await(),
                     incidents = incidents.await(),
                     jobs = jobs.await(),
                     externalTasks = externalTasks.await(),
@@ -616,8 +662,27 @@ class DesktopCamundaApi(
                 processInstanceId = value.string("processInstanceId"),
                 parentActivityInstanceId = value.string("parentActivityInstanceId"),
                 startTime = value.string("startTime"),
+                endTime = value.string("endTime"),
+                canceled = value.boolean("canceled"),
             )
         }
+
+    private fun List<HistoricActivityInstance>.toActivityExecutionSummaries(): List<ActivityExecutionSummary> =
+        asSequence()
+            .filter { it.activityType != "processDefinition" }
+            .groupBy(HistoricActivityInstance::activityId)
+            .map { (activityId, executions) ->
+                val representative = executions.last()
+                ActivityExecutionSummary(
+                    activityId = activityId,
+                    activityName = executions.lastOrNull { !it.activityName.isNullOrBlank() }?.activityName,
+                    activityType = representative.activityType,
+                    completedCount = executions.count { it.endTime != null && !it.canceled },
+                    activeCount = executions.count { it.endTime == null },
+                    canceledCount = executions.count(HistoricActivityInstance::canceled),
+                )
+            }
+            .sortedBy { it.activityName?.lowercase() ?: it.activityId.lowercase() }
 
     private fun parseIncidents(body: String): List<ProcessIncidentWithInstance> = json
         .parseToJsonElement(body)
@@ -677,9 +742,14 @@ class DesktopCamundaApi(
         }
 
     private fun loadBpmn(connection: CamundaConnection, processDefinitionId: String): LoadedBpmn {
+        val cacheKey = "${connection.restUrl}\n$processDefinitionId"
+        bpmnCache[cacheKey]?.let { return it }
         val url = "${connection.restUrl}/process-definition/${encode(processDefinitionId)}/xml"
         val xml = json.parseToJsonElement(send(get(url))).jsonObject.string("bpmn20Xml").orEmpty()
-        return LoadedBpmn(xml = xml, diagram = bpmnXmlParser.parse(xml))
+        val loaded = LoadedBpmn(xml = xml, diagram = bpmnXmlParser.parse(xml))
+        if (bpmnCache.size >= BPMN_CACHE_LIMIT) bpmnCache.clear()
+        bpmnCache[cacheKey] = loaded
+        return loaded
     }
 
     private suspend fun loadIncidentActivities(
@@ -1004,16 +1074,31 @@ class DesktopCamundaApi(
         .jsonObject
         .int("count")
 
-    private fun String.toJsonValue(type: VariableValueType): JsonPrimitive = when (type) {
-        VariableValueType.String -> JsonPrimitive(this)
-        VariableValueType.Number -> toLongOrNull()?.let(::JsonPrimitive)
-            ?: toDoubleOrNull()?.let(::JsonPrimitive)
-            ?: throw IllegalArgumentException("Значение переменной должно быть корректным числом.")
-        VariableValueType.Boolean -> when (lowercase()) {
-            "true" -> JsonPrimitive(true)
-            "false" -> JsonPrimitive(false)
-            else -> throw IllegalArgumentException("Логическое значение должно быть true или false.")
-        }
+    private fun String.toSearchJsonValues(type: VariableValueType): List<JsonPrimitive> = when (type) {
+        VariableValueType.Auto -> buildList {
+            add(JsonPrimitive(this@toSearchJsonValues))
+            trim().toLongOrNull()?.let { add(JsonPrimitive(it)) }
+            trim().toDoubleOrNull()?.takeIf(Double::isFinite)?.let { number ->
+                if (trim().toLongOrNull() == null) add(JsonPrimitive(number))
+            }
+            when (trim().lowercase()) {
+                "true" -> add(JsonPrimitive(true))
+                "false" -> add(JsonPrimitive(false))
+            }
+        }.distinctBy(JsonPrimitive::toString)
+        VariableValueType.String -> listOf(JsonPrimitive(this))
+        VariableValueType.Number -> listOf(
+            trim().toLongOrNull()?.let(::JsonPrimitive)
+                ?: trim().toDoubleOrNull()?.takeIf(Double::isFinite)?.let(::JsonPrimitive)
+                ?: throw IllegalArgumentException("Значение переменной должно быть корректным числом."),
+        )
+        VariableValueType.Boolean -> listOf(
+            when (trim().lowercase()) {
+                "true" -> JsonPrimitive(true)
+                "false" -> JsonPrimitive(false)
+                else -> throw IllegalArgumentException("Логическое значение должно быть true или false.")
+            },
+        )
     }
 
     private fun ProcessVariableUpdate.toJsonValue(): JsonElement = when (type.lowercase()) {
@@ -1101,6 +1186,8 @@ class DesktopCamundaApi(
         val processInstanceId: String?,
         val parentActivityInstanceId: String?,
         val startTime: String?,
+        val endTime: String?,
+        val canceled: Boolean,
     )
 
     private data class WaitingActivitySample(
@@ -1140,6 +1227,7 @@ class DesktopCamundaApi(
         val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(20)
         const val SEARCH_LIMIT = 100
         const val DETAIL_LIST_LIMIT = 500
+        const val BPMN_CACHE_LIMIT = 16
         const val MAX_PARALLEL_HISTORY_REQUESTS = 6
         const val HISTORY_PAGE_SIZE = 1_000
         const val HISTORY_CHART_LIMIT = 20_000

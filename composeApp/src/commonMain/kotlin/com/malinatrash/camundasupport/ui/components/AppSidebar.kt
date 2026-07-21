@@ -124,7 +124,7 @@ fun AppSidebar(
         HorizontalDivider(color = Border)
         Spacer(Modifier.height(12.dp))
         Text("Поддержка Camunda", color = TextSecondary, fontSize = 11.sp)
-        Text("Предварительная версия · 1.0.0", color = TextSecondary.copy(alpha = 0.65f), fontSize = 10.sp)
+        Text("Предварительная версия · 1.1.0", color = TextSecondary.copy(alpha = 0.65f), fontSize = 10.sp)
     }
 }
 

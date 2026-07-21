@@ -30,7 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -62,8 +62,6 @@ import androidx.compose.ui.window.PopupProperties
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import com.malinatrash.camundasupport.data.CamundaApi
-import com.malinatrash.camundasupport.data.CamundaApiResult
 import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.DashboardDateFilter
 import com.malinatrash.camundasupport.model.DashboardDatePreset
@@ -71,6 +69,7 @@ import com.malinatrash.camundasupport.model.DashboardIncidentActivity
 import com.malinatrash.camundasupport.model.DashboardDurationBucket
 import com.malinatrash.camundasupport.model.DeploymentSort
 import com.malinatrash.camundasupport.model.ProcessDashboard
+import com.malinatrash.camundasupport.state.DashboardPollingStore
 import com.malinatrash.camundasupport.model.ProcessDefinitionSummary
 import com.malinatrash.camundasupport.model.DashboardTimelinePoint
 import com.malinatrash.camundasupport.model.DashboardWaitingActivity
@@ -89,9 +88,9 @@ import com.malinatrash.camundasupport.ui.theme.Warning
 private enum class DefinitionView { List, Previews }
 
 @Composable
-fun OverviewScreen(
+internal fun OverviewScreen(
     connection: CamundaConnection?,
-    camundaApi: CamundaApi,
+    dashboardStore: DashboardPollingStore,
     onAddConnection: () -> Unit,
     onOpenDefinition: (String, DashboardDateFilter) -> Unit,
     onOpenIncidents: (String?, DashboardDateFilter) -> Unit,
@@ -100,40 +99,21 @@ fun OverviewScreen(
     var sort by remember { mutableStateOf(DeploymentSort.NewestFirst) }
     var view by remember { mutableStateOf(DefinitionView.List) }
     var query by remember { mutableStateOf("") }
-    var refreshToken by remember { mutableIntStateOf(0) }
-    var dashboard by remember { mutableStateOf<ProcessDashboard?>(null) }
-    var loadedConnectionId by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
     var selectedDatePreset by remember { mutableStateOf(DashboardDatePreset.Live) }
     var appliedDateFilter by remember { mutableStateOf(DashboardDateFilter()) }
-    var loadedDateFilter by remember { mutableStateOf(DashboardDateFilter()) }
     var customFromDate by remember { mutableStateOf("") }
     var customToDate by remember { mutableStateOf("") }
     val pageScrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     var processSectionOffset by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(connection?.id, sort, appliedDateFilter, refreshToken) {
-        if (connection == null) {
-            dashboard = null
-            loadedConnectionId = null
-            error = null
-            return@LaunchedEffect
-        }
-        if (loadedConnectionId != connection.id) dashboard = null
-        isLoading = true
-        error = null
-        when (val result = camundaApi.loadDashboard(connection, sort, appliedDateFilter)) {
-            is CamundaApiResult.Success -> {
-                dashboard = result.value
-                loadedConnectionId = connection.id
-                loadedDateFilter = appliedDateFilter
-            }
-            is CamundaApiResult.Failure -> error = result.message
-        }
-        isLoading = false
+    SideEffect { dashboardStore.activate(connection, appliedDateFilter) }
+    val cacheEntry = connection?.let { dashboardStore.entry(it, appliedDateFilter) }
+    val dashboard = cacheEntry?.dashboard?.let { cached ->
+        if (sort == DeploymentSort.NewestFirst) cached else cached.copy(definitions = cached.definitions.asReversed())
     }
+    val isLoading = cacheEntry?.isRefreshing == true
+    val error = cacheEntry?.error
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(pageScrollState).padding(end = 4.dp),
@@ -157,7 +137,17 @@ fun OverviewScreen(
                     Text("К процессам ↓")
                 }
                 Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = { refreshToken += 1 }, enabled = !isLoading) {
+                Text(
+                    if (isLoading) "Автообновление…"
+                    else "Автообновление через: ${dashboardStore.secondsUntilRefresh} сек",
+                    color = TextSecondary,
+                    fontSize = 10.sp,
+                )
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = { coroutineScope.launch { dashboardStore.refreshActive(force = true) } },
+                    enabled = !isLoading,
+                ) {
                     Text(if (isLoading) "Обновляем…" else "Обновить")
                 }
             }
@@ -185,7 +175,7 @@ fun OverviewScreen(
                 title = "Не удалось загрузить дашборд",
                 description = message,
                 actionLabel = "Повторить",
-                onAction = { refreshToken += 1 },
+                onAction = { coroutineScope.launch { dashboardStore.refreshActive(force = true) } },
             )
             if (dashboard == null) return@Column
         }
@@ -198,23 +188,23 @@ fun OverviewScreen(
             MetricCard("ВЕРСИЯ CAMUNDA", connection.engineVersion ?: "Подключено", "GET /version", Healthy, Modifier.weight(1f))
             MetricCard("ОПРЕДЕЛЕНИЯ ПРОЦЕССОВ", snapshot.definitions.size.toString(), "Последние версии", Primary, Modifier.weight(1f))
             MetricCard(
-                if (loadedDateFilter.isLive) "ЗАПУЩЕНО СЕЙЧАС" else "СТАРТОВАЛО",
+                if (appliedDateFilter.isLive) "ЗАПУЩЕНО СЕЙЧАС" else "СТАРТОВАЛО",
                 snapshot.instances.toString(),
-                if (loadedDateFilter.isLive) "Текущее состояние" else "За выбранный период",
+                if (appliedDateFilter.isLive) "Текущее состояние" else "За выбранный период",
                 Healthy,
                 Modifier.weight(1f),
             )
             MetricCard(
                 "ЗАВЕРШЕНО ПОЛНОСТЬЮ",
                 snapshot.completedInstances.toString(),
-                if (loadedDateFilter.isLive) "За последние 24 часа" else "За выбранный период",
+                if (appliedDateFilter.isLive) "За последние 24 часа" else "За выбранный период",
                 Healthy,
                 Modifier.weight(1f),
             )
             MetricCard(
-                if (loadedDateFilter.isLive) "ОТКРЫТЫЕ ИНЦИДЕНТЫ" else "СОЗДАНО ИНЦИДЕНТОВ",
+                if (appliedDateFilter.isLive) "ОТКРЫТЫЕ ИНЦИДЕНТЫ" else "СОЗДАНО ИНЦИДЕНТОВ",
                 snapshot.incidents.toString(),
-                if (loadedDateFilter.isLive) "Текущее состояние" else "За выбранный период",
+                if (appliedDateFilter.isLive) "Текущее состояние" else "За выбранный период",
                 if (snapshot.incidents > 0) Danger else Healthy,
                 Modifier.weight(1f),
             )
@@ -243,7 +233,7 @@ fun OverviewScreen(
 
         DashboardAnalytics(
             dashboard = snapshot,
-            onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, loadedDateFilter) },
+            onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, appliedDateFilter) },
             onOpenInstance = onOpenInstance,
         )
 
@@ -317,18 +307,18 @@ fun OverviewScreen(
             DefinitionsTable(
                 definitions = filtered,
                 canOpenCockpit = true,
-                liveStatistics = loadedDateFilter.isLive,
-                onOpenDefinition = { definitionId -> onOpenDefinition(definitionId, loadedDateFilter) },
-                onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, loadedDateFilter) },
+                liveStatistics = appliedDateFilter.isLive,
+                onOpenDefinition = { definitionId -> onOpenDefinition(definitionId, appliedDateFilter) },
+                onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, appliedDateFilter) },
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
             DefinitionPreviews(
                 definitions = filtered,
                 canOpenCockpit = true,
-                liveStatistics = loadedDateFilter.isLive,
-                onOpenDefinition = { definitionId -> onOpenDefinition(definitionId, loadedDateFilter) },
-                onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, loadedDateFilter) },
+                liveStatistics = appliedDateFilter.isLive,
+                onOpenDefinition = { definitionId -> onOpenDefinition(definitionId, appliedDateFilter) },
+                onOpenIncidents = { definitionId -> onOpenIncidents(definitionId, appliedDateFilter) },
                 modifier = Modifier.fillMaxWidth(),
             )
         }

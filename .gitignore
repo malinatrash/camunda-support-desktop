@@ -2,6 +2,7 @@
 .idea/
 build/
 **/build/
+**/bin/
 dist/
 local.properties
 *.iml

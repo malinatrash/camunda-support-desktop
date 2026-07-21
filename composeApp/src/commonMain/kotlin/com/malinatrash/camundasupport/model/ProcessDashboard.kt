@@ -6,6 +6,7 @@ enum class DeploymentSort(val label: String) {
 }
 
 enum class VariableValueType(val label: String) {
+    Auto("Авто"),
     String("Строка"),
     Number("Число"),
     Boolean("Логическое"),

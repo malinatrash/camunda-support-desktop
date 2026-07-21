@@ -388,6 +388,9 @@ private fun DiagramTab(
     onExternalUnlock: (String) -> Unit,
 ) {
     val selectedNode = snapshot.diagram.nodes.firstOrNull { it.id == selectedNodeId }
+    val completedCounts = snapshot.activityHistory
+        .filter { it.completedCount > 0 }
+        .associate { it.activityId to it.completedCount }
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Card(
             Modifier.weight(1f).fillMaxHeight(),
@@ -396,21 +399,24 @@ private fun DiagramTab(
             shape = RoundedCornerShape(10.dp),
         ) {
             Column(Modifier.fillMaxSize()) {
-                PanelHeader("BPMN", "Нажмите кубик для действий · колесо — масштаб")
+                DiagramProgressHeader(snapshot)
                 HorizontalDivider(color = Border)
                 if (snapshot.bpmnXml.isBlank()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Camunda не вернула BPMN XML", color = TextSecondary)
                     }
                 } else {
-                    BpmnViewer(
-                        xml = snapshot.bpmnXml,
-                        activeActivityIds = snapshot.activeActivities.mapTo(mutableSetOf(), ActiveActivityInstance::activityId),
-                        incidentActivityIds = snapshot.incidents.mapNotNullTo(mutableSetOf()) { it.failedActivityId ?: it.activityId },
-                        clickableActivityIds = snapshot.diagram.teleportTargets.mapTo(mutableSetOf(), BpmnNode::id),
-                        onActivityClick = onNodeSelected,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    DisableSelection {
+                        BpmnViewer(
+                            xml = snapshot.bpmnXml,
+                            activeActivityIds = snapshot.activeActivities.mapTo(mutableSetOf(), ActiveActivityInstance::activityId),
+                            incidentActivityIds = snapshot.incidents.mapNotNullTo(mutableSetOf()) { it.failedActivityId ?: it.activityId },
+                            completedActivityCounts = completedCounts,
+                            clickableActivityIds = snapshot.diagram.teleportTargets.mapTo(mutableSetOf(), BpmnNode::id),
+                            onActivityClick = onNodeSelected,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }
@@ -443,6 +449,49 @@ private fun DiagramTab(
 }
 
 @Composable
+private fun DiagramProgressHeader(snapshot: ProcessInstanceDetails) {
+    val diagramActivityIds = snapshot.diagram.teleportTargets.mapTo(mutableSetOf(), BpmnNode::id)
+    val completed = snapshot.activityHistory.filter { it.activityId in diagramActivityIds && it.completedCount > 0 }
+    val completedExecutions = completed.sumOf { it.completedCount }
+    val repeats = completed.sumOf { (it.completedCount - 1).coerceAtLeast(0) }
+    val totalCubes = snapshot.diagram.teleportTargets.size
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("BPMN-ПУТЬ ЗАЯВКИ", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            HeaderFact("Пройдено", "${completed.size} из $totalCubes", Healthy)
+            Spacer(Modifier.width(14.dp))
+            HeaderFact("Выполнений", completedExecutions.toString())
+            if (repeats > 0) {
+                Spacer(Modifier.width(14.dp))
+                HeaderFact("Повторов", repeats.toString(), Warning)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            DiagramLegend("● пройден", Healthy)
+            Spacer(Modifier.width(12.dp))
+            DiagramLegend("● активен", Primary)
+            Spacer(Modifier.width(12.dp))
+            DiagramLegend("● инцидент", Danger)
+            Text(
+                "Нажмите кубик для действий · Ctrl/⌘ + колесо — масштаб",
+                modifier = Modifier.weight(1f).padding(start = 12.dp),
+                color = TextSecondary,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiagramLegend(text: String, color: Color) {
+    Text(text, color = color, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
 private fun NodeActionsCard(
     node: BpmnNode?,
     snapshot: ProcessInstanceDetails,
@@ -468,6 +517,7 @@ private fun NodeActionsCard(
         }
 
         val active = snapshot.activeActivities.any { it.activityId == node.id }
+        val history = snapshot.activityHistory.firstOrNull { it.activityId == node.id }
         val incidents = snapshot.incidents.filter { (it.failedActivityId ?: it.activityId) == node.id }
         val jobs = snapshot.jobs.filter { it.failedActivityId == node.id }
         val externalTasks = snapshot.externalTasks.filter { it.activityId == node.id }
@@ -479,8 +529,12 @@ private fun NodeActionsCard(
                     Text("ВЫБРАННЫЙ КУБИК", color = Primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Text(node.name ?: node.id, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                history?.completedCount?.takeIf { it > 0 }?.let { NodeStateBadge("ПРОЙДЕН · ×$it", Healthy) }
                 if (active) NodeStateBadge("АКТИВЕН", Primary)
                 if (incidents.isNotEmpty()) NodeStateBadge("ОШИБКА · ${incidents.size}", Danger)
+                history?.canceledCount?.takeIf { it > 0 }?.let { NodeStateBadge("ОТМЕНЁН · $it", Warning) }
             }
             Text(
                 listOfNotNull(node.type, node.topic?.let { "topic: $it" }, node.id).joinToString(" · "),

@@ -74,7 +74,7 @@ fun ProcessesScreen(
 ) {
     var variableName by remember { mutableStateOf("") }
     var variableValue by remember { mutableStateOf("") }
-    var valueType by remember { mutableStateOf(VariableValueType.String) }
+    var valueType by remember { mutableStateOf(VariableValueType.Auto) }
     var rememberKey by remember { mutableStateOf(true) }
     var savedKeys by remember { mutableStateOf(emptyList<String>()) }
     var keyMenuOpen by remember { mutableStateOf(false) }
@@ -245,7 +245,7 @@ fun ProcessesScreen(
                     Text("Запомнить ключ для подключения «${connection.name}»", color = TextSecondary, fontSize = 12.sp)
                     Spacer(Modifier.weight(1f))
                     Text(
-                        "POST /process-instance · точное совпадение · максимум 100 результатов",
+                        "POST /process-instance · точное совпадение · «Авто» проверяет примитивные типы",
                         color = TextSecondary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 10.sp,
@@ -277,13 +277,13 @@ fun ProcessesScreen(
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text("Найдено запущенных экземпляров: ${instances.size}", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    Text("Точное совпадение: $variableName = $variableValue", color = TextSecondary, fontSize = 11.sp)
+                    Text("Точное совпадение: $variableName = $variableValue · тип: ${valueType.label}", color = TextSecondary, fontSize = 11.sp)
                 }
             }
             if (instances.isEmpty()) {
                 EmptyPanel(
                     title = "Запущенные экземпляры не найдены",
-                    description = "Проверьте тип и значение переменной. Завершённые экземпляры не входят в этот поиск.",
+                    description = "Проверьте ключ и значение переменной. Завершённые экземпляры не входят в этот поиск.",
                 )
             } else {
                 InstancesTable(

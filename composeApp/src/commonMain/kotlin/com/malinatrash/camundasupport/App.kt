@@ -11,12 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import com.malinatrash.camundasupport.model.cockpitDashboardUrl
 import com.malinatrash.camundasupport.model.processDefinitionCockpitUrl
 import com.malinatrash.camundasupport.model.processInstanceCockpitUrl
 import com.malinatrash.camundasupport.state.AppStore
+import com.malinatrash.camundasupport.state.DashboardPollingStore
 import com.malinatrash.camundasupport.ui.components.AppSidebar
 import com.malinatrash.camundasupport.ui.components.ConnectionDialog
 import com.malinatrash.camundasupport.ui.components.EnvironmentBadge
@@ -50,6 +52,9 @@ import com.malinatrash.camundasupport.ui.theme.AppBackground
 import com.malinatrash.camundasupport.ui.theme.Border
 import com.malinatrash.camundasupport.ui.theme.SupportTheme
 import com.malinatrash.camundasupport.ui.theme.TextSecondary
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun CamundaSupportApp(
@@ -60,10 +65,24 @@ fun CamundaSupportApp(
     externalNavigator: ExternalNavigator,
 ) {
     val store = remember(connectionRepository) { AppStore(connectionRepository) }
+    val dashboardStore = remember(camundaApi) { DashboardPollingStore(camundaApi) }
+    SideEffect { dashboardStore.selectConnection(store.selectedConnection) }
+    val dashboardQuery = dashboardStore.activeQuery
+
+    LaunchedEffect(dashboardQuery) {
+        val query = dashboardQuery ?: return@LaunchedEffect
+        while (currentCoroutineContext().isActive) {
+            dashboardStore.updateCountdown(0)
+            dashboardStore.refresh(query)
+            for (seconds in DashboardPollingStore.POLLING_INTERVAL.inWholeSeconds.toInt() downTo 1) {
+                dashboardStore.updateCountdown(seconds)
+                delay(1_000)
+            }
+        }
+    }
 
     SupportTheme {
-        SelectionContainer {
-            Row(Modifier.fillMaxSize().background(AppBackground)) {
+        Row(Modifier.fillMaxSize().background(AppBackground)) {
             AppSidebar(
                 connections = store.connections,
                 selectedConnectionId = store.selectedConnectionId,
@@ -88,7 +107,7 @@ fun CamundaSupportApp(
                     when (store.destination) {
                         AppDestination.Overview -> OverviewScreen(
                             connection = store.selectedConnection,
-                            camundaApi = camundaApi,
+                            dashboardStore = dashboardStore,
                             onAddConnection = store::openConnectionDialog,
                             onOpenDefinition = store::openProcessDefinition,
                             onOpenIncidents = store::openIncidents,
@@ -158,7 +177,6 @@ fun CamundaSupportApp(
                             }
                         }
                     }
-                }
                 }
             }
         }

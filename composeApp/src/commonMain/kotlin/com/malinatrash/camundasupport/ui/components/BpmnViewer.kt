@@ -8,6 +8,7 @@ expect fun BpmnViewer(
     xml: String,
     activeActivityIds: Set<String>,
     incidentActivityIds: Set<String>,
+    completedActivityCounts: Map<String, Int> = emptyMap(),
     clickableActivityIds: Set<String> = emptySet(),
     onActivityClick: (String) -> Unit = {},
     modifier: Modifier = Modifier,

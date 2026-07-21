@@ -16,12 +16,22 @@ data class ProcessInstanceDetails(
     val instance: ProcessInstanceSummary,
     val variables: List<ProcessVariable>,
     val activeActivities: List<ActiveActivityInstance>,
+    val activityHistory: List<ActivityExecutionSummary>,
     val incidents: List<ProcessIncident>,
     val jobs: List<ProcessJob>,
     val externalTasks: List<ProcessExternalTask>,
     val diagram: BpmnDiagram,
     val bpmnXml: String,
     val metadata: List<ProcessMetadataField>,
+)
+
+data class ActivityExecutionSummary(
+    val activityId: String,
+    val activityName: String?,
+    val activityType: String,
+    val completedCount: Int,
+    val activeCount: Int,
+    val canceledCount: Int,
 )
 
 data class ProcessMetadataField(
