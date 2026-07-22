@@ -45,7 +45,10 @@ import com.malinatrash.camundasupport.data.AppUpdateService
 import com.malinatrash.camundasupport.data.AppThemeMode
 import com.malinatrash.camundasupport.data.NoOpAppUpdateService
 import com.malinatrash.camundasupport.data.NoOpDeepLinkSource
+import com.malinatrash.camundasupport.data.NoOpReleaseDownloadStatsService
 import com.malinatrash.camundasupport.data.NoOpTextClipboard
+import com.malinatrash.camundasupport.data.ReleaseDownloadStatsResult
+import com.malinatrash.camundasupport.data.ReleaseDownloadStatsService
 import com.malinatrash.camundasupport.data.TextClipboard
 import com.malinatrash.camundasupport.data.ThemeRepository
 import com.malinatrash.camundasupport.data.UpdateCheckResult
@@ -94,6 +97,7 @@ fun CamundaSupportApp(
     deepLinkSource: DeepLinkSource = NoOpDeepLinkSource,
     textClipboard: TextClipboard = NoOpTextClipboard,
     updateService: AppUpdateService = NoOpAppUpdateService,
+    releaseDownloadStatsService: ReleaseDownloadStatsService = NoOpReleaseDownloadStatsService,
 ) {
     val store = remember(connectionRepository) { AppStore(connectionRepository) }
     val dashboardStore = remember(camundaApi) { DashboardPollingStore(camundaApi) }
@@ -104,6 +108,8 @@ fun CamundaSupportApp(
     var updateDownloadProgress by remember { mutableStateOf<UpdateDownloadProgress?>(null) }
     var updateError by remember { mutableStateOf<String?>(null) }
     var openedInstaller by remember { mutableStateOf<String?>(null) }
+    var releaseDownloadStatsResult by remember { mutableStateOf<ReleaseDownloadStatsResult?>(null) }
+    var releaseDownloadStatsLoading by remember { mutableStateOf(false) }
     var themeMode by remember(themeRepository) { mutableStateOf(themeRepository.load()) }
     var deepLinkError by remember { mutableStateOf<DeepLinkOpenError?>(null) }
     var deepLinkChoice by remember { mutableStateOf<DeepLinkNavigationResult.ConnectionChoiceRequired?>(null) }
@@ -162,6 +168,13 @@ fun CamundaSupportApp(
         updateDownloadProgress = null
         updateError = null
         openedInstaller = null
+    }
+
+    LaunchedEffect(store.destination, releaseDownloadStatsService) {
+        if (store.destination != AppDestination.Settings || releaseDownloadStatsResult != null) return@LaunchedEffect
+        releaseDownloadStatsLoading = true
+        releaseDownloadStatsResult = releaseDownloadStatsService.load()
+        releaseDownloadStatsLoading = false
     }
 
     SupportTheme(themeMode) {
@@ -259,9 +272,18 @@ fun CamundaSupportApp(
 
                         AppDestination.Settings -> SettingsScreen(
                             selectedTheme = themeMode,
+                            downloadStatsResult = releaseDownloadStatsResult,
+                            downloadStatsLoading = releaseDownloadStatsLoading,
                             onThemeSelected = { selectedTheme ->
                                 themeMode = selectedTheme
                                 themeRepository.save(selectedTheme)
+                            },
+                            onRefreshDownloadStats = {
+                                coroutineScope.launch {
+                                    releaseDownloadStatsLoading = true
+                                    releaseDownloadStatsResult = releaseDownloadStatsService.load(forceRefresh = true)
+                                    releaseDownloadStatsLoading = false
+                                }
                             },
                         )
 

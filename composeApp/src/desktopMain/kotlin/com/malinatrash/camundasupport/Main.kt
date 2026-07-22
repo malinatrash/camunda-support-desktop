@@ -12,6 +12,7 @@ import com.malinatrash.camundasupport.data.DesktopConnectionTester
 import com.malinatrash.camundasupport.data.DesktopDeepLinkSource
 import com.malinatrash.camundasupport.data.DesktopCamundaApi
 import com.malinatrash.camundasupport.data.DesktopProtocolRegistrar
+import com.malinatrash.camundasupport.data.DesktopReleaseDownloadStatsService
 import com.malinatrash.camundasupport.data.DesktopTextClipboard
 import com.malinatrash.camundasupport.data.APP_BUILD
 import com.malinatrash.camundasupport.data.APP_VERSION
@@ -28,6 +29,7 @@ fun main(args: Array<String>) {
     configureNativeApplicationTheme(themeRepository.load())
     DesktopProtocolRegistrar().register()
     val deepLinkSource = DesktopDeepLinkSource(args.toList()).apply { registerSystemHandler() }
+    val releaseDownloadStatsService = DesktopReleaseDownloadStatsService()
 
     application {
         Window(
@@ -56,6 +58,7 @@ fun main(args: Array<String>) {
                 },
                 externalNavigator = DesktopExternalNavigator(),
                 updateService = DesktopAppUpdateService(),
+                releaseDownloadStatsService = releaseDownloadStatsService,
             )
         }
     }
