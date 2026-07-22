@@ -7,12 +7,7 @@ import com.malinatrash.camundasupport.model.deriveCockpitUrl
 
 class PreferencesConnectionRepository(
     private val root: Preferences = Preferences.userRoot().node("com/malinatrash/camunda-support/connections"),
-    private val legacyRoot: Preferences? = Preferences.userRoot().node("kz/bereke/camunda-support/connections"),
 ) : ConnectionRepository {
-    init {
-        migrateLegacyConnections()
-    }
-
     override fun load(): List<CamundaConnection> = root.childrenNames().mapNotNull { connectionId ->
         val node = root.node(connectionId)
         val name = node.get(KEY_NAME, "").trim()
@@ -50,17 +45,6 @@ class PreferencesConnectionRepository(
 
     override fun delete(connectionId: String) {
         root.node(connectionId).removeNode()
-        root.flush()
-    }
-
-    private fun migrateLegacyConnections() {
-        val legacy = legacyRoot ?: return
-        if (root.childrenNames().isNotEmpty()) return
-        legacy.childrenNames().forEach { connectionId ->
-            val source = legacy.node(connectionId)
-            val target = root.node(connectionId)
-            source.keys().forEach { key -> target.put(key, source.get(key, "")) }
-        }
         root.flush()
     }
 

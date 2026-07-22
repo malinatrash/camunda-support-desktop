@@ -4,12 +4,7 @@ import java.util.prefs.Preferences
 
 class PreferencesVariableKeyRepository(
     private val root: Preferences = Preferences.userRoot().node("com/malinatrash/camunda-support/variable-keys"),
-    private val legacyRoot: Preferences? = Preferences.userRoot().node("kz/bereke/camunda-support/variable-keys"),
 ) : VariableKeyRepository {
-    init {
-        migrateLegacyKeys()
-    }
-
     override fun load(connectionId: String): List<String> = root
         .node(connectionId)
         .get(KEYS, "")
@@ -29,17 +24,6 @@ class PreferencesVariableKeyRepository(
             .sortedBy(String::lowercase)
         node.put(KEYS, updated.joinToString("\n"))
         node.flush()
-    }
-
-    private fun migrateLegacyKeys() {
-        val legacy = legacyRoot ?: return
-        if (root.childrenNames().isNotEmpty()) return
-        legacy.childrenNames().forEach { connectionId ->
-            val source = legacy.node(connectionId)
-            val target = root.node(connectionId)
-            source.keys().forEach { key -> target.put(key, source.get(key, "")) }
-        }
-        root.flush()
     }
 
     private companion object {
