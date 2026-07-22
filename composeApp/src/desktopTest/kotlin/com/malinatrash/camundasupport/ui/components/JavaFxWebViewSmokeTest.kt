@@ -18,6 +18,23 @@ import netscape.javascript.JSObject
 
 class JavaFxWebViewSmokeTest {
     @Test
+    fun sharpBpmnLayerIsRenderedOnlyAfterTwoSecondsWithoutInteraction() {
+        assertEquals(2_000, BPMN_SHARP_RENDER_DEBOUNCE_MILLIS)
+        val html = BpmnHtml.build(
+            svg = "<svg viewBox=\"0 0 100 100\"></svg>",
+            activeIds = emptySet(),
+            incidentIds = emptySet(),
+            completedCounts = emptyMap(),
+            clickableIds = emptySet(),
+        )
+
+        assertTrue(
+            "setTimeout(renderSharpViewport, $BPMN_SHARP_RENDER_DEBOUNCE_MILLIS);" in html,
+            "Чёткий BPMN-слой должен перерисовываться через две секунды без новых событий",
+        )
+    }
+
+    @Test
     fun webViewStartsWithPackagedDependencies() {
         if (GraphicsEnvironment.isHeadless()) return
 

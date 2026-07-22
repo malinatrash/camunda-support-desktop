@@ -32,6 +32,8 @@ import netscape.javascript.JSObject
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.SwingUtilities
 
+internal const val BPMN_SHARP_RENDER_DEBOUNCE_MILLIS = 2_000
+
 @Composable
 actual fun BpmnViewer(
     xml: String,
@@ -372,7 +374,7 @@ internal object BpmnHtml {
                 };
                 const scheduleSharpViewport = () => {
                   if (sharpRenderTimer) clearTimeout(sharpRenderTimer);
-                  sharpRenderTimer = setTimeout(renderSharpViewport, 120);
+                  sharpRenderTimer = setTimeout(renderSharpViewport, $BPMN_SHARP_RENDER_DEBOUNCE_MILLIS);
                 };
                 const applyTransform = () => {
                   if (!stage) return;
