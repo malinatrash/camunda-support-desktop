@@ -10,6 +10,7 @@ import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.ConnectionDraft
 import com.malinatrash.camundasupport.model.DashboardDateFilter
 import com.malinatrash.camundasupport.model.ProcessInstanceDeepLink
+import com.malinatrash.camundasupport.model.ProcessInstanceSummary
 import com.malinatrash.camundasupport.model.matchesOrigin
 import com.malinatrash.camundasupport.model.toConnection
 
@@ -24,11 +25,25 @@ sealed interface DeepLinkNavigationResult {
     ) : DeepLinkNavigationResult
 }
 
+data class OpenProcessTab(
+    val id: String,
+    val connectionId: String,
+    val connectionName: String,
+    val processInstanceId: String,
+    val businessKey: String? = null,
+    val processDefinitionKey: String? = null,
+    val returnDestination: AppDestination = AppDestination.Processes,
+)
+
 class AppStore(
     private val connectionRepository: ConnectionRepository,
 ) {
     private var processInstanceReturnDestination = AppDestination.Processes
     val connections = mutableStateListOf<CamundaConnection>()
+    val openProcessTabs = mutableStateListOf<OpenProcessTab>()
+
+    var activeProcessTabId by mutableStateOf<String?>(null)
+        private set
 
     var selectedConnectionId by mutableStateOf<String?>(null)
         private set
@@ -69,6 +84,7 @@ class AppStore(
         selectedConnectionId = connectionId
         selectedProcessDefinitionId = null
         selectedProcessInstanceId = null
+        activeProcessTabId = null
         destination = AppDestination.Overview
     }
 
@@ -77,12 +93,17 @@ class AppStore(
             selectedIncidentProcessDefinitionId = null
             selectedIncidentDateFilter = DashboardDateFilter()
         }
+        if (destination != AppDestination.ProcessInstance) {
+            selectedProcessInstanceId = null
+            activeProcessTabId = null
+        }
         this.destination = destination
     }
 
     fun openIncidents(processDefinitionId: String?, dateFilter: DashboardDateFilter) {
         selectedIncidentProcessDefinitionId = processDefinitionId
         selectedIncidentDateFilter = dateFilter
+        activeProcessTabId = null
         destination = AppDestination.Incidents
     }
 
@@ -93,13 +114,68 @@ class AppStore(
         selectedProcessDefinitionId = processDefinitionId
         selectedDashboardDateFilter = dateFilter
         selectedProcessInstanceId = null
+        activeProcessTabId = null
         destination = AppDestination.ProcessDefinition
     }
 
     fun openProcessInstance(processInstanceId: String) {
+        val connection = selectedConnection ?: return
         processInstanceReturnDestination = destination
+        val tabId = processTabId(connection.id, processInstanceId)
+        if (openProcessTabs.none { it.id == tabId }) {
+            if (openProcessTabs.size >= MAX_OPEN_PROCESS_TABS) openProcessTabs.removeAt(0)
+            openProcessTabs += OpenProcessTab(
+                id = tabId,
+                connectionId = connection.id,
+                connectionName = connection.name,
+                processInstanceId = processInstanceId,
+                returnDestination = processInstanceReturnDestination,
+            )
+        }
+        activeProcessTabId = tabId
         selectedProcessInstanceId = processInstanceId
         destination = AppDestination.ProcessInstance
+    }
+
+    fun activateProcessTab(tabId: String) {
+        val tab = openProcessTabs.firstOrNull { it.id == tabId } ?: return
+        if (connections.none { it.id == tab.connectionId }) {
+            openProcessTabs.remove(tab)
+            return
+        }
+        selectedConnectionId = tab.connectionId
+        selectedProcessDefinitionId = null
+        selectedProcessInstanceId = tab.processInstanceId
+        processInstanceReturnDestination = tab.returnDestination
+        activeProcessTabId = tab.id
+        destination = AppDestination.ProcessInstance
+    }
+
+    fun closeProcessTab(tabId: String) {
+        val index = openProcessTabs.indexOfFirst { it.id == tabId }
+        if (index < 0) return
+        val wasActive = activeProcessTabId == tabId
+        openProcessTabs.removeAt(index)
+        if (!wasActive) return
+        val replacement = openProcessTabs.getOrNull(index.coerceAtMost(openProcessTabs.lastIndex))
+        if (replacement != null) {
+            activateProcessTab(replacement.id)
+        } else {
+            activeProcessTabId = null
+            selectedProcessInstanceId = null
+            destination = AppDestination.Overview
+        }
+    }
+
+    fun updateOpenProcessTab(instance: ProcessInstanceSummary) {
+        val connectionId = selectedConnectionId ?: return
+        val tabId = processTabId(connectionId, instance.id)
+        val index = openProcessTabs.indexOfFirst { it.id == tabId }
+        if (index < 0) return
+        openProcessTabs[index] = openProcessTabs[index].copy(
+            businessKey = instance.businessKey,
+            processDefinitionKey = instance.definitionKey,
+        )
     }
 
     fun openDeepLink(link: ProcessInstanceDeepLink): DeepLinkNavigationResult {
@@ -120,6 +196,7 @@ class AppStore(
     }
 
     fun backFromProcessDefinition() {
+        activeProcessTabId = null
         destination = AppDestination.Overview
     }
 
@@ -128,6 +205,7 @@ class AppStore(
             processInstanceReturnDestination == AppDestination.ProcessDefinition && selectedProcessDefinitionId == null
         ) AppDestination.Overview else processInstanceReturnDestination
         selectedProcessInstanceId = null
+        activeProcessTabId = null
     }
 
     fun openConnectionDialog() {
@@ -164,6 +242,7 @@ class AppStore(
     fun deleteConnection(connectionId: String) {
         connectionRepository.delete(connectionId)
         connections.removeAll { it.id == connectionId }
+        openProcessTabs.removeAll { it.connectionId == connectionId }
         if (selectedConnectionId == connectionId) {
             selectedConnectionId = connections.firstOrNull()?.id
         }
@@ -171,5 +250,12 @@ class AppStore(
 
     fun updateProcessSearch(value: String) {
         processSearch = value
+    }
+
+    private fun processTabId(connectionId: String, processInstanceId: String): String =
+        "$connectionId::$processInstanceId"
+
+    private companion object {
+        const val MAX_OPEN_PROCESS_TABS = 12
     }
 }

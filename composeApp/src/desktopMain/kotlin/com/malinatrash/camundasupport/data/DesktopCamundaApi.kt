@@ -22,6 +22,7 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -48,6 +49,7 @@ import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.ActiveActivityInstance
 import com.malinatrash.camundasupport.model.ActivityExecutionSummary
 import com.malinatrash.camundasupport.model.BpmnDiagram
+import com.malinatrash.camundasupport.model.CurrentActivityEvidence
 import com.malinatrash.camundasupport.model.DashboardDateFilter
 import com.malinatrash.camundasupport.model.DashboardDatePreset
 import com.malinatrash.camundasupport.model.DashboardIncidentType
@@ -66,6 +68,8 @@ import com.malinatrash.camundasupport.model.ProcessInstanceSummary
 import com.malinatrash.camundasupport.model.ProcessJob
 import com.malinatrash.camundasupport.model.ProcessMetadataField
 import com.malinatrash.camundasupport.model.ProcessVariable
+import com.malinatrash.camundasupport.model.ProcessVariableCatalog
+import com.malinatrash.camundasupport.model.ProcessVariableDescriptor
 import com.malinatrash.camundasupport.model.ProcessVariableUpdate
 import com.malinatrash.camundasupport.model.RuntimeInstanceListItem
 import com.malinatrash.camundasupport.model.TeleportRequest
@@ -78,8 +82,11 @@ class DesktopCamundaApi(
         .build(),
     private val bpmnXmlParser: BpmnXmlParser = BpmnXmlParser(),
     private val now: () -> Instant = Instant::now,
+    private val variableCatalogRepository: ProcessVariableCatalogRepository =
+        InMemoryProcessVariableCatalogRepository(),
 ) : CamundaApi {
     private val bpmnCache = ConcurrentHashMap<String, LoadedBpmn>()
+    private val variableCatalogCache = ConcurrentHashMap<String, CachedVariableCatalog>()
 
     override suspend fun loadDashboard(
         connection: CamundaConnection,
@@ -119,9 +126,14 @@ class DesktopCamundaApi(
                         loadHistoricStatistics(connection, definitionsDeferred.await(), dateFilter)
                     }
                 }
-                val runtimeIncidentsDeferred = if (dateFilter.isLive) async {
-                    runCatching { loadRuntimeIncidents(connection, processDefinitionId = null) }.getOrDefault(emptyList())
-                } else null
+                val runtimeIncidentsDeferred: Deferred<List<ProcessIncident>>? = if (dateFilter.isLive) {
+                    async {
+                        runCatching { loadRuntimeIncidents(connection, processDefinitionId = null) }
+                            .getOrDefault(emptyList())
+                    }
+                } else {
+                    null
+                }
                 val unfinishedActivitiesDeferred = async {
                     runCatching { loadUnfinishedActivities(connection) }
                         .getOrElse { PagedResult(emptyList(), truncated = false) }
@@ -224,6 +236,7 @@ class DesktopCamundaApi(
 
     override suspend fun searchProcessInstances(
         connection: CamundaConnection,
+        processDefinitionKey: String,
         variableName: String,
         variableValue: String,
         valueType: VariableValueType,
@@ -234,6 +247,7 @@ class DesktopCamundaApi(
                 variableValue.toSearchJsonValues(valueType).map { typedValue ->
                     async {
                         val body = buildJsonObject {
+                            put("processDefinitionKey", processDefinitionKey)
                             put("variables", buildJsonArray {
                                 add(buildJsonObject {
                                     put("name", variableName.trim())
@@ -256,6 +270,97 @@ class DesktopCamundaApi(
                     .take(SEARCH_LIMIT)
             }
         }
+    }
+
+    override suspend fun loadSearchProcessDefinitions(
+        connection: CamundaConnection,
+    ): CamundaApiResult<List<ProcessDefinitionSummary>> = withContext(Dispatchers.IO) {
+        val url = "${connection.restUrl}/process-definition" +
+            "?latestVersion=true&sortBy=key&sortOrder=asc&maxResults=$SEARCH_DEFINITION_LIMIT"
+        apiCall("загрузка процессов для поиска", url) {
+            parseDefinitions(send(get(url)))
+                .distinctBy { it.key to it.tenantId }
+                .sortedBy { it.displayName.lowercase() }
+        }
+    }
+
+    override suspend fun loadProcessVariableCatalog(
+        connection: CamundaConnection,
+        processDefinitionKey: String,
+    ): CamundaApiResult<ProcessVariableCatalog> = withContext(Dispatchers.IO) {
+        val normalizedKey = processDefinitionKey.trim()
+        val cacheKey = "${connection.restUrl}\n$normalizedKey"
+        val cached = variableCatalogCache[cacheKey]
+        if (cached != null && Duration.between(cached.loadedAt, now()) < VARIABLE_CATALOG_CACHE_TTL) {
+            return@withContext CamundaApiResult.Success(cached.catalog)
+        }
+        val persisted = variableCatalogRepository.load(connection.restUrl, normalizedKey)
+        if (persisted != null) {
+            val persistedAt = Instant.ofEpochMilli(persisted.loadedAtEpochMillis)
+            if (Duration.between(persistedAt, now()) < VARIABLE_CATALOG_CACHE_TTL) {
+                variableCatalogCache[cacheKey] = CachedVariableCatalog(persisted.catalog, persistedAt)
+                return@withContext CamundaApiResult.Success(persisted.catalog)
+            }
+        }
+
+        val instancesUrl = "${connection.restUrl}/process-instance" +
+            "?processDefinitionKey=${encode(normalizedKey)}&firstResult=0&maxResults=${VARIABLE_CATALOG_INSTANCE_LIMIT + 1}"
+        apiCall("загрузка переменных процесса", instancesUrl) {
+            val loadedInstances = parseInstances(send(get(instancesUrl)))
+            val instancesTruncated = loadedInstances.size > VARIABLE_CATALOG_INSTANCE_LIMIT
+            val instances = loadedInstances.take(VARIABLE_CATALOG_INSTANCE_LIMIT)
+            val variables = coroutineScope {
+                val semaphore = Semaphore(MAX_PARALLEL_HISTORY_REQUESTS)
+                instances.chunked(VARIABLE_INSTANCE_ID_BATCH_SIZE).map { batch ->
+                    async {
+                        semaphore.withPermit {
+                            val ids = encode(batch.joinToString(",") { it.id })
+                            loadPaged(
+                                baseUrl = "${connection.restUrl}/variable-instance" +
+                                    "?processInstanceIdIn=$ids&deserializeValues=false&sortBy=variableName&sortOrder=asc",
+                                parser = ::parseVariableDescriptors,
+                            ).values
+                        }
+                    }
+                }.awaitAll().flatten()
+            }
+            val descriptors = variables
+                .groupBy(VariableDescriptorSample::name)
+                .map { (name, samples) ->
+                    ProcessVariableDescriptor(
+                        name = name,
+                        types = samples.map(VariableDescriptorSample::type).distinct().sorted(),
+                        occurrences = samples.size,
+                    )
+                }
+                .sortedBy { it.name.lowercase() }
+            val catalog = ProcessVariableCatalog(
+                processDefinitionKey = normalizedKey,
+                variables = descriptors,
+                inspectedInstanceCount = instances.size,
+                instancesTruncated = instancesTruncated,
+            )
+            if (variableCatalogCache.size >= VARIABLE_CATALOG_CACHE_LIMIT) variableCatalogCache.clear()
+            val loadedAt = now()
+            variableCatalogCache[cacheKey] = CachedVariableCatalog(catalog, loadedAt)
+            variableCatalogRepository.save(
+                connectionRestUrl = connection.restUrl,
+                stored = StoredProcessVariableCatalog(
+                    catalog = catalog,
+                    loadedAtEpochMillis = loadedAt.toEpochMilli(),
+                ),
+            )
+            catalog
+        }
+    }
+
+    override fun invalidateProcessVariableCatalog(
+        connection: CamundaConnection,
+        processDefinitionKey: String,
+    ) {
+        val normalizedKey = processDefinitionKey.trim()
+        variableCatalogCache.remove("${connection.restUrl}\n$normalizedKey")
+        variableCatalogRepository.remove(connection.restUrl, normalizedKey)
     }
 
     override suspend fun loadProcessDefinitionDetails(
@@ -344,14 +449,26 @@ class DesktopCamundaApi(
                     loadBpmn(connection, instance.definitionId)
                 }
                 val loadedBpmn = bpmn.await()
+                val loadedIncidents = incidents.await()
+                val loadedJobs = jobs.await()
+                val loadedExternalTasks = externalTasks.await()
+                val loadedActivityHistory = activityHistory.await()
+                val currentActivities = buildCurrentActivities(
+                    runtimeActivities = activities.await(),
+                    activityHistory = loadedActivityHistory,
+                    incidents = loadedIncidents,
+                    jobs = loadedJobs,
+                    externalTasks = loadedExternalTasks,
+                    diagram = loadedBpmn.diagram,
+                )
                 ProcessInstanceDetails(
                     instance = instance,
                     variables = variables.await(),
-                    activeActivities = activities.await(),
-                    activityHistory = activityHistory.await(),
-                    incidents = incidents.await(),
-                    jobs = jobs.await(),
-                    externalTasks = externalTasks.await(),
+                    activeActivities = currentActivities,
+                    activityHistory = loadedActivityHistory,
+                    incidents = loadedIncidents,
+                    jobs = loadedJobs,
+                    externalTasks = loadedExternalTasks,
                     diagram = loadedBpmn.diagram,
                     bpmnXml = loadedBpmn.xml,
                     metadata = instanceMetadata(instanceJson),
@@ -628,9 +745,20 @@ class DesktopCamundaApi(
         }
         .sortedBy { it.name.lowercase() }
 
+    private fun parseVariableDescriptors(body: String): List<VariableDescriptorSample> = json
+        .parseToJsonElement(body)
+        .jsonArray
+        .mapNotNull { element ->
+            val value = element.jsonObject
+            VariableDescriptorSample(
+                name = value.string("name") ?: return@mapNotNull null,
+                type = value.string("type") ?: "Неизвестный",
+            )
+        }
+
     private fun parseActivityTree(body: String): List<ActiveActivityInstance> {
         val result = mutableListOf<ActiveActivityInstance>()
-        fun visit(value: JsonObject, root: Boolean) {
+        fun visitActivity(value: JsonObject, root: Boolean) {
             val type = value.string("activityType") ?: "unknown"
             if (!root && type != "processDefinition") {
                 result += ActiveActivityInstance(
@@ -642,10 +770,71 @@ class DesktopCamundaApi(
                     incidentIds = value.stringArray("incidentIds"),
                 )
             }
-            value["childActivityInstances"]?.asArrayOrEmpty()?.forEach { child -> visit(child.jsonObject, false) }
+            value["childActivityInstances"]?.asArrayOrEmpty()?.forEach { child ->
+                visitActivity(child.jsonObject, false)
+            }
+            value["childTransitionInstances"]?.asArrayOrEmpty()?.forEach { child ->
+                val transition = child.jsonObject
+                result += ActiveActivityInstance(
+                    id = transition.string("id").orEmpty(),
+                    activityId = transition.string("activityId").orEmpty(),
+                    activityName = transition.string("activityName") ?: transition.string("name"),
+                    activityType = transition.string("activityType") ?: "transition",
+                    executionIds = listOfNotNull(transition.string("executionId")),
+                    incidentIds = transition.stringArray("incidentIds"),
+                    evidence = setOf(CurrentActivityEvidence.Transition),
+                    cancellable = false,
+                )
+            }
         }
-        visit(json.parseToJsonElement(body).jsonObject, true)
+        visitActivity(json.parseToJsonElement(body).jsonObject, true)
         return result
+    }
+
+    private fun buildCurrentActivities(
+        runtimeActivities: List<ActiveActivityInstance>,
+        activityHistory: List<ActivityExecutionSummary>,
+        incidents: List<ProcessIncident>,
+        jobs: List<ProcessJob>,
+        externalTasks: List<ProcessExternalTask>,
+        diagram: BpmnDiagram,
+    ): List<ActiveActivityInstance> {
+        val evidenceByActivityId = mutableMapOf<String, MutableSet<CurrentActivityEvidence>>()
+        fun evidence(activityId: String?, source: CurrentActivityEvidence) {
+            activityId?.takeIf(String::isNotBlank)?.let {
+                evidenceByActivityId.getOrPut(it, ::mutableSetOf) += source
+            }
+        }
+        incidents.forEach { evidence(it.failedActivityId ?: it.activityId, CurrentActivityEvidence.Incident) }
+        jobs.forEach { evidence(it.failedActivityId, CurrentActivityEvidence.Job) }
+        externalTasks.forEach { evidence(it.activityId, CurrentActivityEvidence.ExternalTask) }
+
+        val runtimeActivityIds = runtimeActivities.mapTo(mutableSetOf(), ActiveActivityInstance::activityId)
+        activityHistory
+            .filter { it.activeCount > 0 && it.activityId !in runtimeActivityIds }
+            .forEach { evidence(it.activityId, CurrentActivityEvidence.UnfinishedHistory) }
+        val enrichedRuntime = runtimeActivities.map { activity ->
+            activity.copy(evidence = activity.evidence + evidenceByActivityId[activity.activityId].orEmpty())
+        }
+        val inferred = evidenceByActivityId
+            .filterKeys { it !in runtimeActivityIds }
+            .map { (activityId, evidence) ->
+                val node = diagram.nodes.firstOrNull { it.id == activityId }
+                ActiveActivityInstance(
+                    id = "diagnostic:$activityId",
+                    activityId = activityId,
+                    activityName = node?.name,
+                    activityType = node?.type ?: "unknown",
+                    executionIds = emptyList(),
+                    incidentIds = incidents
+                        .filter { (it.failedActivityId ?: it.activityId) == activityId }
+                        .map(ProcessIncident::id),
+                    evidence = evidence,
+                    cancellable = false,
+                )
+            }
+        return (enrichedRuntime + inferred)
+            .sortedWith(compareBy<ActiveActivityInstance> { it.activityName?.lowercase() ?: it.activityId.lowercase() }.thenBy { it.id })
     }
 
     private fun parseHistoricActivityInstances(body: String): List<HistoricActivityInstance> = json
@@ -1202,6 +1391,16 @@ class DesktopCamundaApi(
         val diagram: BpmnDiagram,
     )
 
+    private data class VariableDescriptorSample(
+        val name: String,
+        val type: String,
+    )
+
+    private data class CachedVariableCatalog(
+        val catalog: ProcessVariableCatalog,
+        val loadedAt: Instant,
+    )
+
     private enum class HttpMethod { Post, Put }
 
     private data class CamundaDateRange(
@@ -1226,14 +1425,19 @@ class DesktopCamundaApi(
         val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(5)
         val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(20)
         const val SEARCH_LIMIT = 100
+        const val SEARCH_DEFINITION_LIMIT = 500
         const val DETAIL_LIST_LIMIT = 500
         const val BPMN_CACHE_LIMIT = 16
+        const val VARIABLE_CATALOG_CACHE_LIMIT = 64
+        const val VARIABLE_CATALOG_INSTANCE_LIMIT = SEARCH_LIMIT
+        const val VARIABLE_INSTANCE_ID_BATCH_SIZE = 40
         const val MAX_PARALLEL_HISTORY_REQUESTS = 6
         const val HISTORY_PAGE_SIZE = 1_000
         const val HISTORY_CHART_LIMIT = 20_000
         const val DASHBOARD_ACTIVITY_LIMIT = 12
         const val DASHBOARD_WAITING_ACTIVITY_LIMIT = 6
         val ENDED_HISTORY_STATES = setOf("COMPLETED", "EXTERNALLY_TERMINATED", "INTERNALLY_TERMINATED")
+        val VARIABLE_CATALOG_CACHE_TTL: Duration = Duration.ofHours(24)
         val CAMUNDA_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
         val json = Json { ignoreUnknownKeys = true }
     }

@@ -20,6 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import com.malinatrash.camundasupport.model.CamundaConnection
+import com.malinatrash.camundasupport.model.CurrentActivityEvidence
 import com.malinatrash.camundasupport.model.DashboardDateFilter
 import com.malinatrash.camundasupport.model.DashboardDatePreset
 import com.malinatrash.camundasupport.model.DeploymentSort
@@ -98,6 +99,7 @@ class DesktopCamundaApiTest {
 
         val result = DesktopCamundaApi().searchProcessInstances(
             connection = connection(),
+            processDefinitionKey = "loan",
             variableName = "applicationId",
             variableValue = "42",
             valueType = VariableValueType.Number,
@@ -107,6 +109,7 @@ class DesktopCamundaApiTest {
         val instances = result.value as List<*>
         assertEquals(1, instances.size)
         val json = Json.parseToJsonElement(requestBody.get()).jsonObject
+        assertEquals("loan", json["processDefinitionKey"]!!.jsonPrimitive.content)
         val variable = json["variables"]!!.jsonArray.single().jsonObject
         assertEquals("applicationId", variable["name"]!!.jsonPrimitive.content)
         assertEquals("eq", variable["operator"]!!.jsonPrimitive.content)
@@ -134,6 +137,7 @@ class DesktopCamundaApiTest {
 
         val result = DesktopCamundaApi().searchProcessInstances(
             connection = connection(),
+            processDefinitionKey = "loan",
             variableName = "applicationId",
             variableValue = "42",
             valueType = VariableValueType.Auto,
@@ -142,6 +146,78 @@ class DesktopCamundaApiTest {
         val instances = assertIs<CamundaApiResult.Success<List<com.malinatrash.camundasupport.model.ProcessInstanceSummary>>>(result).value
         assertEquals(2, requests.get())
         assertEquals(listOf("instance-1"), instances.map { it.id })
+    }
+
+    @Test
+    fun searchCatalogLoadsProcessesAndConcreteVariablesFromTheirActiveInstances() = runBlocking {
+        val definitionQuery = AtomicReference<String>()
+        val instanceQuery = AtomicReference<String>()
+        val variableQuery = AtomicReference<String>()
+        val variableRequests = AtomicInteger()
+        server.createContext("/engine-rest/process-definition") { exchange ->
+            definitionQuery.set(exchange.requestURI.rawQuery)
+            exchange.respond(
+                200,
+                """[
+                    {"id":"loan:3:def","key":"loan","name":"Кредит","version":3,"deploymentId":"dep","suspended":false},
+                    {"id":"pledge:1:def","key":"pledge","name":"Залог","version":1,"deploymentId":"dep","suspended":false}
+                ]""".trimIndent(),
+            )
+        }
+        server.createContext("/engine-rest/process-instance") { exchange ->
+            assertEquals("GET", exchange.requestMethod)
+            instanceQuery.set(exchange.requestURI.rawQuery)
+            exchange.respond(
+                200,
+                """[
+                    {"id":"instance-1","definitionId":"loan:3:def","definitionKey":"loan","ended":false,"suspended":false},
+                    {"id":"instance-2","definitionId":"loan:3:def","definitionKey":"loan","ended":false,"suspended":false}
+                ]""".trimIndent(),
+            )
+        }
+        server.createContext("/engine-rest/variable-instance") { exchange ->
+            variableRequests.incrementAndGet()
+            variableQuery.set(exchange.requestURI.rawQuery)
+            exchange.respond(
+                200,
+                """[
+                    {"id":"v1","name":"applicationId","type":"String","processInstanceId":"instance-1"},
+                    {"id":"v2","name":"applicationId","type":"String","processInstanceId":"instance-2"},
+                    {"id":"v3","name":"amount","type":"Long","processInstanceId":"instance-2"}
+                ]""".trimIndent(),
+            )
+        }
+        server.start()
+
+        val catalogRepository = InMemoryProcessVariableCatalogRepository()
+        val api = DesktopCamundaApi(
+            now = { Instant.parse("2026-07-24T00:00:00Z") },
+            variableCatalogRepository = catalogRepository,
+        )
+        val definitions = assertIs<CamundaApiResult.Success<List<com.malinatrash.camundasupport.model.ProcessDefinitionSummary>>>(
+            api.loadSearchProcessDefinitions(connection()),
+        ).value
+        val catalog = assertIs<CamundaApiResult.Success<com.malinatrash.camundasupport.model.ProcessVariableCatalog>>(
+            api.loadProcessVariableCatalog(connection(), "loan"),
+        ).value
+
+        assertEquals(listOf("Залог", "Кредит"), definitions.map { it.displayName })
+        assertContains(definitionQuery.get(), "latestVersion=true")
+        assertContains(instanceQuery.get(), "processDefinitionKey=loan")
+        assertContains(variableQuery.get(), "processInstanceIdIn=")
+        assertContains(variableQuery.get(), "deserializeValues=false")
+        assertEquals(2, catalog.inspectedInstanceCount)
+        assertEquals(listOf("amount", "applicationId"), catalog.variables.map { it.name })
+        assertEquals(2, catalog.variables.single { it.name == "applicationId" }.occurrences)
+
+        api.loadProcessVariableCatalog(connection(), "loan")
+        assertEquals(1, variableRequests.get(), "Повторное открытие процесса должно использовать кэш каталога")
+
+        DesktopCamundaApi(
+            now = { Instant.parse("2026-07-24T01:00:00Z") },
+            variableCatalogRepository = catalogRepository,
+        ).loadProcessVariableCatalog(connection(), "loan")
+        assertEquals(1, variableRequests.get(), "Новый сеанс приложения должен использовать дисковый кэш каталога")
     }
 
     @Test
@@ -465,9 +541,15 @@ class DesktopCamundaApiTest {
             <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
                 xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
                 xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
-              <process id="loan"><serviceTask id="Task_1" name="Проверка" /></process>
+              <process id="loan">
+                <serviceTask id="Task_1" name="Проверка" />
+                <serviceTask id="Task_2" name="Ожидание перехода" />
+                <userTask id="Task_4" name="Ожидание клиента" />
+              </process>
               <bpmndi:BPMNDiagram id="d"><bpmndi:BPMNPlane id="p" bpmnElement="loan">
                 <bpmndi:BPMNShape id="s" bpmnElement="Task_1"><dc:Bounds x="10" y="20" width="100" height="80" /></bpmndi:BPMNShape>
+                <bpmndi:BPMNShape id="s2" bpmnElement="Task_2"><dc:Bounds x="150" y="20" width="100" height="80" /></bpmndi:BPMNShape>
+                <bpmndi:BPMNShape id="s4" bpmnElement="Task_4"><dc:Bounds x="290" y="20" width="100" height="80" /></bpmndi:BPMNShape>
               </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
             </definitions>
         """.trimIndent()
@@ -478,19 +560,20 @@ class DesktopCamundaApiTest {
                 "/engine-rest/process-instance/instance-1/variables" ->
                     """{"applicationId":{"type":"String","value":"APP-42","valueInfo":{}}}"""
                 "/engine-rest/process-instance/instance-1/activity-instances" ->
-                    """{"id":"root","activityId":"loan","activityType":"processDefinition","childActivityInstances":[{"id":"activity-instance-1","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","executionIds":["exec-1"],"incidentIds":["incident-1"]}]}"""
+                    """{"id":"root","activityId":"loan","activityType":"processDefinition","childActivityInstances":[{"id":"activity-instance-1","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","executionIds":["exec-1"],"incidentIds":["incident-1"]}],"childTransitionInstances":[{"id":"transition-1","activityId":"Task_2","activityName":"Ожидание перехода","activityType":"serviceTask","executionId":"exec-2","incidentIds":[]}]}"""
                 "/engine-rest/history/activity-instance" ->
                     """[
                         {"id":"historic-1","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:00:00.000+0000","endTime":"2026-07-16T09:00:01.000+0000","canceled":false},
                         {"id":"historic-2","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:01:00.000+0000","endTime":"2026-07-16T09:01:01.000+0000","canceled":false},
-                        {"id":"historic-3","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:02:00.000+0000","endTime":null,"canceled":false}
+                        {"id":"historic-3","activityId":"Task_1","activityName":"Проверка","activityType":"serviceTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:02:00.000+0000","endTime":null,"canceled":false},
+                        {"id":"historic-4","activityId":"Task_4","activityName":"Ожидание клиента","activityType":"userTask","processInstanceId":"instance-1","startTime":"2026-07-16T09:03:00.000+0000","endTime":null,"canceled":false}
                     ]""".trimIndent()
                 "/engine-rest/incident" ->
                     """[{"id":"incident-1","processInstanceId":"instance-1","incidentType":"failedJob","failedActivityId":"Task_1","incidentMessage":"boom"}]"""
                 "/engine-rest/job" ->
                     """[{"id":"job-1","retries":0,"failedActivityId":"Task_1","exceptionMessage":"boom","suspended":false}]"""
                 "/engine-rest/external-task" ->
-                    """[{"id":"external-1","activityId":"Task_1","topicName":"loan-check","retries":0,"errorMessage":"worker failed","workerId":"worker-7","lockExpirationTime":"2026-07-16T10:00:00.000+0000","suspended":false}]"""
+                    """[{"id":"external-1","activityId":"Task_3","topicName":"loan-check","retries":0,"errorMessage":"worker failed","workerId":"worker-7","lockExpirationTime":"2026-07-16T10:00:00.000+0000","suspended":false}]"""
                 "/engine-rest/process-definition/loan:3:def/xml" ->
                     """{"id":"loan:3:def","bpmn20Xml":${JsonPrimitive(bpmnXml)}}"""
                 else -> error("Неожиданный путь: ${exchange.requestURI}")
@@ -506,13 +589,27 @@ class DesktopCamundaApiTest {
 
         assertEquals("APP-42", details.instance.businessKey)
         assertEquals("APP-42", details.variables.single().value)
-        assertEquals("activity-instance-1", details.activeActivities.single().id)
-        assertEquals(2, details.activityHistory.single().completedCount)
-        assertEquals(1, details.activityHistory.single().activeCount)
+        assertEquals("activity-instance-1", details.activeActivities.single { it.activityId == "Task_1" }.id)
+        assertTrue(
+            CurrentActivityEvidence.Incident in details.activeActivities.single { it.activityId == "Task_1" }.evidence,
+        )
+        assertTrue(
+            CurrentActivityEvidence.Transition in details.activeActivities.single { it.activityId == "Task_2" }.evidence,
+        )
+        assertTrue(
+            CurrentActivityEvidence.ExternalTask in details.activeActivities.single { it.activityId == "Task_3" }.evidence,
+        )
+        assertTrue(
+            CurrentActivityEvidence.UnfinishedHistory in details.activeActivities.single { it.activityId == "Task_4" }.evidence,
+        )
+        assertTrue(!details.activeActivities.single { it.activityId == "Task_4" }.cancellable)
+        assertTrue(!details.activeActivities.single { it.activityId == "Task_3" }.cancellable)
+        assertEquals(2, details.activityHistory.single { it.activityId == "Task_1" }.completedCount)
+        assertEquals(1, details.activityHistory.single { it.activityId == "Task_1" }.activeCount)
         assertEquals("boom", details.incidents.single().message)
         assertEquals(0, details.jobs.single().retries)
         assertEquals("worker-7", details.externalTasks.single().workerId)
-        assertEquals("Task_1", details.diagram.nodes.single().id)
+        assertEquals(setOf("Task_1", "Task_2", "Task_4"), details.diagram.nodes.map { it.id }.toSet())
         assertEquals("b2c", details.metadata.single { it.label == "ID тенанта" }.value)
     }
 

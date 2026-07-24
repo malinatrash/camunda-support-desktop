@@ -10,6 +10,7 @@ import com.malinatrash.camundasupport.model.ProcessInstanceDetails
 import com.malinatrash.camundasupport.model.ProcessInstanceSummary
 import com.malinatrash.camundasupport.model.ProcessIncident
 import com.malinatrash.camundasupport.model.ProcessVariableUpdate
+import com.malinatrash.camundasupport.model.ProcessVariableCatalog
 import com.malinatrash.camundasupport.model.TeleportRequest
 import com.malinatrash.camundasupport.model.VariableValueType
 
@@ -28,10 +29,25 @@ interface CamundaApi {
 
     suspend fun searchProcessInstances(
         connection: CamundaConnection,
+        processDefinitionKey: String,
         variableName: String,
         variableValue: String,
         valueType: VariableValueType,
     ): CamundaApiResult<List<ProcessInstanceSummary>>
+
+    suspend fun loadSearchProcessDefinitions(
+        connection: CamundaConnection,
+    ): CamundaApiResult<List<ProcessDefinitionSummary>>
+
+    suspend fun loadProcessVariableCatalog(
+        connection: CamundaConnection,
+        processDefinitionKey: String,
+    ): CamundaApiResult<ProcessVariableCatalog>
+
+    fun invalidateProcessVariableCatalog(
+        connection: CamundaConnection,
+        processDefinitionKey: String,
+    ) = Unit
 
     suspend fun loadProcessDefinitionDetails(
         connection: CamundaConnection,

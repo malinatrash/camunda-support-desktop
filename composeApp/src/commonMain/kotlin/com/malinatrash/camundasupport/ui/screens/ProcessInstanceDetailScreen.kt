@@ -48,16 +48,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
+import com.malinatrash.camundasupport.state.ProcessInstancePollingQuery
+import com.malinatrash.camundasupport.state.ProcessInstancePollingStore
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.malinatrash.camundasupport.data.CamundaApi
 import com.malinatrash.camundasupport.data.CamundaApiResult
 import com.malinatrash.camundasupport.model.ActiveActivityInstance
 import com.malinatrash.camundasupport.model.BpmnNode
 import com.malinatrash.camundasupport.model.CamundaConnection
+import com.malinatrash.camundasupport.model.CurrentActivityEvidence
 import com.malinatrash.camundasupport.model.Environment
 import com.malinatrash.camundasupport.model.ProcessExternalTask
 import com.malinatrash.camundasupport.model.ProcessIncident
 import com.malinatrash.camundasupport.model.ProcessInstanceDetails
+import com.malinatrash.camundasupport.model.ProcessInstanceSummary
 import com.malinatrash.camundasupport.model.ProcessJob
 import com.malinatrash.camundasupport.model.ProcessVariable
 import com.malinatrash.camundasupport.model.ProcessVariableUpdate
@@ -84,20 +91,29 @@ private enum class InstanceTab(val label: String) {
 }
 
 @Composable
-fun ProcessInstanceDetailScreen(
+internal fun ProcessInstanceDetailScreen(
     connection: CamundaConnection,
     processInstanceId: String,
     camundaApi: CamundaApi,
+    pollingStore: ProcessInstancePollingStore,
     onBack: () -> Unit,
     onOpenBrowser: () -> Unit,
     onCopyLink: () -> Boolean,
+    onCopyText: (String) -> Boolean,
+    onDetailsLoaded: (ProcessInstanceSummary) -> Unit,
 ) {
-    var details by remember { mutableStateOf<ProcessInstanceDetails?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val pollingQuery = remember(connection, processInstanceId) {
+        ProcessInstancePollingQuery(connection, processInstanceId)
+    }
+    val cacheEntry = remember(pollingQuery) { pollingStore.entry(pollingQuery) }
+    val details = cacheEntry.details
+    val loading = cacheEntry.isRefreshing
+    var operationError by remember(pollingQuery) { mutableStateOf<String?>(null) }
     var operationMessage by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(false) }
     var operationBusy by remember { mutableStateOf(false) }
-    var refreshToken by remember { mutableIntStateOf(0) }
+    var secondsUntilRefresh by remember(pollingQuery) {
+        mutableIntStateOf(ProcessInstancePollingStore.POLLING_INTERVAL.inWholeSeconds.toInt())
+    }
     var teleportOpen by remember { mutableStateOf(false) }
     var teleportTargetId by remember(processInstanceId) { mutableStateOf<String?>(null) }
     var selectedNodeId by remember(processInstanceId) { mutableStateOf<String?>(null) }
@@ -107,14 +123,16 @@ fun ProcessInstanceDetailScreen(
     var selectedTab by remember { mutableStateOf(InstanceTab.Diagram) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(connection.id, processInstanceId, refreshToken) {
-        loading = true
-        error = null
-        when (val result = camundaApi.loadProcessInstanceDetails(connection, processInstanceId)) {
-            is CamundaApiResult.Success -> details = result.value
-            is CamundaApiResult.Failure -> error = result.message
+    LaunchedEffect(pollingQuery) {
+        operationError = null
+        while (currentCoroutineContext().isActive) {
+            pollingStore.refresh(pollingQuery)
+            cacheEntry.details?.let { onDetailsLoaded(it.instance) }
+            for (seconds in ProcessInstancePollingStore.POLLING_INTERVAL.inWholeSeconds.toInt() downTo 1) {
+                secondsUntilRefresh = seconds
+                delay(1_000)
+            }
         }
-        loading = false
     }
 
     fun handleOperationResult(result: CamundaApiResult<Unit>, successMessage: String) {
@@ -122,15 +140,20 @@ fun ProcessInstanceDetailScreen(
         when (result) {
             is CamundaApiResult.Success -> {
                 operationMessage = successMessage
-                refreshToken += 1
+                operationError = null
+                scope.launch {
+                    pollingStore.refresh(pollingQuery, force = true)
+                    cacheEntry.details?.let { onDetailsLoaded(it.instance) }
+                    secondsUntilRefresh = ProcessInstancePollingStore.POLLING_INTERVAL.inWholeSeconds.toInt()
+                }
             }
-            is CamundaApiResult.Failure -> error = result.message
+            is CamundaApiResult.Failure -> operationError = result.message
         }
     }
 
     fun execute(action: PendingAction) {
         operationBusy = true
-        error = null
+        operationError = null
         pendingAction = null
         scope.launch {
             when (action) {
@@ -160,15 +183,31 @@ fun ProcessInstanceDetailScreen(
             details = details,
             loading = loading,
             operationBusy = operationBusy,
+            secondsUntilRefresh = secondsUntilRefresh,
             onBack = onBack,
-            onRefresh = { refreshToken += 1 },
+            onRefresh = {
+                scope.launch {
+                    operationError = null
+                    pollingStore.refresh(pollingQuery, force = true)
+                    cacheEntry.details?.let { onDetailsLoaded(it.instance) }
+                    secondsUntilRefresh = ProcessInstancePollingStore.POLLING_INTERVAL.inWholeSeconds.toInt()
+                }
+            },
             onOpenBrowser = onOpenBrowser,
             onCopyLink = {
                 if (onCopyLink()) {
                     operationMessage = "Ссылка на заявку скопирована. При клике она откроется в приложении."
-                    error = null
+                    operationError = null
                 } else {
-                    error = "Не удалось скопировать ссылку на заявку."
+                    operationError = "Не удалось скопировать ссылку на заявку."
+                }
+            },
+            onCopyBusinessKey = { businessKey ->
+                if (onCopyText(businessKey)) {
+                    operationMessage = "Бизнес-ключ $businessKey скопирован."
+                    operationError = null
+                } else {
+                    operationError = "Не удалось скопировать бизнес-ключ."
                 }
             },
             onTeleport = {
@@ -180,7 +219,7 @@ fun ProcessInstanceDetailScreen(
             },
         )
 
-        error?.let { InlineMessage(it, Danger) }
+        (operationError ?: cacheEntry.error)?.let { InlineMessage(it, Danger) }
         operationMessage?.let { InlineMessage(it, Healthy) }
 
         if (details == null && loading) {
@@ -191,9 +230,11 @@ fun ProcessInstanceDetailScreen(
         if (snapshot == null) {
             EmptyPanel(
                 title = "Не удалось загрузить заявку",
-                description = error ?: "Camunda не вернула данные экземпляра процесса.",
+                description = operationError ?: cacheEntry.error ?: "Camunda не вернула данные экземпляра процесса.",
                 actionLabel = "Повторить",
-                onAction = { refreshToken += 1 },
+                onAction = {
+                    scope.launch { pollingStore.refresh(pollingQuery, force = true) }
+                },
             )
             return@Column
         }
@@ -224,6 +265,14 @@ fun ProcessInstanceDetailScreen(
                 InstanceTab.Variables -> VariablesTab(
                     variables = snapshot.variables,
                     disabled = operationBusy,
+                    onCopy = { variable ->
+                        if (onCopyText(variable.value)) {
+                            operationMessage = "Значение переменной ${variable.name} скопировано."
+                            operationError = null
+                        } else {
+                            operationError = "Не удалось скопировать значение переменной."
+                        }
+                    },
                     onEdit = {
                         variableEditError = null
                         variableToEdit = it
@@ -248,7 +297,7 @@ fun ProcessInstanceDetailScreen(
     if (teleportOpen && details != null) {
         DisableSelection {
             TeleportDialog(
-                details = details!!,
+                details = details,
                 initialTargetId = teleportTargetId,
                 production = connection.environment == Environment.Production,
                 busy = operationBusy,
@@ -312,10 +361,12 @@ private fun CompactInstanceHeader(
     details: ProcessInstanceDetails?,
     loading: Boolean,
     operationBusy: Boolean,
+    secondsUntilRefresh: Int,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onOpenBrowser: () -> Unit,
     onCopyLink: () -> Unit,
+    onCopyBusinessKey: (String) -> Unit,
     onTeleport: () -> Unit,
     onToggleSuspension: (ProcessInstanceDetails) -> Unit,
 ) {
@@ -328,7 +379,15 @@ private fun CompactInstanceHeader(
                     Text("Заявка", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                     details?.let { InstanceStatus(it.instance.suspended) }
                 }
-                Text(processInstanceId, color = TextSecondary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(processInstanceId, color = TextSecondary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    Text(
+                        if (loading && details != null) "Обновляем состояние…"
+                        else "Автообновление через: $secondsUntilRefresh сек.",
+                        color = if (loading && details != null) Primary else TextSecondary,
+                        fontSize = 10.sp,
+                    )
+                }
             }
             OutlinedButton(onClick = onRefresh, enabled = !loading && !operationBusy) {
                 Text(if (loading) "Обновляем…" else "Обновить")
@@ -343,7 +402,7 @@ private fun CompactInstanceHeader(
                     Text(if (details.instance.suspended) "Активировать" else "Приостановить")
                 }
                 Spacer(Modifier.width(6.dp))
-                Button(onClick = onTeleport, enabled = !operationBusy && details.activeActivities.isNotEmpty()) {
+                Button(onClick = onTeleport, enabled = !operationBusy && details.activeActivities.any { it.cancellable }) {
                     Text("Телепорт")
                 }
             }
@@ -353,9 +412,14 @@ private fun CompactInstanceHeader(
                 Modifier.fillMaxWidth().background(Surface, RoundedCornerShape(9.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                HeaderFact("Бизнес-ключ", snapshot.instance.businessKey ?: "—")
+                HeaderFact(
+                    label = "Бизнес-ключ",
+                    value = snapshot.instance.businessKey ?: "—",
+                    color = if (snapshot.instance.businessKey == null) TextSecondary else Primary,
+                    onClick = snapshot.instance.businessKey?.let { businessKey -> { onCopyBusinessKey(businessKey) } },
+                )
                 HeaderFact("Процесс", snapshot.instance.definitionKey)
-                HeaderFact("Активных элементов", snapshot.activeActivities.size.toString())
+                HeaderFact("Текущих позиций", snapshot.activeActivities.size.toString())
                 HeaderFact("Инцидентов", snapshot.incidents.size.toString(), if (snapshot.incidents.isEmpty()) Healthy else Danger)
             }
         }
@@ -363,10 +427,19 @@ private fun CompactInstanceHeader(
 }
 
 @Composable
-private fun HeaderFact(label: String, value: String, color: Color = TextPrimary) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun HeaderFact(
+    label: String,
+    value: String,
+    color: Color = TextPrimary,
+    onClick: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Text("$label:", color = TextSecondary, fontSize = 11.sp)
         Text(value, color = color, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        if (onClick != null) Text("⧉", color = Primary, fontSize = 10.sp)
     }
 }
 
@@ -561,7 +634,7 @@ private fun NodeActionsCard(
             HorizontalDivider(color = Border)
             Button(
                 onClick = { onTeleport(node) },
-                enabled = !disabled && canTeleport && snapshot.activeActivities.isNotEmpty(),
+                enabled = !disabled && canTeleport && snapshot.activeActivities.any { it.cancellable },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Телепортировать сюда") }
 
@@ -642,6 +715,7 @@ private fun DiagnosisTab(
 private fun VariablesTab(
     variables: List<ProcessVariable>,
     disabled: Boolean,
+    onCopy: (ProcessVariable) -> Unit,
     onEdit: (ProcessVariable) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
@@ -666,6 +740,7 @@ private fun VariablesTab(
                 VariableRow(
                     variable = variable,
                     editEnabled = !disabled && variable.isEditable,
+                    onCopy = { onCopy(variable) },
                     onEdit = { onEdit(variable) },
                 )
             }
@@ -748,25 +823,80 @@ private fun InstanceStatus(suspended: Boolean) {
 
 @Composable
 private fun ActivityRow(activity: ActiveActivityInstance) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(7.dp).height(7.dp).background(if (activity.incidentIds.isEmpty()) Primary else Danger, RoundedCornerShape(4.dp)))
+    val hasFailure = activity.evidence.any {
+        it == CurrentActivityEvidence.Incident ||
+            it == CurrentActivityEvidence.Job ||
+            it == CurrentActivityEvidence.ExternalTask
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Box(
+            Modifier
+                .padding(top = 5.dp)
+                .width(7.dp)
+                .height(7.dp)
+                .background(if (hasFailure) Danger else Primary, RoundedCornerShape(4.dp)),
+        )
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text(activity.activityName ?: activity.activityId, fontWeight = FontWeight.Medium, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(activity.activityName ?: activity.activityId, fontWeight = FontWeight.Medium, fontSize = 12.sp)
             Text(activity.activityId, color = TextSecondary, fontSize = 9.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                activity.evidence.sortedBy(CurrentActivityEvidence::ordinal).forEach { evidence ->
+                    NodeStateBadge(evidence.label(), evidence.color())
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun IncidentRow(incident: ProcessIncident) {
-    Column(
-        Modifier.fillMaxWidth().background(Danger.copy(alpha = 0.06f), RoundedCornerShape(7.dp)).padding(9.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(incident.failedActivityId ?: incident.activityId ?: incident.type, color = Danger, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-        Text(incident.message ?: "Сообщение отсутствует", fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+    SelectionContainer {
+        Column(
+            Modifier.fillMaxWidth().background(Danger.copy(alpha = 0.06f), RoundedCornerShape(7.dp)).padding(9.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                incident.failedActivityId ?: incident.activityId ?: incident.type,
+                color = Danger,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+            )
+            Text(incident.message ?: "Сообщение отсутствует", fontSize = 11.sp)
+            Text(
+                listOfNotNull(
+                    "тип: ${incident.type}",
+                    incident.timestamp?.let { "время: $it" },
+                    incident.configuration?.let { "конфигурация: $it" },
+                    incident.annotation?.let { "аннотация: $it" },
+                    "id: ${incident.id}",
+                ).joinToString("\n"),
+                color = TextSecondary,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+            )
+        }
     }
+}
+
+private fun CurrentActivityEvidence.label(): String = when (this) {
+    CurrentActivityEvidence.RuntimeActivity -> "АКТИВЕН"
+    CurrentActivityEvidence.Transition -> "ПЕРЕХОД"
+    CurrentActivityEvidence.UnfinishedHistory -> "НЕ ЗАВЕРШЁН"
+    CurrentActivityEvidence.Incident -> "ИНЦИДЕНТ"
+    CurrentActivityEvidence.Job -> "JOB"
+    CurrentActivityEvidence.ExternalTask -> "EXTERNAL TASK"
+}
+
+@Composable
+private fun CurrentActivityEvidence.color(): Color = when (this) {
+    CurrentActivityEvidence.RuntimeActivity -> Primary
+    CurrentActivityEvidence.Transition -> Warning
+    CurrentActivityEvidence.UnfinishedHistory -> Warning
+    CurrentActivityEvidence.Incident,
+    CurrentActivityEvidence.Job,
+    CurrentActivityEvidence.ExternalTask,
+    -> Danger
 }
 
 @Composable
@@ -796,7 +926,12 @@ private fun ExternalTaskRow(task: ProcessExternalTask, disabled: Boolean, onRetr
 }
 
 @Composable
-private fun VariableRow(variable: ProcessVariable, editEnabled: Boolean, onEdit: () -> Unit) {
+private fun VariableRow(
+    variable: ProcessVariable,
+    editEnabled: Boolean,
+    onCopy: () -> Unit,
+    onEdit: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Surface),
@@ -808,8 +943,14 @@ private fun VariableRow(variable: ProcessVariable, editEnabled: Boolean, onEdit:
                 Text(variable.name, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 Text(variable.type, color = TextSecondary, fontSize = 9.sp)
             }
-            Text(variable.value, modifier = Modifier.weight(1f), fontSize = 10.sp, fontFamily = FontFamily.Monospace, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            SelectionContainer(Modifier.weight(1f)) {
+                Text(variable.value, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            }
             Spacer(Modifier.width(10.dp))
+            OutlinedButton(onClick = onCopy) {
+                Text("Копировать")
+            }
+            Spacer(Modifier.width(6.dp))
             OutlinedButton(onClick = onEdit, enabled = editEnabled) {
                 Text(if (variable.isEditable) "Изменить" else "Только чтение")
             }
@@ -948,7 +1089,8 @@ private fun TeleportDialog(
     onDismiss: () -> Unit,
     onExecute: (TeleportRequest) -> Unit,
 ) {
-    var source by remember { mutableStateOf(details.activeActivities.firstOrNull()) }
+    val cancellableActivities = details.activeActivities.filter(ActiveActivityInstance::cancellable)
+    var source by remember { mutableStateOf(cancellableActivities.firstOrNull()) }
     var target by remember(initialTargetId, details.instance.id) {
         mutableStateOf(details.diagram.teleportTargets.firstOrNull { it.id == initialTargetId })
     }
@@ -956,7 +1098,7 @@ private fun TeleportDialog(
     var targetQuery by remember { mutableStateOf("") }
     var annotation by remember { mutableStateOf("") }
     var confirmed by remember { mutableStateOf(false) }
-    val sources = details.activeActivities.filter { it.matches(sourceQuery) }
+    val sources = cancellableActivities.filter { it.matches(sourceQuery) }
     val targets = details.diagram.teleportTargets.filter { it.matches(targetQuery) }
 
     DialogWindow(

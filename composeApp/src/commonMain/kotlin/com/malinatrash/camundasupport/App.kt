@@ -54,7 +54,6 @@ import com.malinatrash.camundasupport.data.ThemeRepository
 import com.malinatrash.camundasupport.data.UpdateCheckResult
 import com.malinatrash.camundasupport.data.UpdateDownloadProgress
 import com.malinatrash.camundasupport.data.UpdateInstallResult
-import com.malinatrash.camundasupport.data.VariableKeyRepository
 import com.malinatrash.camundasupport.model.AppDestination
 import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.cockpitDashboardUrl
@@ -64,9 +63,11 @@ import com.malinatrash.camundasupport.model.processInstanceCockpitUrl
 import com.malinatrash.camundasupport.state.AppStore
 import com.malinatrash.camundasupport.state.DashboardPollingStore
 import com.malinatrash.camundasupport.state.DeepLinkNavigationResult
+import com.malinatrash.camundasupport.state.ProcessInstancePollingStore
 import com.malinatrash.camundasupport.ui.components.AppSidebar
 import com.malinatrash.camundasupport.ui.components.ConnectionDialog
 import com.malinatrash.camundasupport.ui.components.EnvironmentBadge
+import com.malinatrash.camundasupport.ui.components.OpenProcessTabs
 import com.malinatrash.camundasupport.ui.components.UpdateBanner
 import com.malinatrash.camundasupport.ui.screens.ConnectionsScreen
 import com.malinatrash.camundasupport.ui.screens.IncidentsScreen
@@ -90,7 +91,6 @@ fun CamundaSupportApp(
     connectionRepository: ConnectionRepository,
     connectionTester: ConnectionTester,
     camundaApi: CamundaApi,
-    variableKeyRepository: VariableKeyRepository,
     externalNavigator: ExternalNavigator,
     themeRepository: ThemeRepository = InMemoryThemeRepository(),
     onThemeChanged: (AppThemeMode) -> Unit = {},
@@ -101,6 +101,7 @@ fun CamundaSupportApp(
 ) {
     val store = remember(connectionRepository) { AppStore(connectionRepository) }
     val dashboardStore = remember(camundaApi) { DashboardPollingStore(camundaApi) }
+    val processInstanceStore = remember(camundaApi) { ProcessInstancePollingStore(camundaApi) }
     val coroutineScope = rememberCoroutineScope()
     var availableUpdate by remember { mutableStateOf<AppUpdate?>(null) }
     var dismissedUpdateTag by remember { mutableStateOf<String?>(null) }
@@ -196,6 +197,15 @@ fun CamundaSupportApp(
                     onAddConnection = store::openConnectionDialog,
                     onOpenCockpit = { url -> externalNavigator.open(url) },
                 )
+                if (store.openProcessTabs.isNotEmpty()) {
+                    OpenProcessTabs(
+                        tabs = store.openProcessTabs,
+                        activeTabId = store.activeProcessTabId,
+                        onSelect = store::activateProcessTab,
+                        onClose = store::closeProcessTab,
+                    )
+                    HorizontalDivider(color = Border)
+                }
                 availableUpdate
                     ?.takeIf { it.tag != dismissedUpdateTag }
                     ?.let { update ->
@@ -248,7 +258,7 @@ fun CamundaSupportApp(
                         AppDestination.Processes -> ProcessesScreen(
                             connection = store.selectedConnection,
                             camundaApi = camundaApi,
-                            variableKeyRepository = variableKeyRepository,
+                            textClipboard = textClipboard,
                             onAddConnection = store::openConnectionDialog,
                             onOpenInstance = store::openProcessInstance,
                         )
@@ -314,6 +324,7 @@ fun CamundaSupportApp(
                                     connection = connection,
                                     processInstanceId = instanceId,
                                     camundaApi = camundaApi,
+                                    pollingStore = processInstanceStore,
                                     onBack = store::backFromProcessInstance,
                                     onOpenBrowser = {
                                         connection.processInstanceCockpitUrl(instanceId)
@@ -324,6 +335,8 @@ fun CamundaSupportApp(
                                             ?.let(textClipboard::copy)
                                             ?: false
                                     },
+                                    onCopyText = textClipboard::copy,
+                                    onDetailsLoaded = store::updateOpenProcessTab,
                                 )
                             }
                         }

@@ -46,6 +46,19 @@ data class ProcessVariable(
     val valueInfo: String?,
 )
 
+data class ProcessVariableCatalog(
+    val processDefinitionKey: String,
+    val variables: List<ProcessVariableDescriptor>,
+    val inspectedInstanceCount: Int,
+    val instancesTruncated: Boolean,
+)
+
+data class ProcessVariableDescriptor(
+    val name: String,
+    val types: List<String>,
+    val occurrences: Int,
+)
+
 data class ProcessVariableUpdate(
     val name: String,
     val type: String,
@@ -60,7 +73,18 @@ data class ActiveActivityInstance(
     val activityType: String,
     val executionIds: List<String>,
     val incidentIds: List<String>,
+    val evidence: Set<CurrentActivityEvidence> = setOf(CurrentActivityEvidence.RuntimeActivity),
+    val cancellable: Boolean = true,
 )
+
+enum class CurrentActivityEvidence {
+    RuntimeActivity,
+    Transition,
+    UnfinishedHistory,
+    Incident,
+    Job,
+    ExternalTask,
+}
 
 data class ProcessIncident(
     val id: String,

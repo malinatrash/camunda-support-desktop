@@ -2,6 +2,7 @@ package com.malinatrash.camundasupport.state
 
 import com.malinatrash.camundasupport.data.CamundaApi
 import com.malinatrash.camundasupport.data.CamundaApiResult
+import com.malinatrash.camundasupport.model.BpmnDiagram
 import com.malinatrash.camundasupport.model.CamundaConnection
 import com.malinatrash.camundasupport.model.ConnectionHealth
 import com.malinatrash.camundasupport.model.DashboardDateFilter
@@ -13,8 +14,8 @@ import com.malinatrash.camundasupport.model.ProcessDefinitionSummary
 import com.malinatrash.camundasupport.model.ProcessIncident
 import com.malinatrash.camundasupport.model.ProcessInstanceDetails
 import com.malinatrash.camundasupport.model.ProcessInstanceSummary
-import com.malinatrash.camundasupport.model.ProcessVariableUpdate
 import com.malinatrash.camundasupport.model.ProcessVariableCatalog
+import com.malinatrash.camundasupport.model.ProcessVariableUpdate
 import com.malinatrash.camundasupport.model.TeleportRequest
 import com.malinatrash.camundasupport.model.VariableValueType
 import kotlinx.coroutines.runBlocking
@@ -26,75 +27,81 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.TestTimeSource
 
 @OptIn(ExperimentalTime::class)
-class DashboardPollingStoreTest {
+class ProcessInstancePollingStoreTest {
     @Test
-    fun freshSnapshotIsReturnedWithoutAnotherRequest() = runBlocking {
+    fun returnsCachedDetailsUntilTwentySecondIntervalExpires() = runBlocking {
         val timeSource = TestTimeSource()
         val api = FakeCamundaApi()
-        val store = DashboardPollingStore(api, timeSource)
-        store.activate(CONNECTION, DashboardDateFilter())
+        val store = ProcessInstancePollingStore(api, timeSource)
+        val query = ProcessInstancePollingQuery(CONNECTION, "instance-1")
 
-        store.refreshActive()
-        val firstSnapshot = store.entry(CONNECTION, DashboardDateFilter()).dashboard
-        store.refreshActive()
-        timeSource += 9.seconds
-        store.refreshActive()
+        store.refresh(query)
+        val firstSnapshot = store.entry(query).details
+        timeSource += 19.seconds
+        store.refresh(query)
 
-        assertEquals(1, api.dashboardCalls)
-        assertSame(firstSnapshot, store.entry(CONNECTION, DashboardDateFilter()).dashboard)
+        assertEquals(1, api.detailsCalls)
+        assertSame(firstSnapshot, store.entry(query).details)
 
         timeSource += 1.seconds
-        store.refreshActive()
-        assertEquals(2, api.dashboardCalls)
+        store.refresh(query)
+
+        assertEquals(2, api.detailsCalls)
     }
 
     @Test
-    fun forcedRefreshUpdatesCacheImmediately() = runBlocking {
+    fun failedPollingKeepsLastSuccessfulStateVisible() = runBlocking {
         val api = FakeCamundaApi()
-        val store = DashboardPollingStore(api)
-        store.activate(CONNECTION, DashboardDateFilter())
+        val store = ProcessInstancePollingStore(api)
+        val query = ProcessInstancePollingQuery(CONNECTION, "instance-1")
 
-        store.refreshActive()
-        store.refreshActive(force = true)
-
-        assertEquals(2, api.dashboardCalls)
-        assertEquals(
-            2,
-            store.entry(CONNECTION, DashboardDateFilter()).dashboard?.completedInstances,
-        )
-    }
-
-    @Test
-    fun failedPollingKeepsLastSuccessfulSnapshot() = runBlocking {
-        val timeSource = TestTimeSource()
-        val api = FakeCamundaApi()
-        val store = DashboardPollingStore(api, timeSource)
-        store.activate(CONNECTION, DashboardDateFilter())
-        store.refreshActive()
-        val successfulSnapshot = store.entry(CONNECTION, DashboardDateFilter()).dashboard
-
+        store.refresh(query)
+        val successfulSnapshot = store.entry(query).details
         api.failure = "Camunda временно недоступна"
-        timeSource += 10.seconds
-        store.refreshActive()
-        val entry = store.entry(CONNECTION, DashboardDateFilter())
+        store.refresh(query, force = true)
 
-        assertSame(successfulSnapshot, entry.dashboard)
-        assertEquals("Camunda временно недоступна", entry.error)
+        assertSame(successfulSnapshot, store.entry(query).details)
+        assertEquals("Camunda временно недоступна", store.entry(query).error)
     }
 
     private class FakeCamundaApi : CamundaApi {
-        var dashboardCalls = 0
+        var detailsCalls = 0
         var failure: String? = null
+
+        override suspend fun loadProcessInstanceDetails(
+            connection: CamundaConnection,
+            processInstanceId: String,
+        ): CamundaApiResult<ProcessInstanceDetails> {
+            detailsCalls += 1
+            return failure?.let { CamundaApiResult.Failure(it) }
+                ?: CamundaApiResult.Success(
+                    ProcessInstanceDetails(
+                        instance = ProcessInstanceSummary(
+                            id = processInstanceId,
+                            definitionId = "loan:1:def",
+                            definitionKey = "loan",
+                            businessKey = "APP-$detailsCalls",
+                            suspended = false,
+                            tenantId = null,
+                        ),
+                        variables = emptyList(),
+                        activeActivities = emptyList(),
+                        activityHistory = emptyList(),
+                        incidents = emptyList(),
+                        jobs = emptyList(),
+                        externalTasks = emptyList(),
+                        diagram = BpmnDiagram(emptyList(), emptyList()),
+                        bpmnXml = "",
+                        metadata = emptyList(),
+                    ),
+                )
+        }
 
         override suspend fun loadDashboard(
             connection: CamundaConnection,
             sort: DeploymentSort,
             dateFilter: DashboardDateFilter,
-        ): CamundaApiResult<ProcessDashboard> {
-            dashboardCalls += 1
-            return failure?.let { CamundaApiResult.Failure(it) }
-                ?: CamundaApiResult.Success(ProcessDashboard(emptyList(), completedInstances = dashboardCalls))
-        }
+        ) = unused<ProcessDashboard>()
 
         override suspend fun searchProcessInstances(
             connection: CamundaConnection,
@@ -117,9 +124,6 @@ class DashboardPollingStoreTest {
             processDefinitionId: String,
             dateFilter: DashboardDateFilter,
         ) = unused<ProcessDefinitionDetails>()
-
-        override suspend fun loadProcessInstanceDetails(connection: CamundaConnection, processInstanceId: String) =
-            unused<ProcessInstanceDetails>()
 
         override suspend fun teleportProcessInstance(
             connection: CamundaConnection,
@@ -161,15 +165,15 @@ class DashboardPollingStoreTest {
             processDefinitionKey: String,
         ) = unused<List<ProcessDefinitionSummary>>()
 
-        private fun <T> unused(): CamundaApiResult<T> = CamundaApiResult.Failure("Метод не используется в тесте")
+        private fun <T> unused(): CamundaApiResult<T> = CamundaApiResult.Failure("Метод не используется")
     }
 
     private companion object {
         val CONNECTION = CamundaConnection(
             id = "test",
             name = "Тест",
-            restUrl = "http://localhost:8080/engine-rest",
-            cockpitUrl = "http://localhost:8080/camunda/app/cockpit",
+            restUrl = "https://example.test/engine-rest",
+            cockpitUrl = "https://example.test/camunda/app/cockpit",
             environment = Environment.Test,
             health = ConnectionHealth.Connected,
         )

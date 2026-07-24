@@ -18,7 +18,7 @@ import com.malinatrash.camundasupport.data.APP_BUILD
 import com.malinatrash.camundasupport.data.APP_VERSION
 import com.malinatrash.camundasupport.data.AppThemeMode
 import com.malinatrash.camundasupport.data.PreferencesConnectionRepository
-import com.malinatrash.camundasupport.data.PreferencesVariableKeyRepository
+import com.malinatrash.camundasupport.data.PreferencesProcessVariableCatalogRepository
 import com.malinatrash.camundasupport.data.PreferencesThemeRepository
 import javax.swing.JRootPane
 import javax.swing.SwingUtilities
@@ -43,8 +43,9 @@ fun main(args: Array<String>) {
             CamundaSupportApp(
                 connectionRepository = PreferencesConnectionRepository(),
                 connectionTester = DesktopConnectionTester(),
-                camundaApi = DesktopCamundaApi(),
-                variableKeyRepository = PreferencesVariableKeyRepository(),
+                camundaApi = DesktopCamundaApi(
+                    variableCatalogRepository = PreferencesProcessVariableCatalogRepository(),
+                ),
                 themeRepository = themeRepository,
                 deepLinkSource = deepLinkSource,
                 textClipboard = DesktopTextClipboard(),
