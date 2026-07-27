@@ -7,10 +7,12 @@ import java.util.concurrent.atomic.AtomicReference
 import javafx.application.Platform
 import javafx.concurrent.Worker
 import javafx.embed.swing.JFXPanel
+import javafx.scene.Scene
 import javafx.scene.web.WebView
 import javax.swing.SwingUtilities
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -66,7 +68,7 @@ class JavaFxWebViewSmokeTest {
         val failure = AtomicReference<Throwable?>()
         val clickedActivityId = AtomicReference<String?>()
         val webViewReference = AtomicReference<WebView?>()
-        val svg = BpmnSvgRenderer.render(TEST_BPMN)
+        val svg = BpmnSvgRenderer.render(TEST_BPMN).diagram(null).svg
         val html = BpmnHtml.build(
             svg = svg,
             activeIds = setOf("Task_1"),
@@ -84,10 +86,10 @@ class JavaFxWebViewSmokeTest {
                     loadWorker.stateProperty().addListener { _, _, state ->
                         if (state == Worker.State.SUCCEEDED) {
                             runCatching {
-                                val bridge = BpmnWebBridge { activityId ->
+                                val bridge = BpmnWebBridge(onClick = { activityId ->
                                     clickedActivityId.set(activityId)
                                     completed.countDown()
-                                }
+                                })
                                 (executeScript("window") as JSObject).setMember("supportBridge", bridge)
                                 executeScript(
                                     """
@@ -150,6 +152,114 @@ class JavaFxWebViewSmokeTest {
         assertNull(failure.get(), "WebView-мост BPMN завершился с ошибкой")
         assertEquals("Task_1", clickedActivityId.get())
         Platform.runLater { webViewReference.getAndSet(null)?.engine?.load(null) }
+    }
+
+    @Test
+    fun nestedSubprocessDiagramsAreExportedSeparatelyAndRemainNavigable() = runBlocking {
+        if (GraphicsEnvironment.isHeadless()) return@runBlocking
+
+        val navigationPanel = AtomicReference<JFXPanel?>()
+        SwingUtilities.invokeAndWait { navigationPanel.set(JFXPanel()) }
+        val xml = requireNotNull(javaClass.getResourceAsStream("/drzi.bpmn"))
+            .bufferedReader()
+            .use { it.readText() }
+        val rendered = BpmnSvgRenderer.renderAll(xml)
+
+        assertEquals("drzi", rendered.rootElementId)
+        assertEquals(
+            setOf("drzi", "Activity_1gooqz2", "Activity_1xqooxf"),
+            rendered.diagrams.keys,
+        )
+        assertEquals("drzi", rendered.diagrams.getValue("Activity_1gooqz2").parentElementId)
+        assertEquals("drzi", rendered.diagrams.getValue("Activity_1xqooxf").parentElementId)
+        assertTrue("Activity_1gooqz2" in rendered.diagram("drzi").elementIds)
+        assertFalse("Activity_0soegtg" in rendered.diagram("drzi").elementIds)
+        assertTrue("Activity_0soegtg" in rendered.diagram("Activity_1gooqz2").elementIds)
+        assertTrue(rendered.diagram("Activity_1gooqz2").svg.isNotBlank())
+
+        val html = BpmnHtml.build(
+            svg = rendered.diagram("drzi").svg,
+            activeIds = setOf("Activity_1gooqz2"),
+            incidentIds = emptySet(),
+            completedCounts = emptyMap(),
+            clickableIds = setOf("Activity_1gooqz2"),
+            navigationTargets = mapOf("Activity_1gooqz2" to "Подготовить изменения"),
+            currentDiagramName = "drzi",
+        )
+        assertTrue("support-drilldown" in html)
+        assertTrue("onDiagramNavigate" in html)
+        assertTrue("Открыть подпроцесс" in html)
+
+        val navigationCompleted = CountDownLatch(1)
+        val navigationFailure = AtomicReference<Throwable?>()
+        val navigatedDiagramId = AtomicReference<String?>()
+        val navigationWebView = AtomicReference<WebView?>()
+        Platform.runLater {
+            runCatching {
+                val webView = WebView()
+                navigationWebView.set(webView)
+                navigationPanel.get()?.scene = Scene(webView, 940.0, 260.0)
+                webView.engine.apply {
+                    isJavaScriptEnabled = true
+                    loadWorker.stateProperty().addListener { _, _, state ->
+                        if (state == Worker.State.SUCCEEDED) {
+                            runCatching {
+                                val bridge = BpmnWebBridge(
+                                    onClick = {},
+                                    onNavigate = { diagramId ->
+                                        navigatedDiagramId.set(diagramId)
+                                        navigationCompleted.countDown()
+                                    },
+                                )
+                                (executeScript("window") as JSObject).setMember("supportBridge", bridge)
+                                executeScript(
+                                    """
+                                        window.supportNavigationTest = setInterval(function() {
+                                          if (!window.supportDiagramReady) return;
+                                          clearInterval(window.supportNavigationTest);
+                                          const button = document.querySelector('.support-drilldown');
+                                          if (!button) {
+                                            window.supportBridge.onDiagramNavigate('__ERROR__:Стрелка не создана');
+                                            return;
+                                          }
+                                          const rect = button.getBoundingClientRect();
+                                          const centerX = rect.left + rect.width / 2;
+                                          const centerY = rect.top + rect.height / 2;
+                                          const target = document.elementFromPoint(centerX, centerY);
+                                          if (target !== button) {
+                                            window.supportBridge.onDiagramNavigate(
+                                              '__ERROR__:Стрелку перекрывает ' + (target ? target.tagName : 'пустой слой')
+                                            );
+                                            return;
+                                          }
+                                          ['mousedown', 'mouseup', 'click'].forEach(type => {
+                                            target.dispatchEvent(new MouseEvent(type, {
+                                              bubbles: true,
+                                              clientX: centerX,
+                                              clientY: centerY,
+                                              button: 0
+                                            }));
+                                          });
+                                        }, 20);
+                                    """.trimIndent(),
+                                )
+                            }.onFailure {
+                                navigationFailure.set(it)
+                                navigationCompleted.countDown()
+                            }
+                        }
+                    }
+                    loadContent(html, "text/html")
+                }
+            }.onFailure {
+                navigationFailure.set(it)
+                navigationCompleted.countDown()
+            }
+        }
+        assertTrue(navigationCompleted.await(15, TimeUnit.SECONDS), "Клик по стрелке не пришёл из WebView")
+        assertNull(navigationFailure.get(), "Навигация BPMN завершилась с ошибкой")
+        assertEquals("Activity_1gooqz2", navigatedDiagramId.get())
+        Platform.runLater { navigationWebView.getAndSet(null)?.engine?.load(null) }
     }
 
     private companion object {

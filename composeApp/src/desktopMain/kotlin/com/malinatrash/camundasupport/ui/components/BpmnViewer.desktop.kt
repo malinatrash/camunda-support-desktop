@@ -4,18 +4,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import javafx.application.Platform
 import javafx.embed.swing.JFXPanel
@@ -44,12 +49,18 @@ actual fun BpmnViewer(
     onActivityClick: (String) -> Unit,
     modifier: Modifier,
 ) {
-    val svgResult by produceState<Result<String>?>(initialValue = null, xml) {
+    var selectedDiagramId by remember(xml) { mutableStateOf<String?>(null) }
+    var renderAttempt by remember(xml) { mutableStateOf(0) }
+    val svgResult by produceState<Result<RenderedBpmn>?>(
+        initialValue = null,
+        xml,
+        renderAttempt,
+    ) {
         value = null
-        value = runCatching { BpmnSvgRenderer.render(xml) }
+        value = runCatching { BpmnSvgRenderer.renderAll(xml) }
     }
-    val svg = svgResult?.getOrNull()
-    if (svg == null) {
+    val rendered = svgResult?.getOrNull()
+    if (rendered == null) {
         Column(
             modifier = modifier.background(Color(0xFFF8FAFC)),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -60,21 +71,60 @@ actual fun BpmnViewer(
                 Text("Подготавливаем большую BPMN-схему…", color = Color(0xFF667085), fontSize = 11.sp)
             } else {
                 Text(
-                    "Не удалось подготовить BPMN: ${svgResult?.exceptionOrNull()?.message.orEmpty()}",
+                    "Не удалось открыть BPMN-схему",
                     color = Color(0xFFB42318),
                     fontSize = 12.sp,
                 )
+                Text(
+                    svgResult?.exceptionOrNull()?.message.orEmpty(),
+                    color = Color(0xFF667085),
+                    fontSize = 11.sp,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { renderAttempt += 1 }) {
+                        Text("Повторить")
+                    }
+                    if (selectedDiagramId != null) {
+                        Button(onClick = { selectedDiagramId = null }) {
+                            Text("К основной схеме")
+                        }
+                    }
+                }
             }
         }
         return
     }
+    val diagram = rendered.diagram(selectedDiagramId)
+    val childDiagrams = rendered.childrenOf(diagram.elementId)
+    val visibleActiveIds = activeActivityIds.filterTo(mutableSetOf()) { it in diagram.elementIds }
+    val visibleIncidentIds = incidentActivityIds.filterTo(mutableSetOf()) { it in diagram.elementIds }
+    val visibleCompletedCounts = completedActivityCounts
+        .filterKeys { it in diagram.elementIds }
+        .toMutableMap()
+    childDiagrams.forEach { child ->
+        if (activeActivityIds.any { rendered.containsInSubtree(child.elementId, it) }) {
+            visibleActiveIds += child.elementId
+        }
+        if (incidentActivityIds.any { rendered.containsInSubtree(child.elementId, it) }) {
+            visibleIncidentIds += child.elementId
+        }
+        val completedInChild = completedActivityCounts
+            .filterKeys { rendered.containsInSubtree(child.elementId, it) }
+            .values
+            .sum()
+        if (completedInChild > 0) visibleCompletedCounts[child.elementId] = completedInChild
+    }
     BpmnSvgPanel(
-        svg = svg,
-        activeActivityIds = activeActivityIds,
-        incidentActivityIds = incidentActivityIds,
-        completedActivityCounts = completedActivityCounts,
-        clickableActivityIds = clickableActivityIds,
+        svg = diagram.svg,
+        activeActivityIds = visibleActiveIds,
+        incidentActivityIds = visibleIncidentIds,
+        completedActivityCounts = visibleCompletedCounts,
+        clickableActivityIds = clickableActivityIds.filterTo(mutableSetOf()) { it in diagram.elementIds },
+        navigationTargets = childDiagrams.associate { it.elementId to it.name },
+        currentDiagramName = diagram.name,
+        parentDiagram = diagram.parentElementId?.let(rendered.diagrams::get),
         onActivityClick = onActivityClick,
+        onDiagramNavigate = { selectedDiagramId = it },
         modifier = modifier,
     )
 }
@@ -86,11 +136,34 @@ private fun BpmnSvgPanel(
     incidentActivityIds: Set<String>,
     completedActivityCounts: Map<String, Int>,
     clickableActivityIds: Set<String>,
+    navigationTargets: Map<String, String>,
+    currentDiagramName: String,
+    parentDiagram: RenderedBpmnDiagram?,
     onActivityClick: (String) -> Unit,
+    onDiagramNavigate: (String) -> Unit,
     modifier: Modifier,
 ) {
-    val html = remember(svg, activeActivityIds, incidentActivityIds, completedActivityCounts, clickableActivityIds) {
-        BpmnHtml.build(svg, activeActivityIds, incidentActivityIds, completedActivityCounts, clickableActivityIds)
+    val html = remember(
+        svg,
+        activeActivityIds,
+        incidentActivityIds,
+        completedActivityCounts,
+        clickableActivityIds,
+        navigationTargets,
+        currentDiagramName,
+        parentDiagram,
+    ) {
+        BpmnHtml.build(
+            svg = svg,
+            activeIds = activeActivityIds,
+            incidentIds = incidentActivityIds,
+            completedCounts = completedActivityCounts,
+            clickableIds = clickableActivityIds,
+            navigationTargets = navigationTargets,
+            currentDiagramName = currentDiagramName,
+            parentDiagramId = parentDiagram?.elementId,
+            parentDiagramName = parentDiagram?.name,
+        )
     }
     val panelReference = remember { AtomicReference<BpmnWebViewPanel?>() }
     DisposableEffect(panelReference) {
@@ -102,6 +175,7 @@ private fun BpmnSvgPanel(
             factory = { BpmnWebViewPanel().also(panelReference::set) },
             update = {
                 it.onActivityClick = onActivityClick
+                it.onDiagramNavigate = onDiagramNavigate
                 it.render(html)
             },
         )
@@ -115,12 +189,20 @@ private class BpmnWebViewPanel : JFXPanel() {
     private var engine: WebEngine? = null
     @Volatile
     private var disposed = false
-    private val bridge = BpmnWebBridge { activityId ->
-        SwingUtilities.invokeLater { onActivityClick(activityId) }
-    }
+    private val bridge = BpmnWebBridge(
+        onClick = { activityId ->
+            SwingUtilities.invokeLater { onActivityClick(activityId) }
+        },
+        onNavigate = { diagramElementId ->
+            SwingUtilities.invokeLater { this@BpmnWebViewPanel.onDiagramNavigate(diagramElementId) }
+        },
+    )
 
     @Volatile
     var onActivityClick: (String) -> Unit = {}
+
+    @Volatile
+    var onDiagramNavigate: (String) -> Unit = {}
 
     init {
         Platform.setImplicitExit(false)
@@ -161,7 +243,7 @@ private class BpmnWebViewPanel : JFXPanel() {
         disposed = true
         requestedHtml = ""
         Platform.runLater {
-            engine?.load(null)
+            engine?.load("about:blank")
             engine = null
             scene = null
         }
@@ -183,10 +265,18 @@ private class BpmnWebViewPanel : JFXPanel() {
     }
 }
 
-class BpmnWebBridge(private val onClick: (String) -> Unit) {
+class BpmnWebBridge(
+    private val onClick: (String) -> Unit,
+    private val onNavigate: (String) -> Unit = {},
+) {
     @Suppress("unused")
     fun onActivityClick(activityId: String?) {
         activityId?.takeIf(String::isNotBlank)?.let(onClick)
+    }
+
+    @Suppress("unused")
+    fun onDiagramNavigate(diagramElementId: String?) {
+        diagramElementId?.takeIf(String::isNotBlank)?.let(onNavigate)
     }
 }
 
@@ -200,6 +290,10 @@ internal object BpmnHtml {
         incidentIds: Set<String>,
         completedCounts: Map<String, Int>,
         clickableIds: Set<String>,
+        navigationTargets: Map<String, String> = emptyMap(),
+        currentDiagramName: String = "Процесс",
+        parentDiagramId: String? = null,
+        parentDiagramName: String? = null,
     ): String {
         val svgJson = JsonPrimitive(svg).toString()
         val activeJson = JsonArray(activeIds.sorted().map(::JsonPrimitive)).toString()
@@ -208,6 +302,12 @@ internal object BpmnHtml {
             completedCounts.toSortedMap().forEach { (activityId, count) -> put(activityId, count) }
         }.toString()
         val clickableJson = JsonArray(clickableIds.sorted().map(::JsonPrimitive)).toString()
+        val navigationJson = buildJsonObject {
+            navigationTargets.toSortedMap().forEach { (elementId, name) -> put(elementId, name) }
+        }.toString()
+        val currentDiagramNameJson = JsonPrimitive(currentDiagramName).toString()
+        val parentDiagramIdJson = parentDiagramId?.let { JsonPrimitive(it).toString() } ?: "null"
+        val parentDiagramNameJson = parentDiagramName?.let { JsonPrimitive(it).toString() } ?: "null"
         val embeddedSvgCssJson = JsonPrimitive(
             """
                 $diagramCss
@@ -266,6 +366,29 @@ internal object BpmnHtml {
                   border-color: #3157d5; background: rgba(49,87,213,.14);
                   box-shadow: 0 0 0 2px rgba(49,87,213,.18);
                 }
+                .support-drilldown {
+                  position: fixed; z-index: 1100; width: 30px; height: 30px; padding: 0;
+                  display: flex; align-items: center; justify-content: center;
+                  pointer-events: auto; cursor: pointer;
+                  border: 2px solid #ffffff; border-radius: 6px;
+                  color: #ffffff; background: #0099e5;
+                  box-shadow: 0 1px 3px rgba(16,24,40,.22);
+                  font: 800 19px/1 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                }
+                .support-drilldown:hover { background: #007fbe; transform: scale(1.06); }
+                .support-diagram-context {
+                  position: fixed; top: 12px; left: 12px; z-index: 1000;
+                  display: flex; align-items: center; gap: 8px; max-width: calc(100% - 300px);
+                  padding: 5px 8px; border: 1px solid #d0d5dd; border-radius: 9px;
+                  background: rgba(255,255,255,.96); box-shadow: 0 2px 8px rgba(16,24,40,.10);
+                  color: #344054; font: 600 12px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                }
+                .support-diagram-context button {
+                  height: 28px; padding: 0 9px; border: 0; border-radius: 6px;
+                  background: #e8edff; color: #3157d5; cursor: pointer; font: inherit;
+                }
+                .support-diagram-context button:hover { background: #dbe3ff; }
+                .support-diagram-context span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 #source-host {
                   position: absolute; left: 0; top: 0; visibility: hidden;
                   pointer-events: none; overflow: visible;
@@ -288,6 +411,10 @@ internal object BpmnHtml {
             <body>
               <div id="canvas"></div>
               <div id="sharp-viewport" aria-hidden="true"></div>
+              <div class="support-diagram-context">
+                <button id="diagram-back" type="button">← Назад</button>
+                <span id="diagram-title"></span>
+              </div>
               <div class="support-zoom-controls" aria-label="Управление масштабом">
                 <button id="zoom-out" type="button" title="Уменьшить масштаб">−</button>
                 <button id="zoom-fit" type="button" title="Показать схему целиком">По размеру</button>
@@ -305,6 +432,10 @@ internal object BpmnHtml {
                 const incidentIds = $incidentJson;
                 const completedCounts = $completedJson;
                 const clickableIds = $clickableJson;
+                const navigationTargets = $navigationJson;
+                const currentDiagramName = $currentDiagramNameJson;
+                const parentDiagramId = $parentDiagramIdJson;
+                const parentDiagramName = $parentDiagramNameJson;
                 const embeddedSvgCss = $embeddedSvgCssJson;
                 const elementById = new Map();
                 const hitById = new Map();
@@ -316,6 +447,7 @@ internal object BpmnHtml {
                 let pendingPanY = 0;
                 let pendingZoomFactor = 1;
                 let stage = null;
+                const navigationButtons = [];
                 let stageScale = 1;
                 let stageX = 0;
                 let stageY = 0;
@@ -327,6 +459,20 @@ internal object BpmnHtml {
                 let sharpRenderTimer = 0;
                 let sharpRenderToken = 0;
                 let sharpImageUrl = null;
+                const diagramBack = document.getElementById('diagram-back');
+                const diagramTitle = document.getElementById('diagram-title');
+                diagramTitle.textContent = currentDiagramName;
+                if (!parentDiagramId) {
+                  diagramBack.style.display = 'none';
+                } else {
+                  diagramBack.title = 'Вернуться к схеме: ' + (parentDiagramName || parentDiagramId);
+                  diagramBack.addEventListener('click', event => {
+                    event.stopPropagation();
+                    if (window.supportBridge && window.supportBridge.onDiagramNavigate) {
+                      window.supportBridge.onDiagramNavigate(String(parentDiagramId));
+                    }
+                  });
+                }
                 const hideSharpViewport = () => {
                   sharpRenderToken += 1;
                   if (sharpRenderTimer) clearTimeout(sharpRenderTimer);
@@ -378,18 +524,30 @@ internal object BpmnHtml {
                 };
                 const applyTransform = () => {
                   if (!stage) return;
-                  stage.style.transform = 'translate3d(' + stageX + 'px,' + stageY + 'px,0) scale(' + stageScale + ')';
+                  const transform = 'translate3d(' + stageX + 'px,' + stageY + 'px,0) scale(' + stageScale + ')';
+                  stage.style.transform = transform;
+                  const canvasRect = canvas.getBoundingClientRect();
+                  navigationButtons.forEach(button => {
+                    button.style.left = (
+                      canvasRect.left + stageX + Number(button.dataset.sourceCenterX) * stageScale - 15
+                    ) + 'px';
+                    button.style.top = (
+                      canvasRect.top + stageY + Number(button.dataset.sourceTop) * stageScale
+                    ) + 'px';
+                  });
                   scheduleSharpViewport();
                 };
                 const fitDiagram = () => {
                   if (!stage) return;
+                  const navigationReserve = Object.keys(navigationTargets).length ? 42 : 0;
+                  const availableHeight = Math.max(1, canvas.clientHeight - navigationReserve);
                   fitScale = Math.max(0.0001, Math.min(
                     canvas.clientWidth / stageWidth,
-                    canvas.clientHeight / stageHeight
-                  ) * 0.96);
+                    availableHeight / stageHeight
+                  ) * 0.92);
                   stageScale = fitScale;
                   stageX = (canvas.clientWidth - stageWidth * stageScale) / 2;
-                  stageY = (canvas.clientHeight - stageHeight * stageScale) / 2;
+                  stageY = (availableHeight - stageHeight * stageScale) / 2;
                   applyTransform();
                 };
                 const flushInteraction = () => {
@@ -546,6 +704,35 @@ internal object BpmnHtml {
                       event.stopPropagation();
                       window.supportSelectActivity(id);
                     });
+                  });
+                  Object.entries(navigationTargets).forEach(([id, name]) => {
+                    const element = elementById.get(id);
+                    const visual = element?.querySelector('.djs-visual') || element;
+                    if (!visual) return;
+                    const rect = visual.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'support-drilldown';
+                    button.textContent = '↘';
+                    button.title = 'Открыть подпроцесс: ' + name;
+                    button.setAttribute('aria-label', button.title);
+                    button.dataset.sourceCenterX = String(rect.left - svgRect.left + rect.width / 2);
+                    button.dataset.sourceTop = String(rect.top - svgRect.top + rect.height + 5);
+                    let navigationRequested = false;
+                    const navigateToDiagram = event => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (navigationRequested) return;
+                      navigationRequested = true;
+                      if (window.supportBridge && window.supportBridge.onDiagramNavigate) {
+                        window.supportBridge.onDiagramNavigate(String(id));
+                      }
+                    };
+                    button.addEventListener('mousedown', navigateToDiagram);
+                    button.addEventListener('click', navigateToDiagram);
+                    navigationButtons.push(button);
+                    document.body.appendChild(button);
                   });
 
                   serializedSvg = new XMLSerializer().serializeToString(svg);
