@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    id="Definitions_drzi_fixture"
+    targetNamespace="http://example.com/camunda-support/tests">
+  <bpmn:process id="drzi" name="drzi" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_root">
+      <bpmn:outgoing>Flow_root_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:subProcess id="Activity_1gooqz2" name="Подготовить изменения">
+      <bpmn:incoming>Flow_root_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_root_2</bpmn:outgoing>
+      <bpmn:startEvent id="StartEvent_prepare">
+        <bpmn:outgoing>Flow_prepare_1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="Activity_0soegtg" name="Подготовить задачу">
+        <bpmn:incoming>Flow_prepare_1</bpmn:incoming>
+        <bpmn:outgoing>Flow_prepare_2</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="EndEvent_prepare">
+        <bpmn:incoming>Flow_prepare_2</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_prepare_1" sourceRef="StartEvent_prepare" targetRef="Activity_0soegtg"/>
+      <bpmn:sequenceFlow id="Flow_prepare_2" sourceRef="Activity_0soegtg" targetRef="EndEvent_prepare"/>
+    </bpmn:subProcess>
+    <bpmn:subProcess id="Activity_1xqooxf" name="Согласовать изменения">
+      <bpmn:incoming>Flow_root_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_root_3</bpmn:outgoing>
+      <bpmn:startEvent id="StartEvent_approve">
+        <bpmn:outgoing>Flow_approve_1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="Activity_approve" name="Согласовать">
+        <bpmn:incoming>Flow_approve_1</bpmn:incoming>
+        <bpmn:outgoing>Flow_approve_2</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:endEvent id="EndEvent_approve">
+        <bpmn:incoming>Flow_approve_2</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_approve_1" sourceRef="StartEvent_approve" targetRef="Activity_approve"/>
+      <bpmn:sequenceFlow id="Flow_approve_2" sourceRef="Activity_approve" targetRef="EndEvent_approve"/>
+    </bpmn:subProcess>
+    <bpmn:endEvent id="EndEvent_root">
+      <bpmn:incoming>Flow_root_3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_root_1" sourceRef="StartEvent_root" targetRef="Activity_1gooqz2"/>
+    <bpmn:sequenceFlow id="Flow_root_2" sourceRef="Activity_1gooqz2" targetRef="Activity_1xqooxf"/>
+    <bpmn:sequenceFlow id="Flow_root_3" sourceRef="Activity_1xqooxf" targetRef="EndEvent_root"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_root">
+    <bpmndi:BPMNPlane id="BPMNPlane_root" bpmnElement="drzi">
+      <bpmndi:BPMNShape id="Shape_StartEvent_root" bpmnElement="StartEvent_root">
+        <dc:Bounds x="120" y="162" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Activity_1gooqz2" bpmnElement="Activity_1gooqz2" isExpanded="false">
+        <dc:Bounds x="220" y="120" width="130" height="120"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Activity_1xqooxf" bpmnElement="Activity_1xqooxf" isExpanded="false">
+        <dc:Bounds x="430" y="120" width="130" height="120"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_root" bpmnElement="EndEvent_root">
+        <dc:Bounds x="640" y="162" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_root_1" bpmnElement="Flow_root_1">
+        <di:waypoint x="156" y="180"/>
+        <di:waypoint x="220" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_root_2" bpmnElement="Flow_root_2">
+        <di:waypoint x="350" y="180"/>
+        <di:waypoint x="430" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_root_3" bpmnElement="Flow_root_3">
+        <di:waypoint x="560" y="180"/>
+        <di:waypoint x="640" y="180"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_prepare">
+    <bpmndi:BPMNPlane id="BPMNPlane_prepare" bpmnElement="Activity_1gooqz2">
+      <bpmndi:BPMNShape id="Shape_StartEvent_prepare" bpmnElement="StartEvent_prepare">
+        <dc:Bounds x="120" y="162" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Activity_0soegtg" bpmnElement="Activity_0soegtg">
+        <dc:Bounds x="240" y="140" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_prepare" bpmnElement="EndEvent_prepare">
+        <dc:Bounds x="470" y="162" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_prepare_1" bpmnElement="Flow_prepare_1">
+        <di:waypoint x="156" y="180"/>
+        <di:waypoint x="240" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_prepare_2" bpmnElement="Flow_prepare_2">
+        <di:waypoint x="380" y="180"/>
+        <di:waypoint x="470" y="180"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_approve">
+    <bpmndi:BPMNPlane id="BPMNPlane_approve" bpmnElement="Activity_1xqooxf">
+      <bpmndi:BPMNShape id="Shape_StartEvent_approve" bpmnElement="StartEvent_approve">
+        <dc:Bounds x="120" y="162" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Activity_approve" bpmnElement="Activity_approve">
+        <dc:Bounds x="240" y="140" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_approve" bpmnElement="EndEvent_approve">
+        <dc:Bounds x="470" y="162" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_approve_1" bpmnElement="Flow_approve_1">
+        <di:waypoint x="156" y="180"/>
+        <di:waypoint x="240" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_approve_2" bpmnElement="Flow_approve_2">
+        <di:waypoint x="380" y="180"/>
+        <di:waypoint x="470" y="180"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
