@@ -1,10 +1,52 @@
+<script module lang="ts">
+  interface CameraState {
+    rootId: string | null;
+    viewbox: { x: number; y: number; width: number; height: number };
+  }
+
+  // Камера (зум, положение, открытый подпроцесс) запоминается по тексту схемы и переживает обновления и смену вкладок.
+  const cameraByXml = new Map<string, CameraState>();
+  const CAMERA_LIMIT = 24;
+
+  function rememberCamera(xml: string, instance: any) {
+    try {
+      const canvas = instance.get("canvas");
+      const root = canvas.getRootElement();
+      cameraByXml.delete(xml);
+      cameraByXml.set(xml, { rootId: root?.id ?? null, viewbox: canvas.viewbox() });
+      if (cameraByXml.size > CAMERA_LIMIT) cameraByXml.delete(cameraByXml.keys().next().value!);
+    } catch {
+      // Схема ещё не загружена — запоминать нечего.
+    }
+  }
+
+  function restoreCamera(xml: string, instance: any): boolean {
+    const saved = cameraByXml.get(xml);
+    if (!saved) return false;
+    try {
+      const canvas = instance.get("canvas");
+      const elementRegistry = instance.get("elementRegistry");
+      if (saved.rootId) {
+        const root = elementRegistry.get(saved.rootId);
+        if (root && root !== canvas.getRootElement()) canvas.setRootElement(root);
+      }
+      canvas.viewbox(saved.viewbox);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+</script>
+
 <script lang="ts">
   import NavigatedViewer from "bpmn-js/lib/NavigatedViewer";
   import "bpmn-js/dist/assets/diagram-js.css";
   import "bpmn-js/dist/assets/bpmn-js.css";
   import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
+  import { onDestroy } from "svelte";
   import { theme } from "../state/theme.svelte";
   import { fadeFast } from "../motion";
+
 
   interface Props {
     xml: string;
@@ -33,8 +75,11 @@
       : { defaultFillColor: "#ffffff", defaultStrokeColor: "#1f2a24", defaultLabelColor: "#1f2a24" },
   );
 
+  let renderedTheme = "";
+
   function destroyViewer() {
     if (viewer) {
+      if (importedXml) rememberCamera(importedXml, viewer);
       viewer.destroy();
       viewer = null;
     }
@@ -52,8 +97,9 @@
       await instance.importXML(source);
       if (viewer !== instance) return;
       importedXml = source;
+      renderedTheme = theme.mode;
       const canvas = instance.get("canvas") as any;
-      canvas.zoom("fit-viewport", "auto");
+      if (!restoreCamera(source, instance)) canvas.zoom("fit-viewport", "auto");
       zoomLevel = canvas.zoom();
       const eventBus = instance.get("eventBus") as any;
       clickHandler = (event: any) => {
@@ -63,7 +109,9 @@
       eventBus.on("element.click", clickHandler);
       eventBus.on("canvas.viewbox.changed", () => {
         zoomLevel = canvas.zoom();
+        rememberCamera(source, instance);
       });
+      eventBus.on("root.set", () => rememberCamera(source, instance));
       ready = true;
       applyMarkers();
     } catch (failure) {
@@ -129,14 +177,18 @@
     }
   }
 
+  // Пересоздаём viewer только когда реально сменилась схема или тема; обновление данных заявки камеру не трогает.
   $effect(() => {
     const host = container;
     const colors = palette;
     const source = xml;
+    const mode = theme.mode;
     if (!host || !source.trim()) return;
+    if (viewer && importedXml === source && renderedTheme === mode) return;
     void createViewer(host, colors, source);
-    return () => destroyViewer();
   });
+
+  onDestroy(() => destroyViewer());
 
   $effect(() => {
     activeIds;
