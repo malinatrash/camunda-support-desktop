@@ -1857,8 +1857,8 @@ mod tests {
             .respond_with(json_response(
                 200,
                 r#"[
-                    {"id":"done-1","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-15T08:00:00.000+0800","endTime":"2026-07-15T08:30:00.000+0800","state":"COMPLETED"},
-                    {"id":"done-2","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-16T08:00:00.000+0800","endTime":"2026-07-16T10:00:00.000+0800","state":"COMPLETED"}
+                    {"id":"done-1","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-15T10:00:00.000+0000","endTime":"2026-07-15T10:30:00.000+0000","state":"COMPLETED"},
+                    {"id":"done-2","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-16T10:00:00.000+0000","endTime":"2026-07-16T12:00:00.000+0000","state":"COMPLETED"}
                 ]"#,
             ))
             .mount(&server)
@@ -1869,9 +1869,9 @@ mod tests {
             "/engine-rest/history/process-instance",
             200,
             r#"[
-                {"id":"started-1","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-15T08:00:00.000+0800"},
-                {"id":"started-2","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-15T11:00:00.000+0800"},
-                {"id":"started-3","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-16T08:00:00.000+0800"}
+                {"id":"started-1","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-15T10:00:00.000+0000"},
+                {"id":"started-2","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-15T13:00:00.000+0000"},
+                {"id":"started-3","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-07-16T10:00:00.000+0000"}
             ]"#,
         )
         .await;
@@ -1881,8 +1881,8 @@ mod tests {
             "/engine-rest/history/incident",
             200,
             r#"[
-                {"id":"incident-1","incidentType":"failedJob","failedActivityId":"sendDocuments","processDefinitionId":"alpha:2:abc","processInstanceId":"started-1","createTime":"2026-07-15T09:00:00.000+0800"},
-                {"id":"incident-2","incidentType":"failedExternalTask","failedActivityId":"sendDocuments","processDefinitionId":"alpha:2:abc","processInstanceId":"started-3","createTime":"2026-07-16T09:00:00.000+0800"}
+                {"id":"incident-1","incidentType":"failedJob","failedActivityId":"sendDocuments","processDefinitionId":"alpha:2:abc","processInstanceId":"started-1","createTime":"2026-07-15T11:00:00.000+0000"},
+                {"id":"incident-2","incidentType":"failedExternalTask","failedActivityId":"sendDocuments","processDefinitionId":"alpha:2:abc","processInstanceId":"started-3","createTime":"2026-07-16T11:00:00.000+0000"}
             ]"#,
         )
         .await;
@@ -1892,9 +1892,9 @@ mod tests {
             "/engine-rest/history/activity-instance",
             200,
             r#"[
-                {"id":"activity-ancient","activityId":"sendDocuments","activityName":"Отправить документы","activityType":"serviceTask","processDefinitionId":"alpha:2:abc","processInstanceId":"ancient-300-days","startTime":"2025-09-19T08:00:00.000+0800"},
-                {"id":"activity-old","activityId":"sendDocuments","activityName":"Отправить документы","activityType":"serviceTask","processDefinitionId":"alpha:2:abc","processInstanceId":"started-1","startTime":"2026-07-15T08:00:00.000+0800"},
-                {"id":"activity-new","activityId":"sendDocuments","activityName":"Отправить документы","activityType":"serviceTask","processDefinitionId":"alpha:2:abc","processInstanceId":"started-3","startTime":"2026-07-16T08:00:00.000+0800"}
+                {"id":"activity-ancient","activityId":"sendDocuments","activityName":"Отправить документы","activityType":"serviceTask","processDefinitionId":"alpha:2:abc","processInstanceId":"ancient-300-days","startTime":"2025-09-19T10:00:00.000+0000"},
+                {"id":"activity-old","activityId":"sendDocuments","activityName":"Отправить документы","activityType":"serviceTask","processDefinitionId":"alpha:2:abc","processInstanceId":"started-1","startTime":"2026-07-15T10:00:00.000+0000"},
+                {"id":"activity-new","activityId":"sendDocuments","activityName":"Отправить документы","activityType":"serviceTask","processDefinitionId":"alpha:2:abc","processInstanceId":"started-3","startTime":"2026-07-16T10:00:00.000+0000"}
             ]"#,
         )
         .await;
@@ -1930,9 +1930,9 @@ mod tests {
         assert_eq!(waiting.activity_name.as_deref(), Some("Отправить документы"));
         assert_eq!(waiting.instance_count, 2);
         assert_eq!(waiting.oldest_process_instance_id, "started-1");
-        assert_eq!(waiting.maximum_waiting_millis, 129_600_000);
-        assert_eq!(waiting.average_waiting_millis, 86_400_000);
-        assert_eq!(waiting.oldest_started_at.as_deref(), Some("2026-07-15T08:00:00.000+0800"));
+        assert_eq!(waiting.maximum_waiting_millis, 93_600_000);
+        assert_eq!(waiting.average_waiting_millis, 50_400_000);
+        assert_eq!(waiting.oldest_started_at.as_deref(), Some("2026-07-15T10:00:00.000+0000"));
         assert!(!dashboard.timeline_truncated);
         let xml_route = "/engine-rest/process-definition/alpha%3A2%3Aabc/xml";
         let xml_requests = requests_to(&server, xml_route).await.len();
