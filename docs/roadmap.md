@@ -1,6 +1,6 @@
 # Дорожная карта
 
-Актуальное состояние: 17 июля 2026 года.
+Актуальное состояние: 23 октября 2026 года.
 
 ## Foundation — выполнено
 
@@ -8,8 +8,8 @@
 
 - [x] Общее описание и информационная архитектура
 - [x] Дизайн-концепт и язык окружений
-- [x] Kotlin Multiplatform с desktop JVM target
-- [x] Compose Desktop application shell
+- [x] Rust + Tauri 2 desktop shell (заменил Kotlin Multiplatform / Compose Desktop)
+- [x] Интерфейс на Svelte 5 с анимациями переходов, списков и диаграмм
 - [x] Абстракция локального connection repository
 - [x] Sidebar connections и навигация
 - [x] Форма создания connection и валидация
@@ -18,8 +18,9 @@
 - [x] Автоматическое построение Cockpit URL из домена REST с ручным override
 - [x] Светлая тема и полностью русский интерфейс
 - [x] Unit-тесты и runtime-проверка macOS
-- [ ] CI-сборки на macOS и Windows
-- [ ] Стратегия code signing и распространения
+- [x] CI-сборки на macOS, Windows и Ubuntu через GitHub Actions
+- [x] Автообновление через GitHub Releases с проверкой SHA-256
+- [ ] Стратегия code signing
 
 ## MVP 1 — Read-only расследование
 
@@ -53,7 +54,7 @@
 - [x] Показывать подробную hover-карточку процесса и явные переходы в процесс и incidents
 - [x] Показывать расширенные сведения definition: version tag, TTL, resource, deployment и Tasklist state
 - [x] Передавать выбранный период на экран процесса и показывать разные historic instances
-- [x] BPMN через embedded `bpmn-js` с подсветкой активных элементов и incidents
+- [x] BPMN через `bpmn-js` в webview с подсветкой активных элементов, incidents и drilldown в подпроцессы
 - [ ] Нативные BPMN-превью в карточках дашборда
 - [ ] Экспорт снимка dashboard в CSV/XLSX
 

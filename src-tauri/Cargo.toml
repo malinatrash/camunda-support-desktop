@@ -1,0 +1,47 @@
+[package]
+name = "camunda-support"
+version = "2.0.0"
+description = "Desktop console for Camunda support operations"
+authors = ["malinatrash"]
+edition = "2021"
+rust-version = "1.90"
+
+[lib]
+name = "camunda_support_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "time", "process"] }
+futures-util = "0.3"
+sha2 = "0.10"
+roxmltree = "0.20"
+chrono = { version = "0.4", features = ["clock"] }
+thiserror = "2"
+urlencoding = "2"
+log = "0.4"
+env_logger = "0.11"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[dev-dependencies]
+wiremock = "0.6"
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

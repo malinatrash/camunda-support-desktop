@@ -3,7 +3,7 @@ set -euo pipefail
 
 tag="${1:-}"
 if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Использование: ./scripts/release.sh v1.3.0" >&2
+  echo "Использование: ./scripts/release.sh v2.0.0" >&2
   exit 1
 fi
 
@@ -33,7 +33,14 @@ if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null || \
   exit 1
 fi
 
-./gradlew --no-daemon :composeApp:desktopTest
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test
+(cd src-tauri && cargo test)
+
+node scripts/set-version.mjs "$tag"
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+git commit -m "release: ${tag#v}"
 git tag -a "$tag" -m "Camunda Support ${tag#v}"
 git push --atomic origin main "$tag"
 
