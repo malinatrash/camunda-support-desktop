@@ -40,7 +40,9 @@ pnpm test
 
 node scripts/set-version.mjs "$tag"
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-git commit -m "release: ${tag#v}"
+if ! git diff --cached --quiet; then
+  git commit -m "release: ${tag#v}"
+fi
 git tag -a "$tag" -m "Camunda Support ${tag#v}"
 git push --atomic origin main "$tag"
 
