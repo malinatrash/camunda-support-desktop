@@ -1,0 +1,29 @@
+[package]
+name = "camunda-support"
+version = "2.2.1"
+description = "Desktop console for Camunda support operations"
+authors = ["malinatrash"]
+build = "build.rs"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "camunda-support"
+path = "src/main.rs"
+
+[dependencies]
+camunda-core = { path = "../crates/camunda-core" }
+gpui-kit = "0.9"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+dirs = "6"
+futures = "0.3"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+opt-level = 3
+strip = true

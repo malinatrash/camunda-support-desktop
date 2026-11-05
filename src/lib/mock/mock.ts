@@ -27,6 +27,7 @@ function definition(key: string, name: string, version: number, instances: numbe
     tenantId: null,
     suspended: false,
     deploymentId: `dep-${key}-${version}`,
+    deploymentTime: new Date(Date.UTC(2026, 9, 1 + version)).toISOString(),
     instances,
     incidents,
     versionTag: null,

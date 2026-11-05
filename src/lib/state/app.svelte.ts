@@ -58,6 +58,7 @@ export class AppStore {
   destination = $state<AppDestination>("Overview");
   isConnectionDialogOpen = $state(false);
   selectedProcessDefinitionId = $state<string | null>(null);
+  selectedProcessDefinitionAllVersions = $state(false);
   selectedProcessInstanceId = $state<string | null>(null);
   selectedDashboardDateFilter = $state<DashboardDateFilter>(LIVE_FILTER);
   selectedIncidentProcessDefinitionId = $state<string | null>(null);
@@ -104,8 +105,9 @@ export class AppStore {
     this.go("Incidents");
   }
 
-  openProcessDefinition(processDefinitionId: string, dateFilter: DashboardDateFilter = LIVE_FILTER) {
+  openProcessDefinition(processDefinitionId: string, dateFilter: DashboardDateFilter = LIVE_FILTER, allVersions = false) {
     this.selectedProcessDefinitionId = processDefinitionId;
+    this.selectedProcessDefinitionAllVersions = allVersions;
     this.selectedDashboardDateFilter = dateFilter;
     this.selectedProcessInstanceId = null;
     this.activeProcessTabId = null;

@@ -1,12 +1,7 @@
-pub mod camunda;
 mod commands;
-mod connection;
-mod deep_link;
-mod migration;
-pub mod models;
-mod release_stats;
-mod storage;
-mod updater;
+
+pub use camunda_core::{camunda, models};
+use camunda_core::{connection, deep_link, migration, release_stats, storage, updater};
 
 use std::sync::{Arc, Mutex};
 
@@ -50,7 +45,7 @@ pub fn run() {
                 .app_data_dir()
                 .unwrap_or_else(|_| std::env::temp_dir().join("camunda-support"));
             let storage = Arc::new(Storage::new(data_dir));
-            migrate_legacy_preferences(&storage);
+            migration::migrate_legacy_preferences(&storage);
 
             let client = camunda::http::camunda_client();
             let state = AppState {
@@ -106,23 +101,6 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-// Один раз переносит подключения и тему из java.util.prefs старой Kotlin-версии.
-fn migrate_legacy_preferences(storage: &Storage) {
-    if storage.has_connections_file() {
-        return;
-    }
-    let legacy = migration::read_legacy_preferences();
-    if !legacy.connections.is_empty() {
-        log::info!("перенесено подключений из старой версии: {}", legacy.connections.len());
-        storage.replace_connections(legacy.connections);
-    } else {
-        storage.replace_connections(Vec::new());
-    }
-    if let (Some(theme), None) = (legacy.theme, storage.load_theme()) {
-        storage.save_theme(theme);
-    }
 }
 
 fn apply_saved_theme(app: &tauri::AppHandle) {

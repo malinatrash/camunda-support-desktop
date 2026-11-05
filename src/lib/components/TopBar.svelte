@@ -86,6 +86,9 @@
     border-bottom: 1px solid var(--border);
     background: var(--surface-2);
   }
+  :global([data-shell="tauri"][data-platform="macos"]) .topbar {
+    padding-left: 88px;
+  }
   .switcher {
     position: relative;
   }

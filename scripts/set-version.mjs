@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Записывает версию релиза (из тега vX.Y.Z или аргумента X.Y.Z) в package.json, tauri.conf.json и Cargo.toml.
+// Записывает версию релиза (из тега vX.Y.Z или аргумента X.Y.Z) в Cargo.toml и Cargo.lock нативного приложения.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,19 +21,7 @@ function rewrite(file, transform) {
   console.log(`${file}: ${version}`);
 }
 
-rewrite("package.json", (text) => {
-  const json = JSON.parse(text);
-  json.version = version;
-  return `${JSON.stringify(json, null, 2)}\n`;
-});
-rewrite("src-tauri/tauri.conf.json", (text) => {
-  const json = JSON.parse(text);
-  json.version = version;
-  return `${JSON.stringify(json, null, 2)}\n`;
-});
-rewrite("src-tauri/Cargo.toml", (text) =>
-  text.replace(/^version = "[^"]+"/m, `version = "${version}"`),
-);
-rewrite("src-tauri/Cargo.lock", (text) =>
+rewrite("native/Cargo.toml", (text) => text.replace(/^version = "[^"]+"/m, `version = "${version}"`));
+rewrite("native/Cargo.lock", (text) =>
   text.replace(/(\[\[package\]\]\nname = "camunda-support"\nversion = ")[^"]+(")/, `$1${version}$2`),
 );

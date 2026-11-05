@@ -149,7 +149,6 @@ pub fn process_instance_deep_link(connection: &CamundaConnection, process_instan
 }
 
 // Проверяет, относится ли домен ссылки к Cockpit или REST адресу подключения.
-#[cfg(test)]
 pub fn matches_origin(connection: &CamundaConnection, origin: &str) -> bool {
     let Some(normalized_origin) = normalized_web_origin(origin) else {
         return false;

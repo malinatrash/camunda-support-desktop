@@ -1,0 +1,8 @@
+This package distributes fonts, licensed under OFL-1.1.
+
+-  jetbrains-mono/ contains fonts from https://github.com/JetBrains/JetBrainsMono
+   Please see jetbrains-mono/OFL.txt for more details
+-  gitlab-mono/ contains fonts based on JetBrainsMono
+   Please see gitlab-mono/OFL.txt for more details
+-  gitlab-sans/ contains fonts based on Inter https://github.com/rsms/inter
+   Please see gitlab-sans/LICENSE.txt for more details

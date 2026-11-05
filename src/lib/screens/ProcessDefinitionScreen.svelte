@@ -18,7 +18,7 @@
   let { connection, processDefinitionId }: { connection: CamundaConnection; processDefinitionId: string } = $props();
 
   let filter = $state<DashboardDateFilter>(app.selectedDashboardDateFilter);
-  let versionId = $state<string | null>(untrack(() => processDefinitionId));
+  let versionId = $state<string | null>(untrack(() => (app.selectedProcessDefinitionAllVersions ? null : processDefinitionId)));
   let versions = $state<ProcessDefinitionSummary[]>([]);
   let details = $state<ProcessDefinitionDetails | null>(null);
   let error = $state<string | null>(null);

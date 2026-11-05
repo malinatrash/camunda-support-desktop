@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::connection::{connection_id, derive_cockpit_url};
 use crate::models::{AppThemeMode, CamundaConnection, Environment};
+use crate::storage::Storage;
 
 // Данные старой Kotlin-версии, прочитанные из java.util.prefs этого пользователя.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -20,6 +21,21 @@ pub struct LegacyNodes {
 const CONNECTION_KEYS: [&str; 5] = ["name", "restUrl", "cockpitUrl", "environment", "engineVersion"];
 
 // Читает подключения и тему старой версии (java.util.prefs) на текущей ОС; при любой проблеме — пусто.
+// Один раз переносит подключения и тему из java.util.prefs старой Kotlin-версии.
+pub fn migrate_legacy_preferences(storage: &Storage) {
+    if storage.has_connections_file() {
+        return;
+    }
+    let legacy = read_legacy_preferences();
+    if !legacy.connections.is_empty() {
+        log::info!("перенесено подключений из старой версии: {}", legacy.connections.len());
+    }
+    storage.replace_connections(legacy.connections);
+    if let (Some(theme), None) = (legacy.theme, storage.load_theme()) {
+        storage.save_theme(theme);
+    }
+}
+
 pub fn read_legacy_preferences() -> LegacyPreferences {
     build_legacy_preferences(read_legacy_nodes().unwrap_or_default())
 }

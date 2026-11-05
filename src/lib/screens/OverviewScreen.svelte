@@ -20,6 +20,7 @@
   let tab = $state<"errors" | "waiting">("errors");
   let processQuery = $state("");
   let expandedGroup = $state<string | null>(null);
+  let expandedProcess = $state<string | null>(null);
   let retryGroup = $state<IncidentGroup | null>(null);
   let retryBusy = $state(false);
   let now = $state(Date.now());
@@ -74,10 +75,41 @@
   const processes = $derived.by(() => {
     if (!dashboard) return [];
     const needle = processQuery.trim();
-    return dashboard.definitions
-      .filter((d) => !needle || contains(d.name, needle) || contains(d.key, needle) || contains(d.tenantId, needle))
-      .sort((a, b) => b.incidents - a.incidents || b.instances - a.instances || displayName(a).localeCompare(displayName(b)) || b.version - a.version);
+    const byKey = new Map<string, ProcessDefinitionSummary[]>();
+    for (const d of dashboard.definitions) {
+      if (needle && !contains(d.name, needle) && !contains(d.key, needle) && !contains(d.tenantId, needle)) continue;
+      const id = `${d.key}|${d.tenantId ?? ""}`;
+      byKey.set(id, [...(byKey.get(id) ?? []), d]);
+    }
+    return [...byKey].map(([id, versions]): ProcessGroup => {
+      versions.sort((a, b) => deployedAt(b) - deployedAt(a) || b.version - a.version);
+      const latest = versions.reduce((top, d) => (d.version > top.version ? d : top));
+      return {
+        id,
+        latest,
+        versions,
+        instances: versions.reduce((sum, d) => sum + d.instances, 0),
+        incidents: versions.reduce((sum, d) => sum + d.incidents, 0),
+      };
+    }).sort((a, b) => b.incidents - a.incidents || b.instances - a.instances || displayName(a.latest).localeCompare(displayName(b.latest)));
   });
+
+  interface ProcessGroup {
+    id: string;
+    latest: ProcessDefinitionSummary;
+    versions: ProcessDefinitionSummary[];
+    instances: number;
+    incidents: number;
+  }
+
+  function deployedAt(definition: ProcessDefinitionSummary): number {
+    const value = definition.deploymentTime ? Date.parse(definition.deploymentTime.replace(/([+-]\d{2})(\d{2})$/, "$1:$2")) : NaN;
+    return Number.isNaN(value) ? 0 : value;
+  }
+
+  function deployedLabel(definition: ProcessDefinitionSummary): string {
+    return definition.deploymentTime ? definition.deploymentTime.slice(0, 16).replace("T", " ") : "дата неизвестна";
+  }
 
   function displayName(definition: ProcessDefinitionSummary): string {
     return definition.name?.trim() || definition.key;
@@ -203,22 +235,43 @@
 
         <section class="section">
           <div class="section-head">
-            <span class="section-title">Процессы <span class="counter">{dashboard.definitions.length}</span></span>
+            <span class="section-title">Процессы <span class="counter">{processes.length}</span></span>
             <span class="grow"></span>
             <input class="filter" type="search" placeholder="Фильтр" bind:value={processQuery} />
           </div>
           <div class="process-head faint">
             <span class="grow">Процесс</span><span class="num">{live ? "в работе" : "стартов"}</span><span class="num">инциденты</span>
           </div>
-          {#each processes as definition (definition.id)}
-            <button type="button" class="process" onclick={() => app.openProcessDefinition(definition.id, filter)}>
-              <span class="col grow">
-                <span class="truncate">{displayName(definition)}</span>
-                <span class="faint mono meta truncate">{definition.key} · v{definition.version}{definition.suspended ? " · пауза" : ""}</span>
-              </span>
-              <span class="num mono">{grouped(definition.instances)}</span>
-              <span class="num mono">{#if definition.incidents > 0}<span class="pill pill-danger">{definition.incidents}</span>{:else}<span class="faint">0</span>{/if}</span>
-            </button>
+          {#each processes as group (group.id)}
+            {@const open = expandedProcess === group.id}
+            <div class="process-group" class:open>
+              <button type="button" class="process" onclick={() => (expandedProcess = open ? null : group.id)}>
+                <span class="chevron-cell"><Icon name="chevron" size={14} class={open ? "chevron" : "chevron collapsed"} /></span>
+                <span class="col grow">
+                  <span class="truncate">{displayName(group.latest)}</span>
+                  <span class="faint mono meta truncate">{group.latest.key} · v{group.latest.version}{group.versions.length > 1 ? ` · версий ${group.versions.length}` : ""}{group.latest.suspended ? " · пауза" : ""}</span>
+                </span>
+                <span class="num mono">{grouped(group.instances)}</span>
+                <span class="num mono">{#if group.incidents > 0}<span class="pill pill-danger">{group.incidents}</span>{:else}<span class="faint">0</span>{/if}</span>
+              </button>
+              {#if open}
+                <div class="versions" transition:expand={{ duration: 160 }}>
+                  <button type="button" class="version all" onclick={() => app.openProcessDefinition(group.latest.id, filter, true)}>
+                    <span class="grow">Все версии</span>
+                    <span class="num mono">{grouped(group.instances)}</span>
+                    <span class="num"></span>
+                  </button>
+                  {#each group.versions as version (version.id)}
+                    <button type="button" class="version" onclick={() => app.openProcessDefinition(version.id, filter)}>
+                      <span class="version-name mono">v{version.version}</span>
+                      <span class="grow faint meta truncate">{deployedLabel(version)}{version.versionTag ? ` · ${version.versionTag}` : ""}{version.suspended ? " · пауза" : ""}</span>
+                      <span class="num mono">{grouped(version.instances)}</span>
+                      <span class="num mono">{#if version.incidents > 0}<span class="pill pill-danger">{version.incidents}</span>{:else}<span class="faint">0</span>{/if}</span>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           {:else}
             <p class="calm">Процессы не найдены</p>
           {/each}
@@ -479,5 +532,54 @@
     width: 80px;
     flex: none;
     text-align: right;
+  }
+  .process-group {
+    border-bottom: 1px solid var(--border);
+  }
+  .process-group .process {
+    border-bottom: 0;
+  }
+  .process-group.open {
+    background: var(--surface-2);
+  }
+  .chevron-cell {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    flex: none;
+    color: var(--ink-3);
+  }
+  .chevron-cell :global(.collapsed) {
+    transform: rotate(-90deg);
+  }
+  .versions {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 4px;
+  }
+  .version {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 6px 12px 6px 40px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font-size: var(--text-md);
+  }
+  .version:hover {
+    background: var(--row-hover);
+  }
+  .version:hover .version-name,
+  .version.all:hover .grow {
+    color: var(--accent);
+  }
+  .version.all {
+    font-weight: 500;
+  }
+  .version-name {
+    width: 44px;
+    flex: none;
   }
 </style>

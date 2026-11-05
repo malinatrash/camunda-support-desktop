@@ -86,6 +86,7 @@
 
   onMount(() => {
     document.documentElement.dataset.platform = navigator.userAgent.includes("Mac") ? "macos" : "other";
+    document.documentElement.dataset.shell = inTauri ? "tauri" : "browser";
     void theme.load();
     void app.load().then(drainDeepLinks);
     void updates.start();

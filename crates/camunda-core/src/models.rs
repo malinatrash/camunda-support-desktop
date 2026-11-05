@@ -116,6 +116,7 @@ pub struct ProcessDefinitionSummary {
     pub tenant_id: Option<String>,
     pub suspended: bool,
     pub deployment_id: Option<String>,
+    pub deployment_time: Option<String>,
     pub instances: i32,
     pub incidents: i32,
     pub version_tag: Option<String>,

@@ -42,6 +42,7 @@ export interface ProcessDefinitionSummary {
   tenantId: string | null;
   suspended: boolean;
   deploymentId: string | null;
+  deploymentTime: string | null;
   instances: number;
   incidents: number;
   versionTag: string | null;

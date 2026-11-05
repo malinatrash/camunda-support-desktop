@@ -471,9 +471,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "camunda-core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures-util",
+ "log",
+ "reqwest 0.12.28",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "tokio",
+ "urlencoding",
+ "winreg 0.55.0",
+]
+
+[[package]]
 name = "camunda-support"
 version = "2.2.1"
 dependencies = [
+ "camunda-core",
  "chrono",
  "env_logger",
  "futures-util",

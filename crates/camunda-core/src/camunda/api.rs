@@ -119,7 +119,7 @@ impl CamundaApi {
             .map_err(|error| http::user_message(&error, &definitions_url))
     }
 
-    // Каждая версия процесса отдельной строкой со своими счётчиками.
+    // Каждая версия приходит отдельно со своими счётчиками и датой деплоя, в процесс их сворачивает интерфейс.
     async fn dashboard(
         &self,
         connection: &CamundaConnection,
@@ -130,6 +130,7 @@ impl CamundaApi {
         let range = dates::dashboard_range(date_filter).map_err(ApiError::Invalid)?;
         let live = date_filter.is_live();
         let statistics_url = format!("{rest_url}/process-definition/statistics?incidents=true");
+        let deployments_url = format!("{rest_url}/deployment?sortBy=deploymentTime&sortOrder=desc");
         let completed_count_url = format!(
             "{rest_url}/history/process-instance/count?completed=true&finishedAfter={}&finishedBefore={}",
             encode(&range.after),
@@ -155,9 +156,10 @@ impl CamundaApi {
         let unfinished_activities = async { self.load_unfinished_activities(connection).await.unwrap_or_default() };
         let completed_count =
             async { self.get(&completed_count_url).await.ok().and_then(|body| parse_count(&body).ok()) };
+        let deployment_times = async { self.get(&deployments_url).await.ok().and_then(|body| parse_deployment_times(&body).ok()).unwrap_or_default() };
 
-        let (definitions, statistics, incidents, unfinished, completed_count) =
-            tokio::join!(definitions.clone(), statistics, incidents, unfinished_activities, completed_count);
+        let (definitions, statistics, incidents, unfinished, completed_count, deployment_times) =
+            tokio::join!(definitions.clone(), statistics, incidents, unfinished_activities, completed_count, deployment_times);
         let definitions = definitions?;
         let statistics = statistics?;
 
@@ -187,7 +189,8 @@ impl CamundaApi {
                 .into_iter()
                 .map(|definition| {
                     let counts = statistics.get(&definition.id).copied().unwrap_or_default();
-                    ProcessDefinitionSummary { instances: counts.instances, incidents: counts.incidents, ..definition }
+                    let deployment_time = definition.deployment_id.as_ref().and_then(|id| deployment_times.get(id)).cloned();
+                    ProcessDefinitionSummary { instances: counts.instances, incidents: counts.incidents, deployment_time, ..definition }
                 })
                 .collect(),
             incident_types,
@@ -920,6 +923,7 @@ fn parse_definition(value: &Value) -> ApiResult<ProcessDefinitionSummary> {
         tenant_id: string(value, "tenantId"),
         suspended: boolean(value, "suspended"),
         deployment_id: string(value, "deploymentId"),
+        deployment_time: None,
         instances: 0,
         incidents: 0,
         version_tag: string(value, "versionTag"),
@@ -932,7 +936,13 @@ fn parse_definition(value: &Value) -> ApiResult<ProcessDefinitionSummary> {
     })
 }
 
-// Складывает статистику всех версий процесса под ключом key|tenant.
+fn parse_deployment_times(body: &str) -> ApiResult<HashMap<String, String>> {
+    Ok(json_array(body)?
+        .iter()
+        .filter_map(|value| Some((string(value, "id")?, string(value, "deploymentTime")?)))
+        .collect())
+}
+
 fn parse_statistics(body: &str) -> ApiResult<HashMap<String, DefinitionStatistics>> {
     let mut result: HashMap<String, DefinitionStatistics> = HashMap::new();
     for value in json_array(body)? {
@@ -1538,9 +1548,20 @@ mod tests {
         )
         .await;
 
+        mount(
+            &server,
+            "GET",
+            "/engine-rest/deployment",
+            200,
+            r#"[{"id":"dep-2","deploymentTime":"2026-10-30T12:00:00.000+0500"},{"id":"dep-1","deploymentTime":"2026-09-01T09:00:00.000+0500"}]"#,
+        )
+        .await;
+
         let dashboard = api().load_dashboard(&connection(&server), &DashboardDateFilter::default()).await.expect("дашборд");
 
         assert_eq!(dashboard.definitions.len(), 3);
+        assert_eq!(dashboard.definitions[0].deployment_time.as_deref(), Some("2026-10-30T12:00:00.000+0500"));
+        assert_eq!(dashboard.definitions[1].deployment_time, None);
         assert_eq!((dashboard.definitions[0].instances, dashboard.definitions[0].incidents), (6, 2));
         assert_eq!((dashboard.definitions[2].instances, dashboard.definitions[2].incidents), (4, 1), "старая версия своей строкой");
         assert_eq!(sum_instances(&dashboard), 34);
