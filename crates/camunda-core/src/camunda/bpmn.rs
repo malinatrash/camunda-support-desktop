@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use roxmltree::{Document, Node};
 
-use crate::models::{BpmnDiagram, BpmnEdge, BpmnNode, BpmnPoint};
+use crate::models::{BpmnDiagram, BpmnEdge, BpmnNode, BpmnPoint, LoopMarker};
 
 // Разбирает BPMN XML в каталог узлов и переходов по BPMNShape/BPMNEdge; roxmltree не раскрывает внешние сущности.
 pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
@@ -30,6 +30,13 @@ pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
                 width: float_attribute(&bounds, "width"),
                 height: float_attribute(&bounds, "height"),
                 topic: semantic.and_then(|semantic| attribute_by_local_name(semantic, "topic")).map(str::to_string),
+                event_definition: semantic.and_then(event_definition),
+                interrupting: semantic.is_none_or(|semantic| {
+                    semantic.attribute("cancelActivity") != Some("false") && semantic.attribute("isInterrupting") != Some("false")
+                }),
+                loop_marker: semantic.and_then(loop_marker),
+                expanded: shape.attribute("isExpanded") == Some("true"),
+                triggered_by_event: semantic.is_some_and(|semantic| semantic.attribute("triggeredByEvent") == Some("true")),
             })
         })
         .collect();
@@ -54,6 +61,24 @@ pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
         .collect();
 
     Ok(BpmnDiagram { nodes, edges })
+}
+
+// «timer», «message», «error» и т. д. из первого *EventDefinition события.
+fn event_definition(semantic: &Node) -> Option<String> {
+    semantic
+        .children()
+        .filter(Node::is_element)
+        .find_map(|child| child.tag_name().name().strip_suffix("EventDefinition").map(str::to_string))
+}
+
+fn loop_marker(semantic: &Node) -> Option<LoopMarker> {
+    let characteristics =
+        semantic.children().filter(Node::is_element).find(|child| child.tag_name().name().ends_with("LoopCharacteristics"))?;
+    Some(match characteristics.tag_name().name() {
+        "standardLoopCharacteristics" => LoopMarker::Standard,
+        _ if characteristics.attribute("isSequential") == Some("true") => LoopMarker::Sequential,
+        _ => LoopMarker::Parallel,
+    })
 }
 
 fn non_blank(value: Option<&str>) -> Option<&str> {
@@ -122,6 +147,34 @@ mod tests {
         assert_eq!(edge.source_ref.as_deref(), Some("Start_1"));
         assert_eq!(edge.target_ref.as_deref(), Some("Task_1"));
         assert_eq!(diagram.teleport_targets().map(|node| node.id.as_str()).collect::<Vec<_>>(), vec!["Task_1"]);
+    }
+
+    #[test]
+    fn parses_event_definitions_and_markers() {
+        let diagram = parse_bpmn(
+            r#"<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
+  <process id="Process_1">
+    <serviceTask id="Task_1"><multiInstanceLoopCharacteristics isSequential="true" /></serviceTask>
+    <boundaryEvent id="Timer_1" attachedToRef="Task_1" cancelActivity="false"><timerEventDefinition /></boundaryEvent>
+    <subProcess id="Sub_1" triggeredByEvent="true" />
+  </process>
+  <bpmndi:BPMNDiagram><bpmndi:BPMNPlane bpmnElement="Process_1">
+    <bpmndi:BPMNShape bpmnElement="Task_1"><dc:Bounds x="0" y="0" width="100" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape bpmnElement="Timer_1"><dc:Bounds x="80" y="60" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape bpmnElement="Sub_1" isExpanded="true"><dc:Bounds x="0" y="200" width="300" height="200" /></bpmndi:BPMNShape>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</definitions>"#,
+        )
+        .expect("диаграмма");
+
+        let task = diagram.node("Task_1").expect("задача");
+        assert_eq!(task.loop_marker, Some(LoopMarker::Sequential));
+        assert!(task.interrupting);
+        let timer = diagram.node("Timer_1").expect("таймер");
+        assert_eq!(timer.event_definition.as_deref(), Some("timer"));
+        assert!(!timer.interrupting);
+        let subprocess = diagram.node("Sub_1").expect("подпроцесс");
+        assert!(subprocess.expanded && subprocess.triggered_by_event);
     }
 
     #[test]

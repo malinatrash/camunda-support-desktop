@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -7,6 +7,8 @@ use camunda_core::models::{BpmnDiagram, BpmnNode};
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::{ActiveTheme, IconName, Sizable, h_flex};
 use gpui_kit::*;
+
+use crate::markers;
 
 const MIN_ZOOM: f32 = 0.05;
 const MAX_ZOOM: f32 = 4.0;
@@ -28,6 +30,7 @@ pub struct BpmnView {
     // None — схема вписана в окно; Some — пользователь двигал или масштабировал.
     transform: Option<(f32, Point<Pixels>)>,
     viewport: Rc<Cell<Bounds<Pixels>>>,
+    labels: Rc<LabelCache>,
     drag: Option<(Point<Pixels>, Point<Pixels>)>,
     moved: bool,
 }
@@ -42,6 +45,7 @@ impl BpmnView {
             selected: None,
             transform: None,
             viewport: Rc::new(Cell::new(Bounds::default())),
+            labels: Rc::default(),
             drag: None,
             moved: false,
         }
@@ -51,6 +55,7 @@ impl BpmnView {
     pub fn update(&mut self, diagram: &BpmnDiagram, highlights: Highlights, cx: &mut Context<Self>) {
         if *self.diagram != *diagram {
             self.diagram = Arc::new(diagram.clone());
+            self.labels.borrow_mut().clear();
             self.transform = None;
         }
         self.highlights = Arc::new(highlights);
@@ -115,8 +120,13 @@ fn fit(diagram: &BpmnDiagram, viewport: Bounds<Pixels>) -> (f32, Point<Pixels>) 
     (zoom, point(px(x), px(y)))
 }
 
+// Пулы, дорожки и развёрнутые подпроцессы рисуются под остальными узлами и не выбираются кликом.
 fn is_container(node: &BpmnNode) -> bool {
-    matches!(node.node_type.as_str(), "participant" | "lane" | "subProcess" | "transaction")
+    match node.node_type.as_str() {
+        "participant" | "lane" => true,
+        "subProcess" | "transaction" | "adHocSubProcess" => node.expanded,
+        _ => false,
+    }
 }
 
 fn is_event(node: &BpmnNode) -> bool {
@@ -155,6 +165,7 @@ impl Render for BpmnView {
         let selected = self.selected.clone();
         let transform = self.transform;
         let viewport = self.viewport.clone();
+        let labels = self.labels.clone();
         let zoom_label = format!("{}%", (self.current().0 * 100.).round());
 
         div()
@@ -209,12 +220,14 @@ impl Render for BpmnView {
             )
             .child(
                 canvas(
-                    move |bounds, _, _| {
-                        viewport.set(bounds);
+                    move |bounds, window, _| {
+                        if viewport.replace(bounds) != bounds {
+                            window.request_animation_frame();
+                        }
                         transform.unwrap_or_else(|| fit(&fit_diagram, bounds))
                     },
                     move |bounds, (zoom, offset), window, cx| {
-                        paint_diagram(&diagram, &highlights, selected.as_deref(), bounds, zoom, offset, &palette, window, cx);
+                        paint_diagram(&diagram, &highlights, &labels, selected.as_deref(), bounds, zoom, offset, &palette, window, cx);
                     },
                 )
                 .size_full(),
@@ -247,10 +260,17 @@ impl Render for BpmnView {
     }
 }
 
+const LABEL_FONT: f32 = 12.;
+const LABEL_LINE: f32 = 1.25;
+
+// Строки подписей раскладываются один раз в координатах схемы: зум и сдвиг их не пересчитывают.
+type LabelCache = RefCell<HashMap<String, Rc<[SharedString]>>>;
+
 #[allow(clippy::too_many_arguments)]
 fn paint_diagram(
     diagram: &BpmnDiagram,
     highlights: &Highlights,
+    labels: &LabelCache,
     selected: Option<&str>,
     bounds: Bounds<Pixels>,
     zoom: f32,
@@ -260,17 +280,25 @@ fn paint_diagram(
     cx: &mut App,
 ) {
     let to_screen = |x: f32, y: f32| bounds.origin + offset + point(px(x * zoom), px(y * zoom));
+    let visible = bounds.dilate(px(60. * zoom.max(1.)));
     window.paint_quad(fill(bounds, palette.background));
     paint_grid(bounds, zoom, offset, palette.grid, window);
 
     for node in diagram.nodes.iter().filter(|node| is_container(node)) {
         let rect = Bounds::new(to_screen(node.x, node.y), size(px(node.width * zoom), px(node.height * zoom)));
-        window.paint_quad(quad(rect, px(6. * zoom), transparent_black(), px(1.), palette.stroke.opacity(0.35), BorderStyle::Dashed));
+        if rect.intersects(&visible) {
+            let (radius, style) = match node.node_type.as_str() {
+                "participant" | "lane" => (px(0.), BorderStyle::Solid),
+                _ if node.triggered_by_event => (px(10. * zoom), BorderStyle::Dashed),
+                _ => (px(10. * zoom), BorderStyle::Solid),
+            };
+            window.paint_quad(quad(rect, radius, transparent_black(), px((1.2 * zoom).max(1.)), palette.stroke.opacity(0.6), style));
+        }
     }
 
     for edge in &diagram.edges {
         let points: Vec<Point<Pixels>> = edge.waypoints.iter().map(|p| to_screen(p.x, p.y)).collect();
-        if points.len() < 2 {
+        if points.len() < 2 || !visible.intersects(&enclosing(&points)) {
             continue;
         }
         let mut path = PathBuilder::stroke(px((1.4 * zoom).max(1.)));
@@ -284,9 +312,18 @@ fn paint_diagram(
         paint_arrow(points[points.len() - 2], points[points.len() - 1], zoom, palette.stroke, window);
     }
 
-    let font_size = px((12. * zoom).clamp(4., 20.));
+    // Размер шрифта с шагом 1 px: при плавном зуме глифы берутся из кеша, а не растеризуются каждый кадр.
+    let font_size = px((LABEL_FONT * zoom).round());
+    if labels.borrow().is_empty() {
+        for node in diagram.nodes.iter().filter(|node| !is_container(node)) {
+            label_lines(node, labels, window);
+        }
+    }
     for node in diagram.nodes.iter().filter(|node| !is_container(node)) {
         let rect = Bounds::new(to_screen(node.x, node.y), size(px(node.width * zoom), px(node.height * zoom)));
+        if !rect.intersects(&visible) {
+            continue;
+        }
         let incidents = highlights.incidents.get(&node.id).copied().unwrap_or_default();
         let active = highlights.active.contains(&node.id);
         let completed = highlights.completed.contains(&node.id);
@@ -302,9 +339,12 @@ fn paint_diagram(
         let border = accent.unwrap_or(palette.stroke);
         let background = accent.map(|color| color.opacity(0.12)).unwrap_or(palette.background);
         let width = px(if accent.is_some() { 2.4 } else { 1.4 } * zoom.max(0.6));
+        let ink = markers::Ink { color: border, background: palette.background, zoom };
         if is_event(node) {
             let border_width = if node.node_type == "endEvent" { width * 2. } else { width };
-            window.paint_quad(quad(rect, rect.size.width / 2., background, border_width, border, BorderStyle::Solid));
+            let style = if node.interrupting { BorderStyle::Solid } else { BorderStyle::Dashed };
+            window.paint_quad(quad(rect, rect.size.width / 2., background, border_width, border, style));
+            markers::paint_event(node, rect, &ink, window);
         } else if is_gateway(node) {
             let c = rect.center();
             let diamond = [point(c.x, rect.top()), point(rect.right(), c.y), point(c.x, rect.bottom()), point(rect.left(), c.y)];
@@ -318,29 +358,40 @@ fn paint_diagram(
             if let Ok(path) = outline.build() {
                 window.paint_path(path, border);
             }
+            markers::paint_gateway(node, rect, &ink, window);
         } else {
-            window.paint_quad(quad(rect, px(8. * zoom), background, width, border, BorderStyle::Solid));
+            let width = if node.node_type == "callActivity" { width * 2.5 } else { width };
+            let style = if node.triggered_by_event { BorderStyle::Dashed } else { BorderStyle::Solid };
+            window.paint_quad(quad(rect, px(8. * zoom), background, width, border, style));
+            markers::paint_task(node, rect, &ink, window);
         }
         if selected == Some(node.id.as_str()) {
             let ring = rect.dilate(px(4.));
             window.paint_quad(quad(ring, px(10. * zoom), transparent_black(), px(2.), palette.active, BorderStyle::Dashed));
         }
-        if let Some(name) = node.name.as_deref().filter(|name| !name.trim().is_empty()) {
-            let inside = !is_event(node) && !is_gateway(node);
-            paint_label(name, rect, inside, font_size, palette.text, window, cx);
+        if font_size >= px(5.) {
+            let lines = label_lines(node, labels, window);
+            paint_label(&lines, rect, !is_event(node) && !is_gateway(node), font_size, palette.text, window, cx);
         }
         if incidents > 0 {
             let badge = Bounds::centered_at(point(rect.right(), rect.top()), size(px(18.), px(18.)));
             window.paint_quad(quad(badge, px(9.), palette.danger, px(0.), transparent_black(), BorderStyle::Solid));
-            paint_text(&incidents.to_string(), badge, px(11.), white(), window, cx);
+            paint_text(&incidents.to_string().into(), badge, px(11.), white(), window, cx);
         }
     }
 }
 
+fn enclosing(points: &[Point<Pixels>]) -> Bounds<Pixels> {
+    let min = points.iter().fold(points[0], |acc, p| point(acc.x.min(p.x), acc.y.min(p.y)));
+    let max = points.iter().fold(points[0], |acc, p| point(acc.x.max(p.x), acc.y.max(p.y)));
+    Bounds::from_corners(min, point(max.x + px(1.), max.y + px(1.)))
+}
+
+// Точки сетки не гуще 24 px на экране, иначе на мелком масштабе их десятки тысяч.
 fn paint_grid(bounds: Bounds<Pixels>, zoom: f32, offset: Point<Pixels>, color: Hsla, window: &mut Window) {
-    let step = 40. * zoom;
-    if step < 8. {
-        return;
+    let mut step = 40. * zoom;
+    while step < 24. {
+        step *= 2.;
     }
     let start_x = f32::from(offset.x).rem_euclid(step);
     let start_y = f32::from(offset.y).rem_euclid(step);
@@ -374,24 +425,41 @@ fn paint_arrow(from: Point<Pixels>, to: Point<Pixels>, zoom: f32, color: Hsla, w
     }
 }
 
-// Подпись внутри задачи или под событием и шлюзом: до трёх строк по словам, хвост с многоточием.
-fn paint_label(name: &str, rect: Bounds<Pixels>, inside: bool, font_size: Pixels, color: Hsla, window: &mut Window, cx: &mut App) {
-    if font_size < px(5.) {
-        return;
+fn label_lines(node: &BpmnNode, labels: &LabelCache, window: &mut Window) -> Rc<[SharedString]> {
+    if let Some(lines) = labels.borrow().get(&node.id) {
+        return lines.clone();
     }
-    let max_width = if inside { rect.size.width - px(10.) } else { rect.size.width * 2.6 };
-    let max_lines = if inside { ((rect.size.height - px(6.)) / (font_size * 1.25)).floor().clamp(1., 3.) as usize } else { 2 };
-    let lines = wrap_text(name, max_width, max_lines, font_size, window);
-    let line_height = font_size * 1.25;
+    let name = node.name.as_deref().map(str::trim).unwrap_or_default();
+    let inside = !is_event(node) && !is_gateway(node);
+    let max_width = px(if inside { node.width - 10. } else { node.width * 2.6 });
+    let max_lines = if inside { ((node.height - 6.) / (LABEL_FONT * LABEL_LINE)).floor().clamp(1., 3.) as usize } else { 2 };
+    let lines: Rc<[SharedString]> =
+        if name.is_empty() { Rc::from([]) } else { wrap_text(name, max_width, max_lines, px(LABEL_FONT), window).into() };
+    labels.borrow_mut().insert(node.id.clone(), lines.clone());
+    lines
+}
+
+// Подпись внутри задачи или под событием и шлюзом.
+fn paint_label(
+    lines: &[SharedString],
+    rect: Bounds<Pixels>,
+    inside: bool,
+    font_size: Pixels,
+    color: Hsla,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let line_height = font_size * LABEL_LINE;
     let block = line_height * lines.len() as f32;
     let top = if inside { rect.center().y - block / 2. } else { rect.bottom() + px(3.) };
     for (index, line) in lines.iter().enumerate() {
-        let area = Bounds::new(point(rect.center().x - max_width / 2., top + line_height * index as f32), size(max_width, line_height));
+        let area = Bounds::new(point(rect.left(), top + line_height * index as f32), size(rect.size.width, line_height));
         paint_text(line, area, font_size, color, window, cx);
     }
 }
 
-fn wrap_text(name: &str, max_width: Pixels, max_lines: usize, font_size: Pixels, window: &mut Window) -> Vec<String> {
+// До max_lines строк по словам, хвост последней строки с многоточием.
+fn wrap_text(name: &str, max_width: Pixels, max_lines: usize, font_size: Pixels, window: &mut Window) -> Vec<SharedString> {
     let mut lines: Vec<String> = Vec::new();
     let mut current = String::new();
     let words: Vec<&str> = name.split_whitespace().collect();
@@ -415,7 +483,7 @@ fn wrap_text(name: &str, max_width: Pixels, max_lines: usize, font_size: Pixels,
     if let Some(last) = lines.last_mut() {
         *last = ellipsize(last, max_width, font_size, window);
     }
-    lines
+    lines.into_iter().map(SharedString::from).collect()
 }
 
 fn ellipsize(text: &str, max_width: Pixels, font_size: Pixels, window: &mut Window) -> String {
@@ -444,11 +512,11 @@ fn shaped_width(text: &str, font_size: Pixels, window: &mut Window) -> Pixels {
     window.text_system().shape_line(SharedString::from(text.to_string()), font_size, &[run], None).width
 }
 
-fn paint_text(text: &str, area: Bounds<Pixels>, font_size: Pixels, color: Hsla, window: &mut Window, cx: &mut App) {
+fn paint_text(text: &SharedString, area: Bounds<Pixels>, font_size: Pixels, color: Hsla, window: &mut Window, cx: &mut App) {
     let run =
         TextRun { len: text.len(), font: window.text_style().font(), color, background_color: None, underline: None, strikethrough: None };
-    let line = window.text_system().shape_line(SharedString::from(text.to_string()), font_size, &[run], None);
-    let line_height = font_size * 1.3;
+    let line = window.text_system().shape_line(text.clone(), font_size, &[run], None);
+    let line_height = font_size * LABEL_LINE;
     let origin = point(area.center().x - line.width / 2., area.center().y - line_height / 2.);
     line.paint(origin, line_height, TextAlign::Left, None, window, cx).ok();
 }

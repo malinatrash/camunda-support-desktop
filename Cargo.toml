@@ -55,3 +55,7 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+# Зависимости (GPUI, рендер, текст) оптимизируются и в dev: иначе `cargo run` заметно тормозит при анимации.
+[profile.dev.package."*"]
+opt-level = 3

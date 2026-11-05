@@ -413,6 +413,23 @@ pub struct BpmnNode {
     pub width: f32,
     pub height: f32,
     pub topic: Option<String>,
+    #[serde(default)]
+    pub event_definition: Option<String>,
+    #[serde(default = "default_true")]
+    pub interrupting: bool,
+    #[serde(default)]
+    pub loop_marker: Option<LoopMarker>,
+    #[serde(default)]
+    pub expanded: bool,
+    #[serde(default)]
+    pub triggered_by_event: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LoopMarker {
+    Parallel,
+    Sequential,
+    Standard,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

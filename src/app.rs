@@ -21,7 +21,7 @@ use crate::services::{self, Services};
 use crate::settings::{SettingsEvent, SettingsView};
 use crate::ui::Navigate;
 
-actions!(camunda_support, [TogglePalette, OpenOverview, OpenSearch, OpenIncidents, OpenSettings]);
+actions!(camunda_support, [TogglePalette, OpenOverview, OpenSearch, OpenIncidents, OpenSettings,]);
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);

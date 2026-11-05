@@ -5,6 +5,7 @@ mod bpmn;
 mod definition;
 mod incidents;
 mod instance;
+mod markers;
 mod model;
 mod operations;
 mod overview;
