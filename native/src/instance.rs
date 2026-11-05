@@ -571,6 +571,11 @@ impl Render for InstanceView {
             .size_full()
             .p_5()
             .gap_4()
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" && this.pending.take().is_some() {
+                    cx.notify();
+                }
+            }))
             .child(header)
             .child(
                 TabBar::new("instance-tabs")

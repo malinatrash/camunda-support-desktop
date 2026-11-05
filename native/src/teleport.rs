@@ -40,7 +40,11 @@ impl TeleportView {
         cx: &mut Context<Self>,
     ) -> Self {
         let sources: Vec<_> = details.active_activities.iter().filter(|activity| activity.cancellable).cloned().collect();
-        let targets: Vec<_> = details.diagram.teleport_targets().cloned().collect();
+        let mut targets: Vec<_> = details.diagram.teleport_targets().cloned().collect();
+        if let Some(index) = target.as_ref().and_then(|id| targets.iter().position(|node| &node.id == id)) {
+            let chosen = targets.remove(index);
+            targets.insert(0, chosen);
+        }
         let source_query = cx.new(|cx| InputState::new(window, cx).placeholder("Поиск по названию или ID"));
         let target_query = cx.new(|cx| InputState::new(window, cx).placeholder("Название, ID или topic кубика"));
         let annotation = cx.new(|cx| InputState::new(window, cx).placeholder("Например: WPL-800, повтор отправки в HAOS"));
@@ -206,6 +210,11 @@ impl Render for TeleportView {
             .shadow_2xl()
             .overflow_hidden()
             .occlude()
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" && this.run.is_none() {
+                    cx.emit(TeleportEvent::Cancel);
+                }
+            }))
             .child(
                 v_flex()
                     .gap_1()

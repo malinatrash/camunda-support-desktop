@@ -27,6 +27,7 @@ VIAddVersionKey /LANG=${LANG_RUSSIAN} "ProductName" "Camunda Support"
 VIAddVersionKey /LANG=${LANG_RUSSIAN} "FileDescription" "Camunda Support"
 VIAddVersionKey /LANG=${LANG_RUSSIAN} "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=${LANG_RUSSIAN} "ProductVersion" "${VERSION}"
+VIAddVersionKey /LANG=${LANG_RUSSIAN} "LegalCopyright" "malinatrash"
 
 Section "Install"
   nsExec::Exec 'taskkill /F /IM "Camunda Support.exe"'

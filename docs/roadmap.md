@@ -10,6 +10,7 @@
 - [x] Дизайн-концепт и язык окружений
 - [x] Rust + Tauri 2 desktop shell (заменил Kotlin Multiplatform / Compose Desktop)
 - [x] Интерфейс на Svelte 5 с анимациями переходов, списков и диаграмм
+- [x] 2.3: нативный интерфейс на Rust (GPUI + GPUI Kit) без веба, Tauri и Svelte удалены
 - [x] Абстракция локального connection repository
 - [x] Sidebar connections и навигация
 - [x] Форма создания connection и валидация
@@ -55,6 +56,8 @@
 - [x] Показывать расширенные сведения definition: version tag, TTL, resource, deployment и Tasklist state
 - [x] Передавать выбранный период на экран процесса и показывать разные historic instances
 - [x] BPMN через `bpmn-js` в webview с подсветкой активных элементов, incidents и drilldown в подпроцессы
+- [x] 2.3: BPMN рисуется нативно на canvas GPUI, телепорт по клику на кубик
+- [ ] Drilldown во вложенные подпроцессы на нативной схеме
 - [ ] Нативные BPMN-превью в карточках дашборда
 - [ ] Экспорт снимка dashboard в CSV/XLSX
 

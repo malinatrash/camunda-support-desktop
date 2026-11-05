@@ -106,6 +106,12 @@ impl VariablesView {
                 .bg(cx.theme().popover)
                 .shadow_2xl()
                 .occlude()
+                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                    if event.keystroke.key == "escape" && this.save.is_none() {
+                        this.editing = None;
+                        cx.notify();
+                    }
+                }))
                 .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child(format!("Переменная {}", variable.name)))
                 .child(div().text_sm().text_color(cx.theme().muted_foreground).child(hint(&variable.value_type)))
                 .child(Textarea::new(&editing.value).h(px(160.)))

@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use camunda_core::deep_link;
-use camunda_core::models::{CamundaConnection, DeepLinkEvent, Environment};
+use camunda_core::models::{CamundaConnection, DeepLinkEvent, Environment, UpdateCheckResult};
+use camunda_core::updater::AppUpdateService;
 use futures::StreamExt as _;
 use futures::channel::mpsc::UnboundedReceiver;
 use gpui_kit::component::button::{Button, ButtonVariants};
@@ -14,11 +17,14 @@ use crate::instance::InstanceView;
 use crate::overview::OverviewView;
 use crate::palette::{CommandPalette, PaletteEvent, Section};
 use crate::search::SearchView;
-use crate::services::Services;
+use crate::services::{self, Services};
 use crate::settings::{SettingsEvent, SettingsView};
 use crate::ui::Navigate;
 
 actions!(camunda_support, [TogglePalette, OpenOverview, OpenSearch, OpenIncidents, OpenSettings]);
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 
 enum Page {
     Definition(Entity<DefinitionView>),
@@ -43,6 +49,7 @@ pub struct AppView {
     _palette_subscription: Option<Subscription>,
     _settings_subscription: Option<Subscription>,
     _links: Task<()>,
+    _updates: Task<()>,
 }
 
 impl AppView {
@@ -56,6 +63,25 @@ impl AppView {
                 if this.update_in(cx, |this, window, cx| this.open_link(&url, window, cx)).is_err() {
                     break;
                 }
+            }
+        });
+        // Проверка новых релизов на GitHub при запуске и раз в шесть часов.
+        let updates = cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(Duration::from_secs(3)).await;
+            loop {
+                let Ok(check) = this.update(cx, |_, cx| {
+                    services::request(cx, |_| async { Ok::<_, String>(AppUpdateService::new(VERSION).check_for_update(VERSION).await) })
+                }) else {
+                    break;
+                };
+                if let Ok(UpdateCheckResult::Available { update }) = check.await {
+                    this.update(cx, |this, cx| {
+                        this.notice = Some(format!("Доступна версия {}. Установить: Настройки → Обновления.", update.version).into());
+                        cx.notify();
+                    })
+                    .ok();
+                }
+                cx.background_executor().timer(UPDATE_CHECK_EVERY).await;
             }
         });
         let mut view = Self {
@@ -76,6 +102,7 @@ impl AppView {
             _palette_subscription: None,
             _settings_subscription: None,
             _links: links,
+            _updates: updates,
         };
         let preferred = std::env::var("CAMUNDA_SUPPORT_CONNECTION").ok();
         let initial = view
