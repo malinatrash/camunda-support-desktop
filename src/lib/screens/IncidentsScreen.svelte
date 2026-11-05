@@ -205,7 +205,7 @@
       <span class="sep"></span>
       <button type="button" class="type" class:active={selectedType == null} onclick={() => (selectedType = null)}>Все типы</button>
       {#each types.slice(0, 6) as [type, count] (type)}
-        <button type="button" class="type" class:active={selectedType === type} onclick={() => (selectedType = type)}>{incidentTypeLabel(type)} <span class="faint">{count}</span></button>
+        <button type="button" class="type" class:active={selectedType === type} onclick={() => (selectedType = type)}>{incidentTypeLabel(type)} <span class="counter">{count}</span></button>
       {/each}
       <span class="grow"></span>
       {#if view === "list"}
@@ -227,7 +227,7 @@
           {@const open = expandedGroup === group.key}
           <div class="group" class:open>
             <div class="group-row" role="button" tabindex="0" onclick={() => (expandedGroup = open ? null : group.key)} onkeydown={(event) => event.key === "Enter" && (expandedGroup = open ? null : group.key)}>
-              <span class="count">{group.count}</span>
+              <span class="count"><span class="pill pill-danger">{group.count}</span></span>
               <span class="col grow">
                 <span class="group-title truncate">{group.activityId ?? "Без кубика"}</span>
                 <span class="group-message truncate selectable">{group.signature}</span>
@@ -309,9 +309,9 @@
   .search {
     height: 28px;
     padding: 0 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    background: var(--canvas);
+    background: var(--surface);
     font-size: var(--text-md);
     outline: none;
   }
@@ -323,6 +323,7 @@
   }
   .search:focus {
     border-color: var(--accent);
+    box-shadow: var(--focus-ring);
   }
   .icon-button {
     display: grid;
@@ -347,19 +348,24 @@
     background: var(--border-strong);
   }
   .type {
-    height: 28px;
-    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
     border: 0;
+    border-radius: 999px;
     background: transparent;
     color: var(--ink-2);
     font-size: var(--text-md);
   }
-  .type:hover,
-  .type.active {
+  .type:hover {
     color: var(--ink);
+    background: var(--row-hover);
   }
   .type.active {
+    color: var(--ink);
     font-weight: 600;
+    background: var(--surface-3);
   }
   .gap {
     gap: 12px;
@@ -368,32 +374,44 @@
     height: 52px;
   }
   .calm {
-    padding: 32px 0;
+    padding: 32px 12px;
     color: var(--ink-3);
   }
+  .groups,
+  .list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
   .groups {
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
   }
   .group {
     border-bottom: 1px solid var(--border);
   }
+  .group:last-child {
+    border-bottom: 0;
+  }
+  .group.open {
+    background: var(--surface-2);
+  }
   .group-row {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 10px 0;
+    padding: 10px 12px;
     cursor: pointer;
   }
+  .group-row:hover {
+    background: var(--row-hover);
+  }
   .group-row:hover .group-title {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: var(--accent);
   }
   .count {
     min-width: 40px;
     text-align: right;
-    color: var(--danger);
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
     align-self: flex-start;
   }
@@ -411,7 +429,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 0 0 12px 54px;
+    padding: 0 12px 12px 66px;
   }
   .group-incident {
     gap: 16px;
@@ -421,21 +439,29 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
   }
   .pick-all {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding-bottom: 8px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
   }
   .incident {
     display: flex;
     align-items: center;
     gap: 12px;
     height: 76px;
+    padding: 0 12px;
     border-bottom: 1px solid var(--border);
   }
+  .incident:hover {
+    background: var(--row-hover);
+  }
   .incident.selected {
-    background: var(--surface-2);
+    background: var(--row-selected);
   }
 </style>

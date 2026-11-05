@@ -130,7 +130,7 @@
   .page {
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 20px;
     height: 100%;
     max-width: 760px;
     padding-bottom: 24px;
@@ -146,12 +146,21 @@
   section {
     display: flex;
     flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  section > :global(:last-child) {
+    border-bottom: 0;
   }
   .section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 34px;
+    height: 40px;
+    padding: 0 12px;
+    background: var(--surface-2);
     border-bottom: 1px solid var(--border);
   }
   h2 {
@@ -164,8 +173,11 @@
     align-items: center;
     gap: 12px;
     min-height: 52px;
-    padding: 8px 0;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border);
+  }
+  .connection:hover {
+    background: var(--row-hover);
   }
   .connection-main {
     padding: 0;
@@ -201,6 +213,9 @@
   }
   .choice:hover {
     color: var(--ink);
+  }
+  .choice:hover {
+    background: var(--row-hover);
   }
   .choice.active {
     background: var(--surface-3);

@@ -76,7 +76,7 @@
     left: 0;
     height: 2px;
     border-radius: 1px;
-    background: var(--ink);
+    background: var(--accent);
     opacity: 0;
   }
   .indicator.ready {

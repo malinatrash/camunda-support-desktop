@@ -147,7 +147,7 @@
               <span class="cell truncate selectable" style:flex="1.4">{item.instance.businessKey ?? "—"}</span>
               <span class="cell mono small truncate selectable" style:flex="1.6">{item.instance.id}</span>
               <span class="cell mono small muted" style:flex="0.5">v{definitionVersionOf(item.instance.definitionId) ?? "?"}</span>
-              <span class="cell num mono" style:flex="0.6" class:danger={item.incidentCount > 0} class:faint={item.incidentCount === 0}>{item.incidentCount}</span>
+              <span class="cell num mono" style:flex="0.6">{#if item.incidentCount > 0}<span class="pill pill-danger">{item.incidentCount}</span>{:else}<span class="faint">0</span>{/if}</span>
               <span class="cell muted small truncate" style:flex="1">{live ? (item.instance.tenantId ?? "—") : (item.instance.startTime?.slice(0, 16).replace("T", " ") ?? "—")}</span>
             </div>
           {/snippet}
@@ -216,9 +216,9 @@
   .select {
     height: 28px;
     padding: 0 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    background: var(--canvas);
+    background: var(--surface);
     font-size: var(--text-md);
   }
   .toolbar {
@@ -237,12 +237,6 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    border-top: 1px solid var(--border);
-  }
-  .table-head,
-  .table-row {
-    padding-left: 0;
-    padding-right: 0;
   }
   .table-body {
     flex: 1;

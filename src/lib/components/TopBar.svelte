@@ -84,7 +84,7 @@
     gap: 16px;
     padding: 0 16px;
     border-bottom: 1px solid var(--border);
-    background: var(--canvas);
+    background: var(--surface-2);
   }
   .switcher {
     position: relative;
@@ -173,9 +173,14 @@
   .nav-item:hover {
     color: var(--ink);
   }
+  .nav-item:hover {
+    background: var(--row-hover);
+  }
   .nav-item.active {
     color: var(--ink);
+    font-weight: 600;
     background: var(--surface-3);
+    box-shadow: inset 0 -2px 0 var(--accent);
   }
   .search {
     display: flex;
@@ -184,9 +189,9 @@
     width: 240px;
     height: 30px;
     padding: 0 10px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    background: transparent;
+    background: var(--surface);
     color: var(--ink-3);
   }
   .search:hover {

@@ -407,7 +407,7 @@
                   {/if}
                 </div>
                 <div class="card panel">
-                  <div class="row"><span class="panel-title">Текущее состояние</span><span class="grow"></span><span class="mono faint small">{details.activeActivities.length}</span></div>
+                  <div class="row"><span class="panel-title">Текущее состояние</span><span class="grow"></span><span class="counter">{details.activeActivities.length}</span></div>
                   <div class="divider"></div>
                   <div class="panel-body scroll">
                     {#each details.activeActivities as activity (activity.id)}
@@ -429,7 +429,7 @@
                   </div>
                 </div>
                 <div class="card panel">
-                  <div class="row"><span class="panel-title">Инциденты</span><span class="grow"></span><span class="mono faint small">{details.incidents.length}</span></div>
+                  <div class="row"><span class="panel-title">Инциденты</span><span class="grow"></span><span class="counter">{details.incidents.length}</span></div>
                   <div class="divider"></div>
                   <div class="panel-body scroll">
                     {#each details.incidents as incident (incident.id)}
@@ -474,7 +474,7 @@
           {:else if tab === "diagnosis"}
             <div class="diagnosis scroll">
               <div class="card section">
-                <div class="row"><span class="panel-title">Инциденты</span><span class="grow"></span><span class="faint small">{details.incidents.length}</span></div>
+                <div class="row"><span class="panel-title">Инциденты</span><span class="grow"></span><span class="counter">{details.incidents.length}</span></div>
                 <div class="divider"></div>
                 {#each details.incidents as incident (incident.id)}
                   <div class="incident selectable">
@@ -487,7 +487,7 @@
                 {/each}
               </div>
               <div class="card section">
-                <div class="row"><span class="panel-title">Задания движка</span><span class="grow"></span><span class="faint small">{details.jobs.length}</span></div>
+                <div class="row"><span class="panel-title">Задания движка</span><span class="grow"></span><span class="counter">{details.jobs.length}</span></div>
                 <div class="divider"></div>
                 {#each details.jobs as job (job.id)}
                   <div class="row job">
@@ -503,7 +503,7 @@
                 {/each}
               </div>
               <div class="card section">
-                <div class="row"><span class="panel-title">Внешние задачи</span><span class="grow"></span><span class="faint small">{details.externalTasks.length}</span></div>
+                <div class="row"><span class="panel-title">Внешние задачи</span><span class="grow"></span><span class="counter">{details.externalTasks.length}</span></div>
                 <div class="divider"></div>
                 {#each details.externalTasks as task (task.id)}
                   <div class="row job">
@@ -731,6 +731,13 @@
   .panel-title {
     font-size: var(--text-md);
     font-weight: 600;
+  }
+  .panel > .row:first-child {
+    margin: -12px -12px 4px;
+    padding: 9px 12px;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
   }
   .panel-body {
     display: flex;

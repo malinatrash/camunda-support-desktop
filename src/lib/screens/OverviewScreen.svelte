@@ -153,8 +153,8 @@
       <div class="columns">
         <section class="section">
           <div class="section-head">
-            <button type="button" class="tab" class:active={tab === "errors"} onclick={() => (tab = "errors")}>Ошибки <span class="faint">{groups.length}</span></button>
-            <button type="button" class="tab" class:active={tab === "waiting"} onclick={() => (tab = "waiting")}>Ожидание <span class="faint">{dashboard.longestWaitingActivities.length}</span></button>
+            <button type="button" class="tab" class:active={tab === "errors"} onclick={() => (tab = "errors")}>Ошибки <span class="counter">{groups.length}</span></button>
+            <button type="button" class="tab" class:active={tab === "waiting"} onclick={() => (tab = "waiting")}>Ожидание <span class="counter">{dashboard.longestWaitingActivities.length}</span></button>
           </div>
 
           {#if tab === "errors"}
@@ -203,7 +203,7 @@
 
         <section class="section">
           <div class="section-head">
-            <span class="section-title">Процессы <span class="faint">{dashboard.definitions.length}</span></span>
+            <span class="section-title">Процессы <span class="counter">{dashboard.definitions.length}</span></span>
             <span class="grow"></span>
             <input class="filter" type="search" placeholder="Фильтр" bind:value={processQuery} />
           </div>
@@ -217,7 +217,7 @@
                 <span class="faint mono meta truncate">{definition.key} · v{definition.version}{definition.suspended ? " · пауза" : ""}</span>
               </span>
               <span class="num mono">{grouped(definition.instances)}</span>
-              <span class="num mono" class:danger={definition.incidents > 0} class:faint={definition.incidents === 0}>{definition.incidents}</span>
+              <span class="num mono">{#if definition.incidents > 0}<span class="pill pill-danger">{definition.incidents}</span>{:else}<span class="faint">0</span>{/if}</span>
             </button>
           {:else}
             <p class="calm">Процессы не найдены</p>
@@ -293,6 +293,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px 40px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
   }
   .stat {
     display: flex;
@@ -335,12 +339,21 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .section > :global(:last-child) {
+    border-bottom: 0;
   }
   .section-head {
     display: flex;
     align-items: center;
     gap: 16px;
-    height: 34px;
+    height: 40px;
+    padding: 0 12px;
+    background: var(--surface-2);
     border-bottom: 1px solid var(--border);
   }
   .section-title,
@@ -358,19 +371,20 @@
   }
   .tab.active {
     color: var(--ink);
-    border-bottom-color: var(--ink);
+    border-bottom-color: var(--accent);
   }
   .filter {
     width: 160px;
     height: 26px;
     padding: 0 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    background: transparent;
+    background: var(--surface);
     outline: none;
   }
   .filter:focus {
     border-color: var(--accent);
+    box-shadow: var(--focus-ring);
   }
   .item {
     border-bottom: 1px solid var(--border);
@@ -380,18 +394,21 @@
     align-items: flex-start;
     gap: 14px;
     width: 100%;
-    padding: 10px 0;
+    padding: 10px 12px;
     border: 0;
     border-bottom: 1px solid var(--border);
     background: transparent;
     text-align: left;
   }
+  .item-row:hover,
+  .process:hover {
+    background: var(--row-hover);
+  }
   .item .item-row {
     border-bottom: 0;
   }
   .item-row:hover .item-title {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: var(--accent);
   }
   .count {
     min-width: 52px;
@@ -414,7 +431,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 0 0 12px 66px;
+    padding: 0 12px 12px 78px;
   }
   .wrap {
     flex-wrap: wrap;
@@ -433,29 +450,30 @@
     color: var(--ink-2);
   }
   .calm {
-    padding: 24px 0;
+    padding: 24px 12px;
     color: var(--ink-3);
   }
   .process-head {
     display: flex;
     gap: 12px;
-    padding: 8px 0 4px;
+    padding: 6px 12px;
     font-size: var(--text-sm);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
   }
   .process {
     display: flex;
     align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 8px 0;
+    padding: 8px 12px;
     border: 0;
     border-bottom: 1px solid var(--border);
     background: transparent;
     text-align: left;
   }
   .process:hover .truncate:first-child {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: var(--accent);
   }
   .num {
     width: 80px;
