@@ -1,17 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Environment {
     Production,
+    #[default]
     Test,
     Development,
     Local,
-}
-
-impl Default for Environment {
-    fn default() -> Self {
-        Environment::Test
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -512,17 +507,6 @@ pub struct UpdateDownloadProgress {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReleaseDownloadStats {
-    pub total_downloads: i64,
-    pub mac_os_downloads: i64,
-    pub windows_downloads: i64,
-    pub linux_downloads: i64,
-    pub release_count: i32,
-    pub installer_asset_count: i32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ProcessInstanceDeepLink {
     pub origin: String,
     pub process_instance_id: String,
@@ -533,12 +517,4 @@ pub struct ProcessInstanceDeepLink {
 pub enum DeepLinkEvent {
     OpenProcessInstance { link: ProcessInstanceDeepLink },
     Invalid { message: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppInfo {
-    pub version: String,
-    pub build: String,
-    pub platform: String,
 }

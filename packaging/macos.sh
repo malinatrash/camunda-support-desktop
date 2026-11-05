@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-cargo build --release
+cargo build --release --package camunda-support
 version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
 bundle="target/release/bundle"
 app="$bundle/macos/Camunda Support.app"

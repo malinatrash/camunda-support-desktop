@@ -141,11 +141,7 @@ pub fn process_instance_deep_link(connection: &CamundaConnection, process_instan
         return None;
     }
     let origin = normalized_web_origin(&connection.cockpit_url).or_else(|| normalized_web_origin(&connection.rest_url))?;
-    Some(format!(
-        "{APP_DEEP_LINK_SCHEME}://process-instance/{}?origin={}",
-        percent_encode(process_instance_id),
-        percent_encode(&origin)
-    ))
+    Some(format!("{APP_DEEP_LINK_SCHEME}://process-instance/{}?origin={}", percent_encode(process_instance_id), percent_encode(&origin)))
 }
 
 // Проверяет, относится ли домен ссылки к Cockpit или REST адресу подключения.
@@ -165,10 +161,8 @@ pub fn normalized_web_origin(value: &str) -> Option<String> {
         return None;
     }
     let authority_start = scheme_separator + 3;
-    let authority_end = normalized[authority_start..]
-        .find(['/', '?', '#'])
-        .map(|index| authority_start + index)
-        .unwrap_or(normalized.len());
+    let authority_end =
+        normalized[authority_start..].find(['/', '?', '#']).map(|index| authority_start + index).unwrap_or(normalized.len());
     if authority_end <= authority_start {
         return None;
     }
@@ -240,8 +234,7 @@ mod tests {
 
     #[test]
     fn creates_app_link_from_connection_origin() {
-        let connection =
-            connection("https://camunda.example.kz/engine-rest", "https://camunda.example.kz/camunda/app/cockpit");
+        let connection = connection("https://camunda.example.kz/engine-rest", "https://camunda.example.kz/camunda/app/cockpit");
         assert_eq!(
             process_instance_deep_link(&connection, "instance-42").as_deref(),
             Some("camunda-support://process-instance/instance-42?origin=https%3A%2F%2Fcamunda.example.kz")
@@ -286,9 +279,7 @@ mod tests {
 
     #[test]
     fn parses_application_deep_link() {
-        let link = open_link(parse_deep_link(
-            "camunda-support://process-instance/instance-42?origin=https%3A%2F%2Fcamunda.example.kz",
-        ));
+        let link = open_link(parse_deep_link("camunda-support://process-instance/instance-42?origin=https%3A%2F%2Fcamunda.example.kz"));
         assert_eq!(link.origin, "https://camunda.example.kz");
         assert_eq!(link.process_instance_id, "instance-42");
     }
@@ -305,7 +296,10 @@ mod tests {
         assert_eq!(invalid_message(parse_deep_link("ftp://camunda.example.kz/#/process-instance/1")), UNSUPPORTED_SCHEME);
         assert_eq!(invalid_message(parse_deep_link("just text")), INVALID_FORMAT);
         assert_eq!(invalid_message(parse_deep_link("")), INVALID_FORMAT);
-        assert_eq!(invalid_message(parse_deep_link("https://camunda.example.kz/camunda/app/cockpit/default/#/process-definition/1")), NOT_PROCESS_INSTANCE);
+        assert_eq!(
+            invalid_message(parse_deep_link("https://camunda.example.kz/camunda/app/cockpit/default/#/process-definition/1")),
+            NOT_PROCESS_INSTANCE
+        );
         assert_eq!(invalid_message(parse_deep_link("https:///#/process-instance/1")), MISSING_ORIGIN);
     }
 

@@ -27,20 +27,26 @@ pub struct DefinitionView {
 impl EventEmitter<Navigate> for DefinitionView {}
 
 impl DefinitionView {
-    pub fn new(connection: CamundaConnection, definition_id: String, all_versions: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        connection: CamundaConnection,
+        definition_id: String,
+        all_versions: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let table = cx.new(|cx| TableState::new(InstanceTable::default(), window, cx));
         let subscription = cx.subscribe(&table, |_, table, event: &TableEvent, cx| {
-            if let TableEvent::DoubleClickedRow(row) = event {
-                if let Some(item) = table.read(cx).delegate().rows.get(*row) {
-                    if !item.instance.ended {
-                        cx.emit(Navigate::Instance(item.instance.id.clone()));
-                    }
-                }
+            if let TableEvent::DoubleClickedRow(row) = event
+                && let Some(item) = table.read(cx).delegate().rows.get(*row)
+                && !item.instance.ended
+            {
+                cx.emit(Navigate::Instance(item.instance.id.clone()));
             }
         });
         let key = definition_id.split(':').next().unwrap_or_default().to_string();
         let versions_connection = connection.clone();
-        let request = services::request(cx, move |api| async move { api.load_process_definition_versions(&versions_connection, &key).await });
+        let request =
+            services::request(cx, move |api| async move { api.load_process_definition_versions(&versions_connection, &key).await });
         let versions_load = cx.spawn(async move |this, cx| {
             if let Ok(versions) = request.await {
                 this.update(cx, |this, cx| {
@@ -121,9 +127,14 @@ impl DefinitionView {
 impl Render for DefinitionView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let key = self.definition_id.split(':').next().unwrap_or_default().to_string();
-        let title = self.details.as_ref().map(|details| model::display_name(&details.definition).to_string()).unwrap_or_else(|| key.clone());
+        let title =
+            self.details.as_ref().map(|details| model::display_name(&details.definition).to_string()).unwrap_or_else(|| key.clone());
         let rows = self.details.as_ref().map(|details| details.instances.len()).unwrap_or_default();
-        let with_incidents = self.details.as_ref().map(|details| details.instances.iter().filter(|item| item.incident_count > 0).count()).unwrap_or_default();
+        let with_incidents = self
+            .details
+            .as_ref()
+            .map(|details| details.instances.iter().filter(|item| item.incident_count > 0).count())
+            .unwrap_or_default();
         v_flex()
             .size_full()
             .p_5()
@@ -131,7 +142,13 @@ impl Render for DefinitionView {
             .child(
                 h_flex()
                     .gap_3()
-                    .child(Button::new("back").icon(IconName::ChevronLeft).ghost().small().on_click(cx.listener(|_, _, _, cx| cx.emit(Navigate::Back))))
+                    .child(
+                        Button::new("back")
+                            .icon(IconName::ChevronLeft)
+                            .ghost()
+                            .small()
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(Navigate::Back))),
+                    )
                     .child(
                         v_flex()
                             .flex_1()
@@ -215,7 +232,12 @@ impl TableDelegate for InstanceTable {
             }
             "incidents" if item.incident_count > 0 => ui::pill(item.incident_count.to_string(), Tone::Danger, cx).into_any_element(),
             "incidents" => div().text_color(cx.theme().muted_foreground).child("0").into_any_element(),
-            _ => div().truncate().text_sm().text_color(cx.theme().muted_foreground).child(instance.tenant_id.clone().unwrap_or_else(|| "—".into())).into_any_element(),
+            _ => div()
+                .truncate()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child(instance.tenant_id.clone().unwrap_or_else(|| "—".into()))
+                .into_any_element(),
         }
     }
 

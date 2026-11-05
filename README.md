@@ -19,33 +19,49 @@
 ## Структура
 
 ```text
+Cargo.toml             приложение и workspace: версия, зависимости, релизный профиль
+src/main.rs            точка входа: окно, шрифты, горячие клавиши, deep links
+src/                   экраны, по файлу на сценарий:
+  app.rs               корневое окно, разделы, палитра, переключение подключений
+  overview.rs          обзор
+  search.rs            поиск заявок
+  incidents.rs         инциденты
+  definition.rs        процесс и его заявки
+  instance.rs          заявка: схема, хронология, диагностика, переменные, метаданные
+  bpmn.rs              схема BPMN на canvas: отрисовка, зум, пан, выбор кубика
+  teleport.rs          телепорт
+  operations.rs        повторы, разблокировка, приостановка
+  variables.rs         поиск и правка переменных
+  settings.rs          подключения, тема, обновления
+  palette.rs           палитра ⌘K
+  theme.rs, ui.rs      палитра GitLab, шрифты, общие элементы
+  services.rs, model.rs  tokio-мост к ядру, группировки для экранов
+assets/                шрифты GitLab, иконки
 crates/camunda-core/   клиент Camunda 7 REST, хранилище, миграция 1.x, deep links, обновления
-native/                приложение на GPUI Kit
-  src/                 экраны: overview, search, incidents, definition, instance, settings, palette
-  assets/              шрифты GitLab, иконки
-  scripts/             упаковка macOS (.app, .dmg) и Linux (.deb)
-  packaging/windows/   NSIS-установщик
-scripts/               релиз и запись версии
+packaging/             упаковка: macos.sh (.app, .dmg), linux.sh (.deb), windows.sh + windows.nsi (.exe)
+scripts/               release.sh и set-version.mjs
+docs/                  описание продукта, дизайн-система, дорожная карта, исследование стека
 ```
 
 ## Разработка
 
-Нужен Rust 1.95+ (через rustup). На macOS нужен Xcode для компиляции шейдеров Metal.
+Нужен Rust 1.95+ через rustup.
 
 ```bash
-cd native
 cargo run
-cargo test
-cargo test --manifest-path ../crates/camunda-core/Cargo.toml
+cargo test --workspace
+cargo clippy --workspace --all-targets -- --deny warnings
+cargo fmt --all
 ```
 
 Переменные для отладки: `CAMUNDA_SUPPORT_CONNECTION=<имя подключения>` выбирает подключение при старте, `CAMUNDA_SUPPORT_OPEN_INSTANCE=<id>` сразу открывает заявку.
 
-Пакеты локально:
+Пакеты локально, результат в `target/release/bundle`:
 
 ```bash
-native/scripts/package-macos.sh   # target/release/bundle/dmg/*.dmg
-native/scripts/package-linux.sh   # target/release/bundle/deb/*.deb (на Ubuntu)
+packaging/macos.sh
+packaging/linux.sh     # на Ubuntu
+packaging/windows.sh   # на Windows с NSIS
 ```
 
 ## Релиз
@@ -54,7 +70,7 @@ native/scripts/package-linux.sh   # target/release/bundle/deb/*.deb (на Ubuntu
 ./scripts/release.sh v2.3.0
 ```
 
-Скрипт гоняет тесты, записывает версию в `native/Cargo.toml`, коммитит и пушит тег. GitHub Actions собирает установщики для Windows (`.exe`), macOS ARM64 (`.dmg`) и Ubuntu (`.deb`) и публикует релиз с `SHA256SUMS.txt`. Имена ассетов совместимы с прежними версиями, поэтому старые клиенты увидят обновление.
+Скрипт гоняет тесты, записывает версию в `Cargo.toml`, коммитит и пушит тег. GitHub Actions проверяет форматирование, clippy и тесты, собирает установщики для Windows (`.exe`), macOS ARM64 (`.dmg`) и Ubuntu (`.deb`) и публикует релиз с `SHA256SUMS.txt`. Имена ассетов совместимы с прежними версиями, поэтому старые клиенты увидят обновление.
 
 Пакеты не подписаны. На macOS при первом запуске откройте приложение через «Системные настройки → Конфиденциальность и безопасность → Всё равно открыть».
 

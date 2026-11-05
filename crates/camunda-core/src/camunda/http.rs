@@ -52,10 +52,10 @@ pub fn classify_network_error(error: &reqwest::Error) -> NetworkErrorKind {
     let mut io_message = None;
     let mut source = error.source();
     while let Some(cause) = source {
-        if io_message.is_none() {
-            if let Some(io) = cause.downcast_ref::<std::io::Error>() {
-                io_message = Some(io.to_string());
-            }
+        if io_message.is_none()
+            && let Some(io) = cause.downcast_ref::<std::io::Error>()
+        {
+            io_message = Some(io.to_string());
         }
         causes.push(cause.to_string().to_lowercase());
         source = cause.source();
@@ -97,9 +97,7 @@ pub fn describe_network_kind(kind: &NetworkErrorKind) -> String {
         NetworkErrorKind::Timeout => "Время ожидания истекло. Проверьте VPN и доступность Camunda.".to_string(),
         NetworkErrorKind::UnknownHost => "Хост Camunda не найден. Проверьте DNS, адрес и VPN.".to_string(),
         NetworkErrorKind::TlsHandshake | NetworkErrorKind::Tls => "Ошибка TLS. Проверьте HTTPS-сертификат.".to_string(),
-        NetworkErrorKind::ConnectionRefused => {
-            "Подключение отклонено или хост недоступен. Проверьте VPN, хост и порт.".to_string()
-        }
+        NetworkErrorKind::ConnectionRefused => "Подключение отклонено или хост недоступен. Проверьте VPN, хост и порт.".to_string(),
         NetworkErrorKind::InvalidUrl => "Некорректный адрес запроса.".to_string(),
         NetworkErrorKind::Io(message) => format!("Сетевая ошибка: {message}"),
         NetworkErrorKind::Other(message) => format!("Не удалось выполнить операцию: {message}"),
@@ -114,11 +112,7 @@ pub async fn send(client: &reqwest::Client, request: reqwest::RequestBuilder) ->
     let status = response.status();
     let body = response.text().await?;
     if !status.is_success() {
-        return Err(ApiError::Http {
-            status: status.as_u16(),
-            server_message: extract_server_message(&body),
-            request_url,
-        });
+        return Err(ApiError::Http { status: status.as_u16(), server_message: extract_server_message(&body), request_url });
     }
     Ok(body)
 }
@@ -136,7 +130,8 @@ pub fn user_message(error: &ApiError, url: &str) -> String {
         }
         ApiError::Network(kind) => (describe_network_kind(kind), url),
         ApiError::Invalid(message) => {
-            let message = if message.trim().is_empty() { "Некорректное значение запроса." } else { message.as_str() };
+            let message =
+                if message.trim().is_empty() { "Некорректное значение запроса." } else { message.as_str() };
             (message.to_string(), url)
         }
         ApiError::Other(message) => (format!("Не удалось выполнить операцию: {message}"), url),

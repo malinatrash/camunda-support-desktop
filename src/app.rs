@@ -253,7 +253,11 @@ impl AppView {
 
     fn render_switcher(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let name = self.connection.as_ref().map(|connection| connection.name.clone()).unwrap_or_else(|| "Нет подключения".into());
-        let tone = self.connection.as_ref().map(|connection| environment_color(&connection.environment, cx)).unwrap_or(cx.theme().muted_foreground);
+        let tone = self
+            .connection
+            .as_ref()
+            .map(|connection| environment_color(&connection.environment, cx))
+            .unwrap_or(cx.theme().muted_foreground);
         div()
             .relative()
             .child(
@@ -306,7 +310,14 @@ impl AppView {
                                         .child(div().size(px(7.)).rounded_full().bg(environment_color(&connection.environment, cx)))
                                         .child(div().font_weight(FontWeight::MEDIUM).child(connection.name.clone())),
                                 )
-                                .child(div().pl(px(15.)).truncate().text_xs().text_color(cx.theme().muted_foreground).child(connection.rest_url.clone()))
+                                .child(
+                                    div()
+                                        .pl(px(15.))
+                                        .truncate()
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child(connection.rest_url.clone()),
+                                )
                                 .on_click(cx.listener(move |this, _, window, cx| this.select_connection(target.clone(), window, cx)))
                         }))
                         .child(div().h(px(1.)).my_1().bg(cx.theme().border))
@@ -361,7 +372,11 @@ impl Render for AppView {
             Some(Page::Definition(page)) => page.clone().into_any_element(),
             Some(Page::Instance(page)) => page.clone().into_any_element(),
             None => section_view.unwrap_or_else(|| {
-                div().p_6().text_color(cx.theme().muted_foreground).child("Подключений нет. Добавьте первое в настройках.").into_any_element()
+                div()
+                    .p_6()
+                    .text_color(cx.theme().muted_foreground)
+                    .child("Подключений нет. Добавьте первое в настройках.")
+                    .into_any_element()
             }),
         };
         v_flex()
@@ -424,10 +439,12 @@ impl Render for AppView {
                         .bg(cx.theme().warning.opacity(0.12))
                         .text_color(cx.theme().warning)
                         .child(div().flex_1().child(notice))
-                        .child(Button::new("notice-close").icon(IconName::Close).ghost().xsmall().on_click(cx.listener(|this, _, _, cx| {
-                            this.notice = None;
-                            cx.notify();
-                        }))),
+                        .child(Button::new("notice-close").icon(IconName::Close).ghost().xsmall().on_click(cx.listener(
+                            |this, _, _, cx| {
+                                this.notice = None;
+                                cx.notify();
+                            },
+                        ))),
                 )
             })
             .child(div().flex_1().min_h_0().child(content))

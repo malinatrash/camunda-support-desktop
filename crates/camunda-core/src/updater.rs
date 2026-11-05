@@ -39,10 +39,7 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 impl AppUpdateService {
     pub fn new(app_version: &str) -> Self {
         let platform = detect_platform();
-        let client = reqwest::Client::builder()
-            .connect_timeout(CONNECT_TIMEOUT)
-            .build()
-            .unwrap_or_default();
+        let client = reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT).build().unwrap_or_default();
         Self::with_options(
             client,
             LATEST_RELEASE_API.to_string(),
@@ -61,14 +58,7 @@ impl AppUpdateService {
         open_installer: OpenInstaller,
         app_version: &str,
     ) -> Self {
-        Self {
-            client,
-            api_url,
-            platform,
-            updates_directory,
-            user_agent: format!("camunda-support-desktop/{app_version}"),
-            open_installer,
-        }
+        Self { client, api_url, platform, updates_directory, user_agent: format!("camunda-support-desktop/{app_version}"), open_installer }
     }
 
     pub async fn check_for_update(&self, current_version: &str) -> UpdateCheckResult {
@@ -100,10 +90,8 @@ impl AppUpdateService {
             });
         }
         let installer = select_installer(&assets, self.platform);
-        let checksum_url = assets
-            .iter()
-            .find(|asset| asset.name.eq_ignore_ascii_case("SHA256SUMS.txt"))
-            .map(|asset| asset.download_url.clone());
+        let checksum_url =
+            assets.iter().find(|asset| asset.name.eq_ignore_ascii_case("SHA256SUMS.txt")).map(|asset| asset.download_url.clone());
         Ok(Some(AppUpdate {
             version: tag.strip_prefix('v').unwrap_or(&tag).to_string(),
             release_url: required_string(&release, "html_url")?,
@@ -120,7 +108,9 @@ impl AppUpdateService {
         on_progress: &(dyn Fn(UpdateDownloadProgress) + Send + Sync),
     ) -> UpdateInstallResult {
         let Some(asset) = &update.asset else {
-            return UpdateInstallResult::Failure { message: "Для этой платформы установщик не опубликован".into() };
+            return UpdateInstallResult::Failure {
+                message: "Для этой платформы установщик не опубликован".into()
+            };
         };
         match self.download_and_open_asset(update, asset, on_progress).await {
             Ok(()) => UpdateInstallResult::InstallerOpened { file_name: asset.name.clone() },
@@ -140,10 +130,8 @@ impl AppUpdateService {
         }
         let release_directory = self.updates_directory.join(safe_file_name(&update.tag));
         tokio::fs::create_dir_all(&release_directory).await.map_err(|error| error.to_string())?;
-        let file_name = Path::new(&asset.name)
-            .file_name()
-            .map(|name| name.to_string_lossy().to_string())
-            .unwrap_or_else(|| asset.name.clone());
+        let file_name =
+            Path::new(&asset.name).file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_else(|| asset.name.clone());
         let target = release_directory.join(file_name);
         let destination_path = target.to_string_lossy().to_string();
         let progress = |stage: UpdateDownloadStage, downloaded_bytes: i64, total_bytes: i64, bytes_per_second: i64| {
@@ -164,24 +152,15 @@ impl AppUpdateService {
             false
         };
         if !cached_installer_valid {
-            let partial = target.with_file_name(format!(
-                "{}.part",
-                target.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default()
-            ));
+            let partial = target
+                .with_file_name(format!("{}.part", target.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default()));
             let _ = tokio::fs::remove_file(&partial).await;
-            let response = self
-                .download_request(&asset.download_url)
-                .send()
-                .await
-                .map_err(|error| error.to_string())?;
+            let response = self.download_request(&asset.download_url).send().await.map_err(|error| error.to_string())?;
             if !response.status().is_success() {
                 return Err(format!("GitHub не отдал установщик: HTTP {}", response.status().as_u16()));
             }
-            let total_bytes = response
-                .content_length()
-                .map(|length| length as i64)
-                .filter(|length| *length > 0)
-                .unwrap_or(asset.size_bytes);
+            let total_bytes =
+                response.content_length().map(|length| length as i64).filter(|length| *length > 0).unwrap_or(asset.size_bytes);
             let mut output = tokio::fs::File::create(&partial).await.map_err(|error| error.to_string())?;
             let mut digest = Sha256::new();
             let started_at = Instant::now();
@@ -195,7 +174,7 @@ impl AppUpdateService {
                 digest.update(&chunk);
                 downloaded_bytes += chunk.len() as i64;
                 let now = Instant::now();
-                if last_reported_at.map_or(true, |last| now.duration_since(last) >= PROGRESS_INTERVAL) {
+                if last_reported_at.is_none_or(|last| now.duration_since(last) >= PROGRESS_INTERVAL) {
                     progress(
                         UpdateDownloadStage::Downloading,
                         downloaded_bytes,
@@ -235,11 +214,7 @@ impl AppUpdateService {
             return Ok(digest);
         }
         let checksum_url = update.checksum_url.as_deref().ok_or("В релизе отсутствует SHA256SUMS.txt")?;
-        let response = self
-            .download_request(checksum_url)
-            .send()
-            .await
-            .map_err(|error| error.to_string())?;
+        let response = self.download_request(checksum_url).send().await.map_err(|error| error.to_string())?;
         if !response.status().is_success() {
             return Err("Не удалось получить контрольные суммы обновления".into());
         }
@@ -292,9 +267,7 @@ pub fn select_installer(assets: &[AppUpdateAsset], platform: DesktopUpdatePlatfo
     };
     match platform {
         DesktopUpdatePlatform::MacArm64 => dmg_with_marker(&["aarch64", "arm64"]).or_else(|| with_extension(".dmg")),
-        DesktopUpdatePlatform::MacX64 => {
-            dmg_with_marker(&["x64", "x86_64", "intel"]).or_else(|| with_extension(".dmg"))
-        }
+        DesktopUpdatePlatform::MacX64 => dmg_with_marker(&["x64", "x86_64", "intel"]).or_else(|| with_extension(".dmg")),
         DesktopUpdatePlatform::Windows => with_extension(".exe").or_else(|| with_extension(".msi")),
         DesktopUpdatePlatform::Linux => with_extension(".deb"),
         DesktopUpdatePlatform::Unsupported => None,
@@ -321,11 +294,7 @@ fn github_error(status: u16) -> String {
 }
 
 fn required_string(value: &serde_json::Value, key: &str) -> Result<String, String> {
-    value[key]
-        .as_str()
-        .filter(|text| !text.trim().is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| format!("GitHub не вернул поле {key}"))
+    value[key].as_str().filter(|text| !text.trim().is_empty()).map(str::to_string).ok_or_else(|| format!("GitHub не вернул поле {key}"))
 }
 
 fn json_i64(value: &serde_json::Value) -> i64 {
@@ -337,10 +306,7 @@ fn ends_with_ignore_case(name: &str, suffix: &str) -> bool {
 }
 
 fn safe_file_name(value: &str) -> String {
-    value
-        .chars()
-        .map(|char| if char.is_alphanumeric() || matches!(char, '.' | '-' | '_') { char } else { '_' })
-        .collect()
+    value.chars().map(|char| if char.is_alphanumeric() || matches!(char, '.' | '-' | '_') { char } else { '_' }).collect()
 }
 
 fn release_asset_name(value: &str) -> String {
@@ -412,12 +378,7 @@ mod tests {
     use super::*;
 
     fn asset(name: &str) -> AppUpdateAsset {
-        AppUpdateAsset {
-            name: name.to_string(),
-            download_url: format!("https://example.test/{name}"),
-            size_bytes: 1,
-            digest: None,
-        }
+        AppUpdateAsset { name: name.to_string(), download_url: format!("https://example.test/{name}"), size_bytes: 1, digest: None }
     }
 
     #[test]
@@ -526,8 +487,7 @@ mod tests {
 
         let progress: Mutex<Vec<UpdateDownloadProgress>> = Mutex::new(Vec::new());
         let report = |event: UpdateDownloadProgress| progress.lock().expect("lock").push(event);
-        let UpdateInstallResult::InstallerOpened { file_name } = service.download_and_open(&update, &report).await
-        else {
+        let UpdateInstallResult::InstallerOpened { file_name } = service.download_and_open(&update, &report).await else {
             panic!("ожидалось открытие установщика");
         };
         assert_eq!(file_name, installer_name);
@@ -562,11 +522,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"tag_name":"v1.0.0","html_url":"x"}"#))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
-            .and(path("/limited"))
-            .respond_with(ResponseTemplate::new(403))
-            .mount(&server)
-            .await;
+        Mock::given(method("GET")).and(path("/limited")).respond_with(ResponseTemplate::new(403)).mount(&server).await;
         let service = |path: &str| {
             AppUpdateService::with_options(
                 reqwest::Client::new(),
@@ -580,7 +536,9 @@ mod tests {
         assert_eq!(service("/latest").check_for_update("1.0.0").await, UpdateCheckResult::UpToDate);
         assert_eq!(
             service("/limited").check_for_update("1.0.0").await,
-            UpdateCheckResult::Failure { message: "GitHub временно ограничил проверку обновлений".into() }
+            UpdateCheckResult::Failure {
+                message: "GitHub временно ограничил проверку обновлений".into()
+            }
         );
         let insecure = AppUpdate {
             version: "9.0.0".into(),
@@ -605,7 +563,9 @@ mod tests {
         );
         assert_eq!(
             https_only.download_and_open(&insecure, &|_| {}).await,
-            UpdateInstallResult::Failure { message: "GitHub вернул небезопасную ссылку на установщик".into() }
+            UpdateInstallResult::Failure {
+                message: "GitHub вернул небезопасную ссылку на установщик".into()
+            }
         );
     }
 }

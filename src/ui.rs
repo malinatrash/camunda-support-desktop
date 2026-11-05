@@ -52,25 +52,9 @@ pub fn counter(value: usize, cx: &App) -> Div {
 
 // Секция в рамке с серой шапкой.
 pub fn section(head: impl IntoElement, cx: &App) -> Div {
-    v_flex()
-        .min_w_0()
-        .min_h_0()
-        .border_1()
-        .border_color(cx.theme().border)
-        .rounded_md()
-        .overflow_hidden()
-        .bg(cx.theme().background)
-        .child(
-            h_flex()
-                .flex_none()
-                .h(px(46.))
-                .px_4()
-                .gap_3()
-                .bg(cx.theme().table_head)
-                .border_b_1()
-                .border_color(cx.theme().border)
-                .child(head),
-        )
+    v_flex().min_w_0().min_h_0().border_1().border_color(cx.theme().border).rounded_md().overflow_hidden().bg(cx.theme().background).child(
+        h_flex().flex_none().h(px(46.)).px_4().gap_3().bg(cx.theme().table_head).border_b_1().border_color(cx.theme().border).child(head),
+    )
 }
 
 pub fn instance_state(suspended: bool, ended: bool, cx: &App) -> Div {

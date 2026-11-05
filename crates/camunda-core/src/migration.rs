@@ -42,16 +42,11 @@ pub fn read_legacy_preferences() -> LegacyPreferences {
 
 #[cfg(target_os = "macos")]
 fn read_legacy_nodes() -> Option<LegacyNodes> {
-    let path = std::path::PathBuf::from(std::env::var_os("HOME")?)
-        .join("Library/Preferences/com.malinatrash.camunda-support.plist");
+    let path = std::path::PathBuf::from(std::env::var_os("HOME")?).join("Library/Preferences/com.malinatrash.camunda-support.plist");
     if !path.is_file() {
         return None;
     }
-    let output = std::process::Command::new("plutil")
-        .args(["-convert", "json", "-o", "-"])
-        .arg(&path)
-        .output()
-        .ok()?;
+    let output = std::process::Command::new("plutil").args(["-convert", "json", "-o", "-"]).arg(&path).output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -77,12 +72,10 @@ fn read_legacy_nodes() -> Option<LegacyNodes> {
 
 #[cfg(windows)]
 fn read_legacy_nodes() -> Option<LegacyNodes> {
-    use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
+    use winreg::enums::HKEY_CURRENT_USER;
 
-    let root = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey(r"Software\JavaSoft\Prefs\com\malinatrash\camunda-support")
-        .ok()?;
+    let root = RegKey::predef(HKEY_CURRENT_USER).open_subkey(r"Software\JavaSoft\Prefs\com\malinatrash\camunda-support").ok()?;
     let mut nodes = LegacyNodes::default();
     if let Ok(connections) = root.open_subkey("connections") {
         for name in connections.enum_keys().flatten() {
@@ -97,10 +90,7 @@ fn read_legacy_nodes() -> Option<LegacyNodes> {
             nodes.connections.push(values);
         }
     }
-    nodes.theme = root
-        .open_subkey("settings")
-        .ok()
-        .and_then(|settings| settings.get_value::<String, _>(encode_windows_name("theme")).ok());
+    nodes.theme = root.open_subkey("settings").ok().and_then(|settings| settings.get_value::<String, _>(encode_windows_name("theme")).ok());
     Some(nodes)
 }
 
@@ -162,19 +152,10 @@ pub fn parse_macos_plist_json(json: &str) -> Option<LegacyNodes> {
                 continue;
             }
             let Some(values) = values.as_object() else { continue };
-            nodes.connections.push(
-                values
-                    .iter()
-                    .filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string())))
-                    .collect(),
-            );
+            nodes.connections.push(values.iter().filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string()))).collect());
         }
     }
-    nodes.theme = node
-        .get("settings/")
-        .and_then(|settings| settings.get("theme"))
-        .and_then(|theme| theme.as_str())
-        .map(str::to_string);
+    nodes.theme = node.get("settings/").and_then(|settings| settings.get("theme")).and_then(|theme| theme.as_str()).map(str::to_string);
     Some(nodes)
 }
 

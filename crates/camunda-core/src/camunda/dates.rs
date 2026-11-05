@@ -18,9 +18,7 @@ pub fn parse_camunda_date_time(value: Option<&str>) -> Option<DateTime<FixedOffs
     if value.is_empty() {
         return None;
     }
-    DateTime::parse_from_str(value, CAMUNDA_DATE_FORMAT)
-        .or_else(|_| DateTime::parse_from_rfc3339(value))
-        .ok()
+    DateTime::parse_from_str(value, CAMUNDA_DATE_FORMAT).or_else(|_| DateTime::parse_from_rfc3339(value)).ok()
 }
 
 pub fn format_camunda_date_time(value: &DateTime<Local>) -> String {
@@ -109,9 +107,8 @@ mod tests {
 
     #[test]
     fn formats_offset_without_colon() {
-        let value = FixedOffset::east_opt(5 * 3600)
-            .and_then(|offset| offset.with_ymd_and_hms(2026, 10, 23, 10, 0, 0).single())
-            .expect("дата");
+        let value =
+            FixedOffset::east_opt(5 * 3600).and_then(|offset| offset.with_ymd_and_hms(2026, 10, 23, 10, 0, 0).single()).expect("дата");
         assert_eq!(value.format(CAMUNDA_DATE_FORMAT).to_string(), "2026-10-23T10:00:00.000+0500");
     }
 

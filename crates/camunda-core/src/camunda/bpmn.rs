@@ -9,13 +9,10 @@ pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
     if xml.trim().is_empty() {
         return Ok(BpmnDiagram::default());
     }
-    let document =
-        Document::parse(xml).map_err(|error| format!("Не удалось разобрать BPMN XML: {error}"))?;
+    let document = Document::parse(xml).map_err(|error| format!("Не удалось разобрать BPMN XML: {error}"))?;
     let elements: Vec<Node> = document.descendants().filter(Node::is_element).collect();
-    let semantic_by_id: HashMap<&str, Node> = elements
-        .iter()
-        .filter_map(|element| non_blank(element.attribute("id")).map(|id| (id, *element)))
-        .collect();
+    let semantic_by_id: HashMap<&str, Node> =
+        elements.iter().filter_map(|element| non_blank(element.attribute("id")).map(|id| (id, *element))).collect();
 
     let nodes = elements
         .iter()
@@ -26,19 +23,13 @@ pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
             let semantic = semantic_by_id.get(element_id);
             Some(BpmnNode {
                 id: element_id.to_string(),
-                name: semantic
-                    .and_then(|semantic| non_blank(semantic.attribute("name")))
-                    .map(str::to_string),
-                node_type: semantic
-                    .map(|semantic| semantic.tag_name().name().to_string())
-                    .unwrap_or_else(|| "unknown".to_string()),
+                name: semantic.and_then(|semantic| non_blank(semantic.attribute("name"))).map(str::to_string),
+                node_type: semantic.map(|semantic| semantic.tag_name().name().to_string()).unwrap_or_else(|| "unknown".to_string()),
                 x: float_attribute(&bounds, "x"),
                 y: float_attribute(&bounds, "y"),
                 width: float_attribute(&bounds, "width"),
                 height: float_attribute(&bounds, "height"),
-                topic: semantic
-                    .and_then(|semantic| attribute_by_local_name(semantic, "topic"))
-                    .map(str::to_string),
+                topic: semantic.and_then(|semantic| attribute_by_local_name(semantic, "topic")).map(str::to_string),
             })
         })
         .collect();
@@ -51,19 +42,12 @@ pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
             let semantic = semantic_by_id.get(element_id);
             Some(BpmnEdge {
                 id: element_id.to_string(),
-                source_ref: semantic
-                    .and_then(|semantic| non_blank(semantic.attribute("sourceRef")))
-                    .map(str::to_string),
-                target_ref: semantic
-                    .and_then(|semantic| non_blank(semantic.attribute("targetRef")))
-                    .map(str::to_string),
+                source_ref: semantic.and_then(|semantic| non_blank(semantic.attribute("sourceRef"))).map(str::to_string),
+                target_ref: semantic.and_then(|semantic| non_blank(semantic.attribute("targetRef"))).map(str::to_string),
                 waypoints: edge
                     .children()
                     .filter(|child| child.is_element() && child.tag_name().name() == "waypoint")
-                    .map(|waypoint| BpmnPoint {
-                        x: float_attribute(&waypoint, "x"),
-                        y: float_attribute(&waypoint, "y"),
-                    })
+                    .map(|waypoint| BpmnPoint { x: float_attribute(&waypoint, "x"), y: float_attribute(&waypoint, "y") })
                     .collect(),
             })
         })
@@ -76,27 +60,16 @@ fn non_blank(value: Option<&str>) -> Option<&str> {
     value.filter(|value| !value.trim().is_empty())
 }
 
-fn child_element<'a, 'input>(
-    parent: &Node<'a, 'input>,
-    local_name: &str,
-) -> Option<Node<'a, 'input>> {
-    parent
-        .children()
-        .find(|child| child.is_element() && child.tag_name().name() == local_name)
+fn child_element<'a, 'input>(parent: &Node<'a, 'input>, local_name: &str) -> Option<Node<'a, 'input>> {
+    parent.children().find(|child| child.is_element() && child.tag_name().name() == local_name)
 }
 
 fn attribute_by_local_name<'a>(node: &Node<'a, '_>, local_name: &str) -> Option<&'a str> {
-    non_blank(
-        node.attributes()
-            .find(|attribute| attribute.name() == local_name)
-            .map(|attribute| attribute.value()),
-    )
+    non_blank(node.attributes().find(|attribute| attribute.name() == local_name).map(|attribute| attribute.value()))
 }
 
 fn float_attribute(node: &Node, name: &str) -> f32 {
-    node.attribute(name)
-        .and_then(|value| value.parse::<f32>().ok())
-        .unwrap_or(0.0)
+    node.attribute(name).and_then(|value| value.parse::<f32>().ok()).unwrap_or(0.0)
 }
 
 #[cfg(test)]
@@ -137,34 +110,18 @@ mod tests {
         )
         .expect("диаграмма");
 
-        assert_eq!(
-            diagram
-                .nodes
-                .iter()
-                .map(|node| node.id.as_str())
-                .collect::<Vec<_>>(),
-            vec!["Start_1", "Task_1"]
-        );
+        assert_eq!(diagram.nodes.iter().map(|node| node.id.as_str()).collect::<Vec<_>>(), vec!["Start_1", "Task_1"]);
         let task = diagram.nodes.last().expect("узел");
         assert_eq!(task.node_type, "serviceTask");
         assert_eq!(task.topic.as_deref(), Some("customer-check"));
         assert_eq!(task.name.as_deref(), Some("Проверить клиента"));
-        assert_eq!(
-            (task.x, task.y, task.width, task.height),
-            (200.0, 90.0, 110.0, 80.0)
-        );
+        assert_eq!((task.x, task.y, task.width, task.height), (200.0, 90.0, 110.0, 80.0));
         let edge = &diagram.edges[0];
         assert_eq!(diagram.edges.len(), 1);
         assert_eq!(edge.waypoints.len(), 2);
         assert_eq!(edge.source_ref.as_deref(), Some("Start_1"));
         assert_eq!(edge.target_ref.as_deref(), Some("Task_1"));
-        assert_eq!(
-            diagram
-                .teleport_targets()
-                .map(|node| node.id.as_str())
-                .collect::<Vec<_>>(),
-            vec!["Task_1"]
-        );
+        assert_eq!(diagram.teleport_targets().map(|node| node.id.as_str()).collect::<Vec<_>>(), vec!["Task_1"]);
     }
 
     #[test]
@@ -175,29 +132,10 @@ mod tests {
         let subprocess = diagram.node("Activity_1gooqz2").expect("подпроцесс");
         assert_eq!(subprocess.node_type, "subProcess");
         assert_eq!(subprocess.name.as_deref(), Some("Подготовить изменения"));
-        assert_eq!(
-            diagram
-                .node("Activity_approve")
-                .map(|node| node.node_type.as_str()),
-            Some("userTask")
-        );
-        let targets: Vec<&str> = diagram
-            .teleport_targets()
-            .map(|node| node.id.as_str())
-            .collect();
-        assert_eq!(
-            targets,
-            vec![
-                "Activity_1gooqz2",
-                "Activity_1xqooxf",
-                "Activity_0soegtg",
-                "Activity_approve"
-            ]
-        );
-        assert!(diagram
-            .edges
-            .iter()
-            .all(|edge| edge.source_ref.is_some() && edge.target_ref.is_some()));
+        assert_eq!(diagram.node("Activity_approve").map(|node| node.node_type.as_str()), Some("userTask"));
+        let targets: Vec<&str> = diagram.teleport_targets().map(|node| node.id.as_str()).collect();
+        assert_eq!(targets, vec!["Activity_1gooqz2", "Activity_1xqooxf", "Activity_0soegtg", "Activity_approve"]);
+        assert!(diagram.edges.iter().all(|edge| edge.source_ref.is_some() && edge.target_ref.is_some()));
     }
 
     #[test]

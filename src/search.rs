@@ -159,10 +159,10 @@ impl SearchView {
                 this.load_catalog(key.clone(), window, cx);
             }),
             cx.subscribe(&table, |_, table, event: &TableEvent, cx| {
-                if let TableEvent::DoubleClickedRow(row) = event {
-                    if let Some(instance) = table.read(cx).delegate().rows.get(*row) {
-                        cx.emit(Navigate::Instance(instance.id.clone()));
-                    }
+                if let TableEvent::DoubleClickedRow(row) = event
+                    && let Some(instance) = table.read(cx).delegate().rows.get(*row)
+                {
+                    cx.emit(Navigate::Instance(instance.id.clone()));
                 }
             }),
         ];
@@ -299,9 +299,11 @@ impl SearchView {
         }
         let value_type = self.value_type.read(cx).selected_value().copied().unwrap_or(VariableValueType::Auto);
         let connection = self.connection.clone();
-        let request = services::request(cx, move |api| async move {
-            api.search_process_instances(&connection, &key, &name, &value, value_type).await
-        });
+        let request =
+            services::request(
+                cx,
+                move |api| async move { api.search_process_instances(&connection, &key, &name, &value, value_type).await },
+            );
         self.start(request, cx);
     }
 
@@ -332,16 +334,13 @@ impl SearchView {
         v_flex()
             .gap_2()
             .child(
-                h_flex()
-                    .gap_2()
-                    .child(div().flex_1().child(Input::new(&self.key_query)))
-                    .child(
-                        Button::new("search-key")
-                            .label("Найти")
-                            .primary()
-                            .loading(self.search.is_some())
-                            .on_click(cx.listener(|this, _, _, cx| this.search_by_key(cx))),
-                    ),
+                h_flex().gap_2().child(div().flex_1().child(Input::new(&self.key_query))).child(
+                    Button::new("search-key")
+                        .label("Найти")
+                        .primary()
+                        .loading(self.search.is_some())
+                        .on_click(cx.listener(|this, _, _, cx| this.search_by_key(cx))),
+                ),
             )
             .child(hint("Подстрока бизнес-ключа или ID заявки — ищем среди запущенных и завершённых.", cx))
     }
@@ -406,7 +405,9 @@ impl SearchView {
                     ),
             )
             .child(hint(step, cx))
-            .when_some(self.definitions_error.clone().or_else(|| self.catalog_error.clone()), |this, error| this.child(error_box(error, cx)))
+            .when_some(self.definitions_error.clone().or_else(|| self.catalog_error.clone()), |this, error| {
+                this.child(error_box(error, cx))
+            })
     }
 }
 

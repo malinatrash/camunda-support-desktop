@@ -1,4 +1,4 @@
-; Установщик Camunda Support для текущего пользователя: та же папка и ярлыки, что у прежней Tauri-версии.
+; Установщик Camunda Support для текущего пользователя: папка и ярлыки совпадают с версиями 2.x, поэтому обновление встаёт поверх.
 Unicode true
 !include "MUI2.nsh"
 
@@ -7,13 +7,13 @@ Unicode true
 !endif
 
 Name "Camunda Support"
-OutFile "..\..\target\release\bundle\nsis\Camunda Support_${VERSION}_x64-setup.exe"
+OutFile "..\target\release\bundle\nsis\Camunda Support_${VERSION}_x64-setup.exe"
 InstallDir "$LOCALAPPDATA\Camunda Support"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
-!define MUI_ICON "..\..\assets\icons\icon.ico"
-!define MUI_UNICON "..\..\assets\icons\icon.ico"
+!define MUI_ICON "..\assets\icons\icon.ico"
+!define MUI_UNICON "..\assets\icons\icon.ico"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Camunda Support.exe"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Camunda Support"
 
@@ -33,7 +33,7 @@ Section "Install"
   nsExec::Exec 'taskkill /F /IM "Camunda Support.exe"'
   nsExec::Exec 'taskkill /F /IM "camunda-support.exe"'
   SetOutPath "$INSTDIR"
-  File "/oname=Camunda Support.exe" "..\..\target\release\camunda-support.exe"
+  File "/oname=Camunda Support.exe" "..\target\release\camunda-support.exe"
   Delete "$INSTDIR\camunda-support.exe"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 

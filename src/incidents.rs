@@ -105,10 +105,10 @@ impl IncidentsView {
                 this.reload(window, cx);
             }),
             cx.subscribe(&table, |_, table, event: &TableEvent, cx| {
-                if let TableEvent::DoubleClickedRow(row) = event {
-                    if let Some(id) = table.read(cx).delegate().rows.get(*row).and_then(|incident| incident.process_instance_id.clone()) {
-                        cx.emit(Navigate::Instance(id));
-                    }
+                if let TableEvent::DoubleClickedRow(row) = event
+                    && let Some(id) = table.read(cx).delegate().rows.get(*row).and_then(|incident| incident.process_instance_id.clone())
+                {
+                    cx.emit(Navigate::Instance(id));
                 }
             }),
         ];
@@ -147,9 +147,8 @@ impl IncidentsView {
         let connection = self.connection.clone();
         let filter = DashboardDateFilter { preset: self.preset, ..Default::default() };
         let definition = self.selected_definition(cx);
-        let request = services::request(cx, move |api| async move {
-            api.load_incidents(&connection, definition.as_deref(), &filter, None).await
-        });
+        let request =
+            services::request(cx, move |api| async move { api.load_incidents(&connection, definition.as_deref(), &filter, None).await });
         self.error = None;
         self.load = Some(cx.spawn_in(window, async move |this, cx| {
             let result = request.await;
@@ -185,7 +184,9 @@ impl IncidentsView {
         self.known_definitions.sort();
         let selected = self.selected_definition(cx);
         let mut options = vec![DefinitionOption { label: "Все процессы".into(), value: None }];
-        options.extend(self.known_definitions.iter().map(|id| DefinitionOption { label: definition_label(id).into(), value: Some(id.clone()) }));
+        options.extend(
+            self.known_definitions.iter().map(|id| DefinitionOption { label: definition_label(id).into(), value: Some(id.clone()) }),
+        );
         let index = selected
             .as_ref()
             .and_then(|id| self.known_definitions.iter().position(|known| known == id))
@@ -266,7 +267,9 @@ impl IncidentsView {
                 match result {
                     Ok(result) => {
                         let skipped = if result.skipped > 0 { format!(", пропущено {}", result.skipped) } else { String::new() };
-                        this.notice = Some(format!("Повтор запущен: заданий {}, внешних задач {}{skipped}.", result.jobs, result.external_tasks).into());
+                        this.notice = Some(
+                            format!("Повтор запущен: заданий {}, внешних задач {}{skipped}.", result.jobs, result.external_tasks).into(),
+                        );
                         this.pending_retry = None;
                         this.table.update(cx, |table, _| table.delegate_mut().selected.clear());
                         this.reload(window, cx);
@@ -281,11 +284,8 @@ impl IncidentsView {
     }
 
     fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let presets = [
-            (DashboardDatePreset::Live, "Сейчас"),
-            (DashboardDatePreset::Today, "Сегодня"),
-            (DashboardDatePreset::Yesterday, "Вчера"),
-        ];
+        let presets =
+            [(DashboardDatePreset::Live, "Сейчас"), (DashboardDatePreset::Today, "Сегодня"), (DashboardDatePreset::Yesterday, "Вчера")];
         h_flex()
             .gap_2()
             .children(presets.into_iter().map(|(preset, label)| {
@@ -295,7 +295,12 @@ impl IncidentsView {
                     .map(|button| if self.preset == preset { button.secondary() } else { button.ghost() })
                     .on_click(cx.listener(move |this, _, window, cx| this.select_preset(preset, window, cx)))
             }))
-            .child(div().w(px(260.)).flex_none().child(Select::new(&self.definition).small().menu_width(px(320.)).accessibility_label("Процесс")))
+            .child(
+                div()
+                    .w(px(260.))
+                    .flex_none()
+                    .child(Select::new(&self.definition).small().menu_width(px(320.)).accessibility_label("Процесс")),
+            )
             .child(div().flex_1())
             .child(div().w(px(300.)).child(Input::new(&self.query).small()))
             .child(
@@ -316,7 +321,7 @@ impl IncidentsView {
                 None => types.push((incident.incident_type.clone(), 1)),
             }
         }
-        types.sort_by(|a, b| b.1.cmp(&a.1));
+        types.sort_by_key(|item| std::cmp::Reverse(item.1));
         let selected_count = self.table.read(cx).delegate().selected.len();
         let retryable_selected = self.selected_retryable(cx).len();
         h_flex()
@@ -425,7 +430,11 @@ impl IncidentsView {
                     .gap_3()
                     .cursor_pointer()
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .child(Icon::new(if open { IconName::ChevronDown } else { IconName::ChevronRight }).small().text_color(cx.theme().muted_foreground))
+                    .child(
+                        Icon::new(if open { IconName::ChevronDown } else { IconName::ChevronRight })
+                            .small()
+                            .text_color(cx.theme().muted_foreground),
+                    )
                     .child(div().w(px(44.)).flex_none().flex().justify_end().child(ui::pill(summary.count.to_string(), Tone::Danger, cx)))
                     .child(
                         v_flex()
@@ -489,7 +498,9 @@ impl IncidentsView {
                                 )
                         }))
                         .when(total > 50, |this| {
-                            this.child(div().text_xs().text_color(cx.theme().muted_foreground).child(format!("Показаны первые 50 из {total}")))
+                            this.child(
+                                div().text_xs().text_color(cx.theme().muted_foreground).child(format!("Показаны первые 50 из {total}")),
+                            )
                         }),
                 )
             })
@@ -504,7 +515,8 @@ impl IncidentsView {
                 let checked = *checked;
                 this.table.update(cx, |table, cx| {
                     let delegate = table.delegate_mut();
-                    delegate.selected = if checked { delegate.rows.iter().map(|incident| incident.id.clone()).collect() } else { HashSet::new() };
+                    delegate.selected =
+                        if checked { delegate.rows.iter().map(|incident| incident.id.clone()).collect() } else { HashSet::new() };
                     table.refresh(cx);
                 });
                 cx.notify();
@@ -536,24 +548,23 @@ impl IncidentsView {
                     incidents.len()
                 )))
                 .when(production, |this| {
-                    this.child(
-                        Checkbox::new("confirm-production")
-                            .label("Понимаю, что это прод")
-                            .checked(self.confirmed)
-                            .on_click(cx.listener(|this, checked: &bool, _, cx| {
-                                this.confirmed = *checked;
-                                cx.notify();
-                            })),
-                    )
+                    this.child(Checkbox::new("confirm-production").label("Понимаю, что это прод").checked(self.confirmed).on_click(
+                        cx.listener(|this, checked: &bool, _, cx| {
+                            this.confirmed = *checked;
+                            cx.notify();
+                        }),
+                    ))
                 })
                 .child(
                     h_flex()
                         .justify_end()
                         .gap_2()
-                        .child(Button::new("retry-cancel").label("Отмена").ghost().disabled(self.retry.is_some()).on_click(cx.listener(|this, _, _, cx| {
-                            this.pending_retry = None;
-                            cx.notify();
-                        })))
+                        .child(Button::new("retry-cancel").label("Отмена").ghost().disabled(self.retry.is_some()).on_click(cx.listener(
+                            |this, _, _, cx| {
+                                this.pending_retry = None;
+                                cx.notify();
+                            },
+                        )))
                         .child(
                             Button::new("retry-run")
                                 .label("Повторить")
@@ -571,7 +582,11 @@ impl Render for IncidentsView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let filtered = self.filtered(cx);
         let groups = self.groups(&filtered);
-        let empty = if self.incidents.is_empty() { "Инцидентов нет" } else { "Ничего не найдено — измените фильтр" };
+        let empty = if self.incidents.is_empty() {
+            "Инцидентов нет"
+        } else {
+            "Ничего не найдено — измените фильтр"
+        };
         let body = if self.load.is_some() && self.incidents.is_empty() {
             div().p_6().text_color(cx.theme().muted_foreground).child("Загружаем инциденты…").into_any_element()
         } else if filtered.is_empty() {
@@ -591,7 +606,9 @@ impl Render for IncidentsView {
             .child(self.render_toolbar(cx))
             .child(self.render_bar(filtered.len(), group_count, cx))
             .when_some(self.notice.clone(), |this, notice| {
-                this.child(div().px_4().py_2().rounded_md().bg(cx.theme().success.opacity(0.12)).text_color(cx.theme().success).child(notice))
+                this.child(
+                    div().px_4().py_2().rounded_md().bg(cx.theme().success.opacity(0.12)).text_color(cx.theme().success).child(notice),
+                )
             })
             .when_some(self.error.clone(), |this, error| {
                 this.child(div().px_4().py_2().rounded_md().bg(cx.theme().danger.opacity(0.1)).text_color(cx.theme().danger).child(error))
@@ -655,8 +672,16 @@ impl TableDelegate for IncidentTable {
                     }))
                     .into_any_element()
             }
-            "message" => div().truncate().child(incident.message.clone().unwrap_or_else(|| "Camunda не вернула сообщение ошибки".into())).into_any_element(),
-            "type" => div().truncate().text_sm().text_color(cx.theme().muted_foreground).child(model::incident_type_label(&incident.incident_type).to_string()).into_any_element(),
+            "message" => div()
+                .truncate()
+                .child(incident.message.clone().unwrap_or_else(|| "Camunda не вернула сообщение ошибки".into()))
+                .into_any_element(),
+            "type" => div()
+                .truncate()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child(model::incident_type_label(&incident.incident_type).to_string())
+                .into_any_element(),
             "activity" => div()
                 .truncate()
                 .text_sm()

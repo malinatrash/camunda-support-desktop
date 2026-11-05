@@ -242,7 +242,13 @@ impl SettingsView {
             .child(div().font_weight(FontWeight::SEMIBOLD).child("Подключения"))
             .child(ui::counter(self.connections.len(), cx))
             .child(div().flex_1())
-            .child(Button::new("add-connection").label("Добавить").small().primary().on_click(cx.listener(|this, _, window, cx| this.open_form(window, cx))));
+            .child(
+                Button::new("add-connection")
+                    .label("Добавить")
+                    .small()
+                    .primary()
+                    .on_click(cx.listener(|this, _, window, cx| this.open_form(window, cx))),
+            );
         ui::section(head, cx)
             .flex_none()
             .children(self.connections.iter().map(|connection| {
@@ -260,26 +266,32 @@ impl SettingsView {
                             .flex_1()
                             .min_w_0()
                             .gap_0p5()
+                            .child(h_flex().gap_2().child(div().font_weight(FontWeight::MEDIUM).child(connection.name.clone())).child(
+                                div().text_sm().text_color(cx.theme().muted_foreground).child(format!(
+                                    "{} · Camunda {}",
+                                    environment_label(&connection.environment),
+                                    connection.engine_version.clone().unwrap_or_else(|| "?".into())
+                                )),
+                            ))
                             .child(
-                                h_flex()
-                                    .gap_2()
-                                    .child(div().font_weight(FontWeight::MEDIUM).child(connection.name.clone()))
-                                    .child(div().text_sm().text_color(cx.theme().muted_foreground).child(format!(
-                                        "{} · Camunda {}",
-                                        environment_label(&connection.environment),
-                                        connection.engine_version.clone().unwrap_or_else(|| "?".into())
-                                    ))),
-                            )
-                            .child(div().truncate().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(connection.rest_url.clone())),
+                                div()
+                                    .truncate()
+                                    .text_xs()
+                                    .font_family(crate::theme::MONO)
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(connection.rest_url.clone()),
+                            ),
                     )
                     .map(|row| {
                         if confirming {
                             let target = id.clone();
                             row.child(div().text_sm().text_color(cx.theme().danger).child("Удалить подключение?"))
-                                .child(Button::new(SharedString::from(format!("cancel-{id}"))).label("Нет").ghost().small().on_click(cx.listener(|this, _, _, cx| {
-                                    this.pending_delete = None;
-                                    cx.notify();
-                                })))
+                                .child(Button::new(SharedString::from(format!("cancel-{id}"))).label("Нет").ghost().small().on_click(
+                                    cx.listener(|this, _, _, cx| {
+                                        this.pending_delete = None;
+                                        cx.notify();
+                                    }),
+                                ))
                                 .child(
                                     Button::new(SharedString::from(format!("confirm-{id}")))
                                         .label("Удалить")
@@ -288,10 +300,12 @@ impl SettingsView {
                                         .on_click(cx.listener(move |this, _, _, cx| this.delete_connection(target.clone(), cx))),
                                 )
                         } else {
-                            row.child(Button::new(SharedString::from(format!("delete-{id}"))).label("Удалить").ghost().small().on_click(cx.listener(move |this, _, _, cx| {
-                                this.pending_delete = Some(id.clone());
-                                cx.notify();
-                            })))
+                            row.child(Button::new(SharedString::from(format!("delete-{id}"))).label("Удалить").ghost().small().on_click(
+                                cx.listener(move |this, _, _, cx| {
+                                    this.pending_delete = Some(id.clone());
+                                    cx.notify();
+                                }),
+                            ))
                         }
                     })
             }))
@@ -369,13 +383,19 @@ impl SettingsView {
     }
 
     fn check_button(&self, cx: &mut Context<Self>) -> AnyElement {
-        Button::new("check-update").label("Проверить").small().on_click(cx.listener(|this, _, _, cx| this.check_update(cx))).into_any_element()
+        Button::new("check-update")
+            .label("Проверить")
+            .small()
+            .on_click(cx.listener(|this, _, _, cx| this.check_update(cx)))
+            .into_any_element()
     }
 
     fn render_form(&self, form: &ConnectionForm, cx: &mut Context<Self>) -> impl IntoElement {
         let derived = connection::derive_cockpit_url(form.rest_url.read(cx).value().trim());
         let testing = form.testing.is_some();
-        let field = |label: &'static str, input: AnyElement| v_flex().gap_1p5().child(div().text_sm().font_weight(FontWeight::MEDIUM).child(label)).child(input);
+        let field = |label: &'static str, input: AnyElement| {
+            v_flex().gap_1p5().child(div().text_sm().font_weight(FontWeight::MEDIUM).child(label)).child(input)
+        };
         v_flex()
             .id("connection-form")
             .w(px(560.))
@@ -387,17 +407,19 @@ impl SettingsView {
             .bg(cx.theme().popover)
             .shadow_2xl()
             .occlude()
-            .child(
-                v_flex()
-                    .gap_1()
-                    .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Новое подключение"))
-                    .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Адрес Cockpit построится из адреса REST автоматически.")),
-            )
+            .child(v_flex().gap_1().child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Новое подключение")).child(
+                div().text_sm().text_color(cx.theme().muted_foreground).child("Адрес Cockpit построится из адреса REST автоматически."),
+            ))
             .child(field("Название подключения", Input::new(&form.name).into_any_element()))
             .child(field("Адрес Camunda REST", Input::new(&form.rest_url).into_any_element()))
             .child(field(
                 "Адрес Cockpit",
-                div().text_sm().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(if derived.is_empty() { "—".to_string() } else { derived }).into_any_element(),
+                div()
+                    .text_sm()
+                    .font_family(crate::theme::MONO)
+                    .text_color(cx.theme().muted_foreground)
+                    .child(if derived.is_empty() { "—".to_string() } else { derived })
+                    .into_any_element(),
             ))
             .child(field(
                 "Окружение",
@@ -419,24 +441,46 @@ impl SettingsView {
             ))
             .when_some(form.tested.clone(), |this, tested| {
                 let (text, color) = match tested {
-                    Ok(version) => (format!("Подключение работает · Camunda {}", version.unwrap_or_else(|| "?".into())), cx.theme().success),
+                    Ok(version) => {
+                        (format!("Подключение работает · Camunda {}", version.unwrap_or_else(|| "?".into())), cx.theme().success)
+                    }
                     Err(error) => (error, cx.theme().danger),
                 };
                 this.child(div().px_3().py_2().rounded_md().bg(color.opacity(0.1)).text_sm().text_color(color).child(text))
             })
             .when_some(form.error.clone(), |this, error| {
-                this.child(div().px_3().py_2().rounded_md().bg(cx.theme().danger.opacity(0.1)).text_sm().text_color(cx.theme().danger).child(error))
+                this.child(
+                    div()
+                        .px_3()
+                        .py_2()
+                        .rounded_md()
+                        .bg(cx.theme().danger.opacity(0.1))
+                        .text_sm()
+                        .text_color(cx.theme().danger)
+                        .child(error),
+                )
             })
             .child(
                 h_flex()
                     .gap_2()
-                    .child(Button::new("test-connection").label("Проверить").small().loading(testing).on_click(cx.listener(|this, _, _, cx| this.test_connection(cx))))
+                    .child(
+                        Button::new("test-connection")
+                            .label("Проверить")
+                            .small()
+                            .loading(testing)
+                            .on_click(cx.listener(|this, _, _, cx| this.test_connection(cx))),
+                    )
                     .child(div().flex_1())
                     .child(Button::new("cancel-form").label("Отмена").ghost().on_click(cx.listener(|this, _, _, cx| {
                         this.form = None;
                         cx.notify();
                     })))
-                    .child(Button::new("save-form").label("Сохранить").primary().on_click(cx.listener(|this, _, _, cx| this.save_connection(cx)))),
+                    .child(
+                        Button::new("save-form")
+                            .label("Сохранить")
+                            .primary()
+                            .on_click(cx.listener(|this, _, _, cx| this.save_connection(cx))),
+                    ),
             )
     }
 }
@@ -445,11 +489,9 @@ fn progress_label(update: &AppUpdate, progress: Option<&UpdateDownloadProgress>)
     let Some(progress) = progress else { return format!("Готовим загрузку {}…", update.version) };
     match progress.stage {
         UpdateDownloadStage::Preparing => "Готовим загрузку…".to_string(),
-        UpdateDownloadStage::Downloading if progress.total_bytes > 0 => format!(
-            "Скачиваем: {:.1} из {:.1} МБ",
-            progress.downloaded_bytes as f64 / 1_048_576.,
-            progress.total_bytes as f64 / 1_048_576.
-        ),
+        UpdateDownloadStage::Downloading if progress.total_bytes > 0 => {
+            format!("Скачиваем: {:.1} из {:.1} МБ", progress.downloaded_bytes as f64 / 1_048_576., progress.total_bytes as f64 / 1_048_576.)
+        }
         UpdateDownloadStage::Downloading => format!("Скачиваем: {:.1} МБ", progress.downloaded_bytes as f64 / 1_048_576.),
         UpdateDownloadStage::Verifying => "Проверяем контрольную сумму…".to_string(),
         UpdateDownloadStage::OpeningInstaller => "Открываем установщик…".to_string(),
@@ -476,24 +518,21 @@ impl Render for SettingsView {
             .relative()
             .size_full()
             .child(
-                v_flex()
-                    .id("settings")
-                    .size_full()
-                    .overflow_y_scroll()
-                    .p_5()
-                    .child(
-                        v_flex()
-                            .w_full()
-                            .max_w(px(820.))
-                            .gap_5()
-                            .child(div().text_xl().font_weight(FontWeight::SEMIBOLD).child("Настройки"))
-                            .child(self.render_connections(cx))
-                            .child(self.render_appearance(cx))
-                            .child(self.render_updates(cx)),
-                    ),
+                v_flex().id("settings").size_full().overflow_y_scroll().p_5().child(
+                    v_flex()
+                        .w_full()
+                        .max_w(px(820.))
+                        .gap_5()
+                        .child(div().text_xl().font_weight(FontWeight::SEMIBOLD).child("Настройки"))
+                        .child(self.render_connections(cx))
+                        .child(self.render_appearance(cx))
+                        .child(self.render_updates(cx)),
+                ),
             )
             .when_some(form, |this, form| {
-                this.child(deferred(div().absolute().inset_0().flex().items_center().justify_center().p_6().bg(black().opacity(0.45)).child(form)))
+                this.child(deferred(
+                    div().absolute().inset_0().flex().items_center().justify_center().p_6().bg(black().opacity(0.45)).child(form),
+                ))
             })
     }
 }

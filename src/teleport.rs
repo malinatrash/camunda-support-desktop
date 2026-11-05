@@ -53,7 +53,8 @@ impl TeleportView {
                 cx.notify();
             }
         };
-        let subscriptions = vec![cx.subscribe(&source_query, notify), cx.subscribe(&target_query, notify), cx.subscribe(&annotation, notify)];
+        let subscriptions =
+            vec![cx.subscribe(&source_query, notify), cx.subscribe(&target_query, notify), cx.subscribe(&annotation, notify)];
         Self {
             connection,
             instance_id: details.instance.id.clone(),
@@ -93,7 +94,8 @@ impl TeleportView {
             skip_io_mappings: true,
         };
         let (connection, instance_id) = (self.connection.clone(), self.instance_id.clone());
-        let call = services::request(cx, move |api| async move { api.teleport_process_instance(&connection, &instance_id, &request).await });
+        let call =
+            services::request(cx, move |api| async move { api.teleport_process_instance(&connection, &instance_id, &request).await });
         self.error = None;
         self.run = Some(cx.spawn(async move |this, cx| {
             let result = call.await;
@@ -110,7 +112,14 @@ impl TeleportView {
         cx.notify();
     }
 
-    fn picker(&self, step: &'static str, title: &'static str, query: &Entity<InputState>, rows: Vec<AnyElement>, cx: &App) -> impl IntoElement {
+    fn picker(
+        &self,
+        step: &'static str,
+        title: &'static str,
+        query: &Entity<InputState>,
+        rows: Vec<AnyElement>,
+        cx: &App,
+    ) -> impl IntoElement {
         v_flex()
             .flex_1()
             .h_full()
@@ -183,7 +192,12 @@ impl Render for TeleportView {
                     SharedString::from(format!("target-{}", node.id)),
                     self.target.as_deref() == Some(node.id.as_str()),
                     node.name.clone().unwrap_or_else(|| node.id.clone()),
-                    format!("{} · {}{}", node.node_type, node.id, node.topic.as_ref().map(|topic| format!(" · {topic}")).unwrap_or_default()),
+                    format!(
+                        "{} · {}{}",
+                        node.node_type,
+                        node.id,
+                        node.topic.as_ref().map(|topic| format!(" · {topic}")).unwrap_or_default()
+                    ),
                     cx,
                 )
                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -216,10 +230,12 @@ impl Render for TeleportView {
                 }
             }))
             .child(
-                v_flex()
-                    .gap_1()
-                    .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Телепорт заявки"))
-                    .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Выберите активный экземпляр и кубик, перед которым продолжится выполнение.")),
+                v_flex().gap_1().child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Телепорт заявки")).child(
+                    div()
+                        .text_sm()
+                        .text_color(cx.theme().muted_foreground)
+                        .child("Выберите активный экземпляр и кубик, перед которым продолжится выполнение."),
+                ),
             )
             .child(
                 h_flex()
@@ -253,7 +269,9 @@ impl Render for TeleportView {
                 h_flex()
                     .justify_end()
                     .gap_2()
-                    .child(Button::new("cancel").label("Отмена").ghost().on_click(cx.listener(|_, _, _, cx| cx.emit(TeleportEvent::Cancel))))
+                    .child(
+                        Button::new("cancel").label("Отмена").ghost().on_click(cx.listener(|_, _, _, cx| cx.emit(TeleportEvent::Cancel))),
+                    )
                     .child(
                         Button::new("execute")
                             .label("Телепортировать")

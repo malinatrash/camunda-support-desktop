@@ -3,15 +3,15 @@ use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
-use futures_util::future::{join_all, try_join_all};
 use futures_util::FutureExt;
-use serde_json::{json, Value};
+use futures_util::future::{join_all, try_join_all};
+use serde_json::{Value, json};
 use tokio::sync::Semaphore;
 
 use crate::camunda::bpmn::parse_bpmn;
 use crate::camunda::catalog::{ProcessVariableCatalogRepository, StoredProcessVariableCatalog};
 use crate::camunda::dates::{self, CamundaDateRange};
-use crate::camunda::http::{self, encode, ApiError};
+use crate::camunda::http::{self, ApiError, encode};
 use crate::models::*;
 
 const SEARCH_LIMIT: usize = 100;
@@ -112,11 +112,8 @@ impl CamundaApi {
         connection: &CamundaConnection,
         date_filter: &DashboardDateFilter,
     ) -> Result<ProcessDashboard, String> {
-        let definitions_url =
-            format!("{}/process-definition?sortBy=deployTime&sortOrder=desc", connection.rest_url);
-        self.dashboard(connection, date_filter, &definitions_url)
-            .await
-            .map_err(|error| http::user_message(&error, &definitions_url))
+        let definitions_url = format!("{}/process-definition?sortBy=deployTime&sortOrder=desc", connection.rest_url);
+        self.dashboard(connection, date_filter, &definitions_url).await.map_err(|error| http::user_message(&error, &definitions_url))
     }
 
     // Каждая версия приходит отдельно со своими счётчиками и датой деплоя, в процесс их сворачивает интерфейс.
@@ -154,9 +151,9 @@ impl CamundaApi {
             }
         };
         let unfinished_activities = async { self.load_unfinished_activities(connection).await.unwrap_or_default() };
-        let completed_count =
-            async { self.get(&completed_count_url).await.ok().and_then(|body| parse_count(&body).ok()) };
-        let deployment_times = async { self.get(&deployments_url).await.ok().and_then(|body| parse_deployment_times(&body).ok()).unwrap_or_default() };
+        let completed_count = async { self.get(&completed_count_url).await.ok().and_then(|body| parse_count(&body).ok()) };
+        let deployment_times =
+            async { self.get(&deployments_url).await.ok().and_then(|body| parse_deployment_times(&body).ok()).unwrap_or_default() };
 
         let (definitions, statistics, incidents, unfinished, completed_count, deployment_times) =
             tokio::join!(definitions.clone(), statistics, incidents, unfinished_activities, completed_count, deployment_times);
@@ -168,10 +165,8 @@ impl CamundaApi {
             std::cmp::Reverse(dates::parse_camunda_date_time(incident.timestamp.as_deref()).map(|value| value.with_timezone(&Utc)))
         });
         let (range_start, range_end) = (range.start.with_timezone(&Utc), range.end.with_timezone(&Utc));
-        let waiting_candidates: Vec<&HistoricActivityInstance> = unfinished
-            .iter()
-            .filter(|activity| live || dates::is_inside(activity.start_time.as_deref(), range_start, range_end))
-            .collect();
+        let waiting_candidates: Vec<&HistoricActivityInstance> =
+            unfinished.iter().filter(|activity| live || dates::is_inside(activity.start_time.as_deref(), range_start, range_end)).collect();
         let (incident_activities, longest_waiting_activities) = tokio::join!(
             self.load_incident_activities(connection, &incidents),
             self.load_longest_waiting_activities(connection, &waiting_candidates)
@@ -182,7 +177,7 @@ impl CamundaApi {
                 .into_iter()
                 .map(|(incident_type, count)| DashboardIncidentType { incident_type, count })
                 .collect();
-        incident_types.sort_by(|left, right| right.count.cmp(&left.count));
+        incident_types.sort_by_key(|item| std::cmp::Reverse(item.count));
 
         Ok(ProcessDashboard {
             definitions: definitions
@@ -230,11 +225,8 @@ impl CamundaApi {
         connection: &CamundaConnection,
         process_definition_key: &str,
     ) -> Result<Vec<ProcessDefinitionSummary>, String> {
-        let url = format!(
-            "{}/process-definition?key={}&sortBy=version&sortOrder=desc",
-            connection.rest_url,
-            encode(process_definition_key)
-        );
+        let url =
+            format!("{}/process-definition?key={}&sortBy=version&sortOrder=desc", connection.rest_url, encode(process_definition_key));
         let result = async { parse_definitions(&self.get(&url).await?) }.await;
         result.map_err(|error| http::user_message(&error, &url))
     }
@@ -260,21 +252,13 @@ impl CamundaApi {
             });
             let pages = try_join_all(searches).await?;
             let mut seen = HashSet::new();
-            Ok(pages
-                .into_iter()
-                .flatten()
-                .filter(|instance| seen.insert(instance.id.clone()))
-                .take(SEARCH_LIMIT)
-                .collect())
+            Ok(pages.into_iter().flatten().filter(|instance| seen.insert(instance.id.clone())).take(SEARCH_LIMIT).collect())
         }
         .await;
         result.map_err(|error| http::user_message(&error, &url))
     }
 
-    pub async fn load_search_process_definitions(
-        &self,
-        connection: &CamundaConnection,
-    ) -> Result<Vec<ProcessDefinitionSummary>, String> {
+    pub async fn load_search_process_definitions(&self, connection: &CamundaConnection) -> Result<Vec<ProcessDefinitionSummary>, String> {
         let url = format!(
             "{}/process-definition?latestVersion=true&sortBy=key&sortOrder=asc&maxResults={SEARCH_DEFINITION_LIMIT}",
             connection.rest_url
@@ -320,8 +304,7 @@ impl CamundaApi {
         let result = async {
             let loaded_instances = parse_instances(&self.get(&instances_url).await?)?;
             let instances_truncated = loaded_instances.len() > VARIABLE_CATALOG_INSTANCE_LIMIT;
-            let instances: Vec<ProcessInstanceSummary> =
-                loaded_instances.into_iter().take(VARIABLE_CATALOG_INSTANCE_LIMIT).collect();
+            let instances: Vec<ProcessInstanceSummary> = loaded_instances.into_iter().take(VARIABLE_CATALOG_INSTANCE_LIMIT).collect();
             let semaphore = Semaphore::new(MAX_PARALLEL_HISTORY_REQUESTS);
             let batches = instances.chunks(VARIABLE_INSTANCE_ID_BATCH_SIZE).map(|batch| {
                 let semaphore = &semaphore;
@@ -481,13 +464,16 @@ impl CamundaApi {
                 Ok::<_, ApiError>((to_activity_execution_summaries(&history), to_activity_timeline(&history)))
             };
             let incidents = async {
-                let incidents =
-                    parse_incidents(&self.get(&format!("{rest_url}/incident?processInstanceId={query_id}&maxResults={DETAIL_LIST_LIMIT}")).await?)?;
+                let incidents = parse_incidents(
+                    &self.get(&format!("{rest_url}/incident?processInstanceId={query_id}&maxResults={DETAIL_LIST_LIMIT}")).await?,
+                )?;
                 Ok::<_, ApiError>(incidents.into_iter().map(|incident| incident.incident).collect::<Vec<_>>())
             };
             let jobs = async {
                 parse_jobs(
-                    &self.get(&format!("{rest_url}/job?processInstanceId={query_id}&withException=true&maxResults={DETAIL_LIST_LIMIT}")).await?,
+                    &self
+                        .get(&format!("{rest_url}/job?processInstanceId={query_id}&withException=true&maxResults={DETAIL_LIST_LIMIT}"))
+                        .await?,
                 )
             };
             let external_tasks = async {
@@ -649,12 +635,7 @@ impl CamundaApi {
         process_instance_id: &str,
         update: &ProcessVariableUpdate,
     ) -> Result<(), String> {
-        let url = format!(
-            "{}/process-instance/{}/variables/{}",
-            connection.rest_url,
-            encode(process_instance_id),
-            encode(&update.name)
-        );
+        let url = format!("{}/process-instance/{}/variables/{}", connection.rest_url, encode(process_instance_id), encode(&update.name));
         let value = variable_json_value(update)?;
         let value_info = match update.value_info.as_deref() {
             None => json!({}),
@@ -734,7 +715,7 @@ impl CamundaApi {
             Some((activity_id.clone(), incident.process_definition_id.clone()))
         });
         let mut aggregated = count_in_order(keys);
-        aggregated.sort_by(|left, right| right.1.cmp(&left.1));
+        aggregated.sort_by_key(|item| std::cmp::Reverse(item.1));
         aggregated.truncate(DASHBOARD_ACTIVITY_LIMIT);
         let definition_ids = aggregated.iter().filter_map(|((_, definition_id), _)| definition_id.clone()).collect();
         let diagrams = self.load_diagrams(connection, definition_ids).await;
@@ -767,16 +748,18 @@ impl CamundaApi {
         connection: &CamundaConnection,
         activities: &[&HistoricActivityInstance],
     ) -> Vec<DashboardWaitingActivity> {
-        let parent_ids: HashSet<&str> =
-            activities.iter().filter_map(|activity| activity.parent_activity_instance_id.as_deref()).collect();
+        let parent_ids: HashSet<&str> = activities.iter().filter_map(|activity| activity.parent_activity_instance_id.as_deref()).collect();
         let current = (self.now)();
-        let samples = activities.iter().filter(|activity| !parent_ids.contains(activity.id.as_str()) && activity.activity_type != "processDefinition").filter_map(|activity| {
-            activity.process_definition_id.as_deref()?;
-            let process_instance_id = activity.process_instance_id.as_deref()?;
-            let start = dates::parse_camunda_date_time(activity.start_time.as_deref())?;
-            let waiting_millis = (current - start.with_timezone(&Utc)).num_milliseconds().max(0);
-            Some(WaitingActivitySample { activity, process_instance_id, waiting_millis })
-        });
+        let samples = activities
+            .iter()
+            .filter(|activity| !parent_ids.contains(activity.id.as_str()) && activity.activity_type != "processDefinition")
+            .filter_map(|activity| {
+                activity.process_definition_id.as_deref()?;
+                let process_instance_id = activity.process_instance_id.as_deref()?;
+                let start = dates::parse_camunda_date_time(activity.start_time.as_deref())?;
+                let waiting_millis = (current - start.with_timezone(&Utc)).num_milliseconds().max(0);
+                Some(WaitingActivitySample { activity, process_instance_id, waiting_millis })
+            });
         let grouped = group_in_order(samples, |sample| {
             (sample.activity.process_definition_id.clone().unwrap_or_default(), sample.activity.activity_id.clone())
         });
@@ -803,7 +786,7 @@ impl CamundaApi {
                 })
             })
             .collect();
-        aggregated.sort_by(|left, right| right.maximum_waiting_millis.cmp(&left.maximum_waiting_millis));
+        aggregated.sort_by_key(|item| std::cmp::Reverse(item.maximum_waiting_millis));
         aggregated.truncate(DASHBOARD_WAITING_ACTIVITY_LIMIT);
 
         let diagrams =
@@ -836,14 +819,10 @@ impl CamundaApi {
             async move {
                 let _permit = semaphore.acquire().await.map_err(|_| ApiError::Other("семафор закрыт".to_string()))?;
                 let filter = format!("processDefinitionId={}", encode(&definition.id));
-                let instances_url = format!(
-                    "{}/history/process-instance/count?{filter}&startedAfter={after}&startedBefore={before}",
-                    connection.rest_url
-                );
-                let incidents_url = format!(
-                    "{}/history/incident/count?{filter}&createTimeAfter={after}&createTimeBefore={before}",
-                    connection.rest_url
-                );
+                let instances_url =
+                    format!("{}/history/process-instance/count?{filter}&startedAfter={after}&startedBefore={before}", connection.rest_url);
+                let incidents_url =
+                    format!("{}/history/incident/count?{filter}&createTimeAfter={after}&createTimeBefore={before}", connection.rest_url);
                 let statistics = DefinitionStatistics {
                     instances: parse_count(&self.get(&instances_url).await?)?,
                     incidents: parse_count(&self.get(&incidents_url).await?)?,
@@ -937,10 +916,7 @@ fn parse_definition(value: &Value) -> ApiResult<ProcessDefinitionSummary> {
 }
 
 fn parse_deployment_times(body: &str) -> ApiResult<HashMap<String, String>> {
-    Ok(json_array(body)?
-        .iter()
-        .filter_map(|value| Some((string(value, "id")?, string(value, "deploymentTime")?)))
-        .collect())
+    Ok(json_array(body)?.iter().filter_map(|value| Some((string(value, "id")?, string(value, "deploymentTime")?))).collect())
 }
 
 fn parse_statistics(body: &str) -> ApiResult<HashMap<String, DefinitionStatistics>> {
@@ -1122,7 +1098,9 @@ fn build_current_activities(
     for task in external_tasks {
         add_evidence(Some(task.activity_id.as_str()), CurrentActivityEvidence::ExternalTask);
     }
-    for summary in activity_history.iter().filter(|summary| summary.active_count > 0 && !runtime_activity_ids.contains(&summary.activity_id)) {
+    for summary in
+        activity_history.iter().filter(|summary| summary.active_count > 0 && !runtime_activity_ids.contains(&summary.activity_id))
+    {
         add_evidence(Some(summary.activity_id.as_str()), CurrentActivityEvidence::UnfinishedHistory);
     }
 
@@ -1137,29 +1115,27 @@ fn build_current_activities(
             activity
         })
         .collect();
-    activities.extend(
-        evidence_by_activity_id
-            .iter()
-            .filter(|(activity_id, _)| !runtime_activity_ids.contains(*activity_id))
-            .map(|(activity_id, evidence)| {
-                let node = diagram.node(activity_id);
-                ActiveActivityInstance {
-                    id: format!("diagnostic:{activity_id}"),
-                    activity_id: activity_id.clone(),
-                    activity_name: node.and_then(|node| node.name.clone()),
-                    activity_type: node.map(|node| node.node_type.clone()).unwrap_or_else(|| "unknown".to_string()),
-                    execution_ids: Vec::new(),
-                    incident_ids: incidents
-                        .iter()
-                        .filter(|incident| incident_activity_id(incident) == Some(activity_id.as_str()))
-                        .map(|incident| incident.id.clone())
-                        .collect(),
-                    evidence: evidence.iter().copied().collect(),
-                    cancellable: false,
-                }
-            }),
-    );
-    activities.sort_by_cached_key(|activity| (activity_sort_name(activity.activity_name.as_deref(), &activity.activity_id), activity.id.clone()));
+    activities.extend(evidence_by_activity_id.iter().filter(|(activity_id, _)| !runtime_activity_ids.contains(*activity_id)).map(
+        |(activity_id, evidence)| {
+            let node = diagram.node(activity_id);
+            ActiveActivityInstance {
+                id: format!("diagnostic:{activity_id}"),
+                activity_id: activity_id.clone(),
+                activity_name: node.and_then(|node| node.name.clone()),
+                activity_type: node.map(|node| node.node_type.clone()).unwrap_or_else(|| "unknown".to_string()),
+                execution_ids: Vec::new(),
+                incident_ids: incidents
+                    .iter()
+                    .filter(|incident| incident_activity_id(incident) == Some(activity_id.as_str()))
+                    .map(|incident| incident.id.clone())
+                    .collect(),
+                evidence: evidence.iter().copied().collect(),
+                cancellable: false,
+            }
+        },
+    ));
+    activities
+        .sort_by_cached_key(|activity| (activity_sort_name(activity.activity_name.as_deref(), &activity.activity_id), activity.id.clone()));
     activities
 }
 
@@ -1209,10 +1185,9 @@ fn to_activity_timeline(history: &[HistoricActivityInstance]) -> Vec<ActivityTim
 }
 
 fn to_activity_execution_summaries(history: &[HistoricActivityInstance]) -> Vec<ActivityExecutionSummary> {
-    let grouped = group_in_order(
-        history.iter().filter(|activity| activity.activity_type != "processDefinition"),
-        |activity| activity.activity_id.clone(),
-    );
+    let grouped = group_in_order(history.iter().filter(|activity| activity.activity_type != "processDefinition"), |activity| {
+        activity.activity_id.clone()
+    });
     let mut summaries: Vec<ActivityExecutionSummary> = grouped
         .into_iter()
         .filter_map(|(activity_id, executions)| {
@@ -1615,9 +1590,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/engine-rest/process-instance"))
             .and(|request: &Request| {
-                serde_json::from_slice::<Value>(&request.body)
-                    .map(|body| body["variables"][0]["value"].is_string())
-                    .unwrap_or(false)
+                serde_json::from_slice::<Value>(&request.body).map(|body| body["variables"][0]["value"].is_string()).unwrap_or(false)
             })
             .respond_with(json_response(
                 200,
@@ -1709,12 +1682,26 @@ mod tests {
         assert_eq!(catalog.variables[0].types, vec!["Long".to_string()]);
 
         api.load_process_variable_catalog(&connection, "loan").await.expect("каталог из кэша");
-        assert_eq!(requests_to(&server, "/engine-rest/variable-instance").await.len(), 1, "Повторное открытие процесса должно использовать кэш каталога");
+        assert_eq!(
+            requests_to(&server, "/engine-rest/variable-instance").await.len(),
+            1,
+            "Повторное открытие процесса должно использовать кэш каталога"
+        );
 
-        api_at("2026-07-24T01:00:00Z", repository.clone()).load_process_variable_catalog(&connection, "loan").await.expect("каталог с диска");
-        assert_eq!(requests_to(&server, "/engine-rest/variable-instance").await.len(), 1, "Новый сеанс приложения должен использовать дисковый кэш каталога");
+        api_at("2026-07-24T01:00:00Z", repository.clone())
+            .load_process_variable_catalog(&connection, "loan")
+            .await
+            .expect("каталог с диска");
+        assert_eq!(
+            requests_to(&server, "/engine-rest/variable-instance").await.len(),
+            1,
+            "Новый сеанс приложения должен использовать дисковый кэш каталога"
+        );
 
-        api_at("2026-07-25T00:00:01Z", repository.clone()).load_process_variable_catalog(&connection, "loan").await.expect("каталог после TTL");
+        api_at("2026-07-25T00:00:01Z", repository.clone())
+            .load_process_variable_catalog(&connection, "loan")
+            .await
+            .expect("каталог после TTL");
         assert_eq!(requests_to(&server, "/engine-rest/variable-instance").await.len(), 2, "Просроченный кэш перечитывается");
 
         api.invalidate_process_variable_catalog(&connection, "loan");
@@ -1769,7 +1756,8 @@ mod tests {
     async fn dashboard_groups_incidents_and_waiting_activities_for_period() {
         let server = MockServer::start().await;
         let bpmn_xml = r#"<?xml version="1.0" encoding="UTF-8"?><definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"><process id="alpha"><serviceTask id="sendDocuments" name="Отправить документы" /></process><bpmndi:BPMNDiagram><bpmndi:BPMNPlane bpmnElement="alpha"><bpmndi:BPMNShape bpmnElement="sendDocuments"><dc:Bounds x="100" y="100" width="100" height="80" /></bpmndi:BPMNShape></bpmndi:BPMNPlane></bpmndi:BPMNDiagram></definitions>"#;
-        mount(&server, "GET", "/engine-rest/process-definition/alpha%3A2%3Aabc/xml", 200, &json!({ "bpmn20Xml": bpmn_xml }).to_string()).await;
+        mount(&server, "GET", "/engine-rest/process-definition/alpha%3A2%3Aabc/xml", 200, &json!({ "bpmn20Xml": bpmn_xml }).to_string())
+            .await;
         mount(
             &server,
             "GET",
@@ -1895,10 +1883,8 @@ mod tests {
         assert!(definition_query.contains("key=alpha"), "{definition_query}");
         assert!(definition_query.contains("sortBy=version"), "{definition_query}");
 
-        let incidents = api()
-            .load_incidents(&connection, None, &custom("2026-07-15", "2026-07-15"), Some("alpha"))
-            .await
-            .expect("инциденты");
+        let incidents =
+            api().load_incidents(&connection, None, &custom("2026-07-15", "2026-07-15"), Some("alpha")).await.expect("инциденты");
         assert_eq!(incidents.len(), 1);
         assert_eq!(incidents[0].timestamp.as_deref(), Some("2026-07-15T09:00:00.000+0800"));
         let incident_query = query(&requests_to(&server, "/engine-rest/history/incident").await[0]);
@@ -2040,7 +2026,8 @@ mod tests {
 
         let json_failure = api().update_process_variable(&connection, "instance-1", &update("Json", "{broken")).await.expect_err("JSON");
         let long_failure = api().update_process_variable(&connection, "instance-1", &update("Long", "12.5")).await.expect_err("Long");
-        let boolean_failure = api().update_process_variable(&connection, "instance-1", &update("Boolean", "да")).await.expect_err("Boolean");
+        let boolean_failure =
+            api().update_process_variable(&connection, "instance-1", &update("Boolean", "да")).await.expect_err("Boolean");
 
         assert!(json_failure.contains("корректный JSON"), "{json_failure}");
         assert_eq!(long_failure, "Значение должно быть целым числом Long.");
@@ -2137,9 +2124,8 @@ mod tests {
 
         let details = api().load_process_instance_details(&connection(&server), "instance-1").await.expect("детали заявки");
 
-        let activity = |activity_id: &str| {
-            details.active_activities.iter().find(|activity| activity.activity_id == activity_id).expect("активность")
-        };
+        let activity =
+            |activity_id: &str| details.active_activities.iter().find(|activity| activity.activity_id == activity_id).expect("активность");
         assert_eq!(details.instance.business_key.as_deref(), Some("APP-42"));
         assert_eq!(details.variables.len(), 1);
         assert_eq!(details.variables[0].value, "APP-42");
@@ -2182,7 +2168,9 @@ mod tests {
         assert_eq!(case.value, "—");
         let history_query = query(&requests_to(&server, "/engine-rest/history/activity-instance").await[0]);
         assert!(history_query.contains("processInstanceId=instance-1"), "{history_query}");
-        assert!(query(&requests_to(&server, "/engine-rest/process-instance/instance-1/variables").await[0]).contains("deserializeValues=false"));
+        assert!(
+            query(&requests_to(&server, "/engine-rest/process-instance/instance-1/variables").await[0]).contains("deserializeValues=false")
+        );
     }
 
     #[tokio::test]
@@ -2207,7 +2195,8 @@ mod tests {
         mount(&server, "GET", "/engine-rest/history/incident", 200, "[]").await;
         let filter = DashboardDateFilter { preset: DashboardDatePreset::Yesterday, ..DashboardDateFilter::default() };
 
-        let details = api().load_process_definition_details(&connection(&server), "alpha:2:abc", &filter, false).await.expect("детали процесса");
+        let details =
+            api().load_process_definition_details(&connection(&server), "alpha:2:abc", &filter, false).await.expect("детали процесса");
 
         assert_eq!(details.instances.len(), 1);
         assert_eq!(details.instances[0].instance.business_key.as_deref(), Some("APP-YESTERDAY"));
@@ -2293,7 +2282,8 @@ mod tests {
             ]"#,
         )
         .await;
-        mount(&server, "GET", "/engine-rest/incident", 200, r#"[{"id":"inc-1","processInstanceId":"i-old","incidentType":"failedJob"}]"#).await;
+        mount(&server, "GET", "/engine-rest/incident", 200, r#"[{"id":"inc-1","processInstanceId":"i-old","incidentType":"failedJob"}]"#)
+            .await;
 
         let details = api()
             .load_process_definition_details(&connection(&server), "alpha:3:new", &DashboardDateFilter::default(), true)
@@ -2322,7 +2312,14 @@ mod tests {
     #[tokio::test]
     async fn business_key_search_merges_runtime_history_and_exact_id() {
         let server = MockServer::start().await;
-        mount(&server, "GET", "/engine-rest/process-instance", 200, r#"[{"id":"run-1","definitionId":"alpha:1:x","businessKey":"APP-10","suspended":false,"tenantId":null,"ended":false}]"#).await;
+        mount(
+            &server,
+            "GET",
+            "/engine-rest/process-instance",
+            200,
+            r#"[{"id":"run-1","definitionId":"alpha:1:x","businessKey":"APP-10","suspended":false,"tenantId":null,"ended":false}]"#,
+        )
+        .await;
         mount(
             &server,
             "GET",

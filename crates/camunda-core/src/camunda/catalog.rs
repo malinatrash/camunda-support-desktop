@@ -25,24 +25,17 @@ pub struct InMemoryProcessVariableCatalogRepository {
 
 impl ProcessVariableCatalogRepository for InMemoryProcessVariableCatalogRepository {
     fn load(&self, connection_rest_url: &str, process_definition_key: &str) -> Option<StoredProcessVariableCatalog> {
-        self.catalogs
-            .lock()
-            .unwrap()
-            .get(&(connection_rest_url.to_string(), process_definition_key.to_string()))
-            .cloned()
+        self.catalogs.lock().unwrap().get(&(connection_rest_url.to_string(), process_definition_key.to_string())).cloned()
     }
 
     fn save(&self, connection_rest_url: &str, stored: &StoredProcessVariableCatalog) {
-        self.catalogs.lock().unwrap().insert(
-            (connection_rest_url.to_string(), stored.catalog.process_definition_key.clone()),
-            stored.clone(),
-        );
-    }
-
-    fn remove(&self, connection_rest_url: &str, process_definition_key: &str) {
         self.catalogs
             .lock()
             .unwrap()
-            .remove(&(connection_rest_url.to_string(), process_definition_key.to_string()));
+            .insert((connection_rest_url.to_string(), stored.catalog.process_definition_key.clone()), stored.clone());
+    }
+
+    fn remove(&self, connection_rest_url: &str, process_definition_key: &str) {
+        self.catalogs.lock().unwrap().remove(&(connection_rest_url.to_string(), process_definition_key.to_string()));
     }
 }

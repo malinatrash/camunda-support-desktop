@@ -46,10 +46,10 @@ pub fn group_incidents(incidents: &[ProcessIncident]) -> Vec<IncidentGroup> {
         });
         let group = &mut groups[position];
         group.count += 1;
-        if let Some(id) = &incident.process_instance_id {
-            if !group.instance_ids.contains(id) {
-                group.instance_ids.push(id.clone());
-            }
+        if let Some(id) = &incident.process_instance_id
+            && !group.instance_ids.contains(id)
+        {
+            group.instance_ids.push(id.clone());
         }
         if incident.timestamp > group.latest {
             group.latest = incident.timestamp.clone();
@@ -134,7 +134,7 @@ pub fn grouped(value: i64) -> String {
     let digits = value.abs().to_string();
     let mut result = String::new();
     for (index, c) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index) % 3 == 0 {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
             result.push('\u{202f}');
         }
         result.push(c);

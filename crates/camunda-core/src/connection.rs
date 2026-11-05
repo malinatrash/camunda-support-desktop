@@ -49,10 +49,7 @@ pub fn derive_cockpit_url(rest_url: &str) -> String {
         return String::new();
     }
     let authority_start = scheme_separator + 3;
-    let authority_end = normalized[authority_start..]
-        .find('/')
-        .map(|index| authority_start + index)
-        .unwrap_or(normalized.len());
+    let authority_end = normalized[authority_start..].find('/').map(|index| authority_start + index).unwrap_or(normalized.len());
     if authority_end <= authority_start {
         return String::new();
     }
@@ -98,12 +95,7 @@ mod tests {
     use crate::models::Environment;
 
     fn draft(name: &str, rest_url: &str, cockpit_url: &str) -> ConnectionDraft {
-        ConnectionDraft {
-            name: name.into(),
-            rest_url: rest_url.into(),
-            cockpit_url: cockpit_url.into(),
-            environment: Environment::Test,
-        }
+        ConnectionDraft { name: name.into(), rest_url: rest_url.into(), cockpit_url: cockpit_url.into(), environment: Environment::Test }
     }
 
     #[test]
@@ -117,10 +109,7 @@ mod tests {
     #[test]
     fn requires_engine_rest_suffix() {
         let validation = validate_connection_draft(&draft("Тест", "https://camunda.example.kz/rest", ""));
-        assert_eq!(
-            validation.rest_url_error.as_deref(),
-            Some("Адрес Camunda REST должен заканчиваться на /engine-rest")
-        );
+        assert_eq!(validation.rest_url_error.as_deref(), Some("Адрес Camunda REST должен заканчиваться на /engine-rest"));
         assert!(validate_connection_draft(&draft("Тест", "https://camunda.example.kz/engine-rest/", "")).is_valid());
     }
 

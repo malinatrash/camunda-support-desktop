@@ -37,11 +37,10 @@ if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null || \
   exit 1
 fi
 
-(cd crates/camunda-core && cargo test)
-(cd native && cargo test)
+cargo test --workspace
 
 node scripts/set-version.mjs "$tag"
-git add native/Cargo.toml native/Cargo.lock
+git add Cargo.toml Cargo.lock
 if ! git diff --cached --quiet; then
   git commit -m "release: ${tag#v}"
 fi

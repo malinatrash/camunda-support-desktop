@@ -106,7 +106,9 @@ impl InstanceView {
                 *highlights.incidents.entry(activity).or_default() += 1;
             }
         }
-        highlights.completed.extend(details.activity_history.iter().filter(|item| item.completed_count > 0).map(|item| item.activity_id.clone()));
+        highlights
+            .completed
+            .extend(details.activity_history.iter().filter(|item| item.completed_count > 0).map(|item| item.activity_id.clone()));
         if let Some(diagram) = &self.diagram {
             diagram.update(cx, |diagram, cx| diagram.update(&details.diagram, highlights, cx));
             if let Some(variables) = &self.variables {
@@ -116,7 +118,8 @@ impl InstanceView {
             self.error = None;
             return;
         }
-        let variables = cx.new(|cx| VariablesView::new(self.connection.clone(), self.instance_id.clone(), details.variables.clone(), window, cx));
+        let variables =
+            cx.new(|cx| VariablesView::new(self.connection.clone(), self.instance_id.clone(), details.variables.clone(), window, cx));
         self._variables_subscription = Some(cx.subscribe_in(&variables, window, |this, _, event: &VariablesChanged, window, cx| {
             this.notice = Some(format!("Переменная {} обновлена.", event.0).into());
             this.reload(window, cx);
@@ -125,7 +128,8 @@ impl InstanceView {
         let diagram = cx.new(|_| BpmnView::new(details.diagram.clone(), highlights));
         self._diagram_subscription = Some(cx.subscribe_in(&diagram, window, |this, _, event: &SelectNode, window, cx| {
             this.selected_node = Some(event.0.clone());
-            let teleportable = this.details.as_ref().is_some_and(|details| details.diagram.teleport_targets().any(|node| node.id == event.0));
+            let teleportable =
+                this.details.as_ref().is_some_and(|details| details.diagram.teleport_targets().any(|node| node.id == event.0));
             if teleportable && this.can_teleport() {
                 this.open_teleport(Some(event.0.clone()), window, cx);
             }
@@ -201,11 +205,25 @@ impl InstanceView {
             format!("- Подключение: {} ({})", self.connection.name, self.connection.rest_url),
             format!("- Процесс: {} · {}", instance.definition_key, instance.definition_id),
             format!("- ID заявки: {}", instance.id),
-            format!("- Состояние: {}", if instance.ended { "завершена" } else if instance.suspended { "приостановлена" } else { "запущена" }),
+            format!(
+                "- Состояние: {}",
+                if instance.ended {
+                    "завершена"
+                } else if instance.suspended {
+                    "приостановлена"
+                } else {
+                    "запущена"
+                }
+            ),
             String::new(),
             "## Текущие позиции".into(),
         ];
-        lines.extend(details.active_activities.iter().map(|a| format!("- {} ({})", a.activity_name.as_deref().unwrap_or(&a.activity_id), a.activity_id)));
+        lines.extend(
+            details
+                .active_activities
+                .iter()
+                .map(|a| format!("- {} ({})", a.activity_name.as_deref().unwrap_or(&a.activity_id), a.activity_id)),
+        );
         lines.push(String::new());
         lines.push(format!("## Инциденты ({})", details.incidents.len()));
         for incident in &details.incidents {
@@ -264,7 +282,9 @@ impl InstanceView {
     }
 
     fn can_teleport(&self) -> bool {
-        self.details.as_ref().is_some_and(|details| !details.instance.ended && details.active_activities.iter().any(|activity| activity.cancellable))
+        self.details
+            .as_ref()
+            .is_some_and(|details| !details.instance.ended && details.active_activities.iter().any(|activity| activity.cancellable))
     }
 
     fn render_side(&self, details: &ProcessInstanceDetails, cx: &mut Context<Self>) -> impl IntoElement {
@@ -282,13 +302,23 @@ impl InstanceView {
                     let history = details.activity_history.iter().find(|item| item.activity_id == node.id);
                     let target = node.id.clone();
                     let teleportable = details.diagram.teleport_targets().any(|candidate| candidate.id == node.id);
-                    ui::section(div().font_weight(FontWeight::SEMIBOLD).truncate().child(node.name.clone().unwrap_or_else(|| node.id.clone())), cx).flex_none().child(
+                    ui::section(
+                        div().font_weight(FontWeight::SEMIBOLD).truncate().child(node.name.clone().unwrap_or_else(|| node.id.clone())),
+                        cx,
+                    )
+                    .flex_none()
+                    .child(
                         v_flex()
                             .p_4()
                             .gap_2()
                             .text_sm()
                             .child(div().text_color(cx.theme().muted_foreground).child(format!("{} · {}", node.node_type, node.id)))
-                            .children(history.map(|item| format!("выполнено {} · активно {} · отменено {}", item.completed_count, item.active_count, item.canceled_count)))
+                            .children(history.map(|item| {
+                                format!(
+                                    "выполнено {} · активно {} · отменено {}",
+                                    item.completed_count, item.active_count, item.canceled_count
+                                )
+                            }))
                             .children(node.topic.clone().map(|topic| format!("топик: {topic}")))
                             .when(teleportable, |this| {
                                 this.child(
@@ -297,16 +327,23 @@ impl InstanceView {
                                         .primary()
                                         .small()
                                         .disabled(!can_teleport)
-                                        .on_click(cx.listener(move |this, _, window, cx| this.open_teleport(Some(target.clone()), window, cx))),
+                                        .on_click(
+                                            cx.listener(move |this, _, window, cx| this.open_teleport(Some(target.clone()), window, cx)),
+                                        ),
                                 )
                             }),
                     )
                 }
-                None => ui::section(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме"), cx).flex_none(),
+                None => {
+                    ui::section(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме"), cx).flex_none()
+                }
             })
             .child(
                 ui::section(
-                    h_flex().w_full().child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Текущее состояние")).child(ui::counter(details.active_activities.len(), cx)),
+                    h_flex()
+                        .w_full()
+                        .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Текущее состояние"))
+                        .child(ui::counter(details.active_activities.len(), cx)),
                     cx,
                 )
                 .flex_none()
@@ -317,7 +354,12 @@ impl InstanceView {
                         .gap_1p5()
                         .border_b_1()
                         .border_color(cx.theme().border)
-                        .child(div().text_sm().font_weight(FontWeight::MEDIUM).child(activity.activity_name.clone().unwrap_or_else(|| activity.activity_id.clone())))
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(activity.activity_name.clone().unwrap_or_else(|| activity.activity_id.clone())),
+                        )
                         .child(
                             h_flex()
                                 .gap_1p5()
@@ -330,7 +372,10 @@ impl InstanceView {
             )
             .child(
                 ui::section(
-                    h_flex().w_full().child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Инциденты")).child(ui::counter(details.incidents.len(), cx)),
+                    h_flex()
+                        .w_full()
+                        .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Инциденты"))
+                        .child(ui::counter(details.incidents.len(), cx)),
                     cx,
                 )
                 .flex_none()
@@ -350,22 +395,25 @@ impl InstanceView {
                                 .child(incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_default()),
                         )
                         .child(div().text_sm().child(incident.message.clone().unwrap_or_else(|| "Без сообщения".into())))
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
-                                .child(format!("{} · {}", model::incident_type_label(&incident.incident_type), model::short_time(incident.timestamp.as_deref()))),
-                        )
+                        .child(div().text_xs().text_color(cx.theme().muted_foreground).child(format!(
+                            "{} · {}",
+                            model::incident_type_label(&incident.incident_type),
+                            model::short_time(incident.timestamp.as_deref())
+                        )))
                 })))
-                .when(details.incidents.is_empty(), |this| this.child(div().p_4().text_sm().text_color(cx.theme().muted_foreground).child("Инцидентов нет"))),
+                .when(details.incidents.is_empty(), |this| {
+                    this.child(div().p_4().text_sm().text_color(cx.theme().muted_foreground).child("Инцидентов нет"))
+                }),
             )
     }
 
     fn render_timeline(&self, details: &ProcessInstanceDetails, cx: &App) -> impl IntoElement {
-        let head = h_flex()
-            .w_full()
-            .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Хронология прохождения"))
-            .child(div().text_sm().text_color(cx.theme().muted_foreground).child(format!("{} событий · History API", details.activity_timeline.len())));
+        let head = h_flex().w_full().child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Хронология прохождения")).child(
+            div()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child(format!("{} событий · History API", details.activity_timeline.len())),
+        );
         let columns = h_flex()
             .flex_none()
             .px_4()
@@ -381,33 +429,55 @@ impl InstanceView {
             .child(div().w(px(150.)).child("Тип"))
             .child(div().w(px(130.)).text_right().child("Длительность"))
             .child(div().w(px(110.)).text_right().child("Статус"));
-        ui::section(head, cx).flex_1().child(columns).child(div().id("timeline").flex_1().overflow_y_scroll().children(details.activity_timeline.iter().map(|entry| {
-            let status = if entry.canceled {
-                ui::pill("отменён", Tone::Warning, cx)
-            } else if entry.end_time.is_none() {
-                ui::pill("активен", Tone::Info, cx)
-            } else {
-                ui::pill("выполнен", Tone::Success, cx)
-            };
-            h_flex()
-                .px_4()
-                .py_3()
-                .gap_4()
-                .border_b_1()
-                .border_color(cx.theme().border)
-                .text_sm()
-                .child(div().w(px(150.)).flex_none().font_family(crate::theme::MONO).text_xs().child(model::short_time(entry.start_time.as_deref())))
-                .child(
-                    v_flex()
-                        .flex_1()
-                        .min_w_0()
-                        .child(div().truncate().font_weight(FontWeight::MEDIUM).child(entry.activity_name.clone().unwrap_or_else(|| entry.activity_id.clone())))
-                        .child(div().truncate().text_xs().text_color(cx.theme().muted_foreground).child(entry.activity_id.clone())),
-                )
-                .child(div().w(px(150.)).flex_none().truncate().text_color(cx.theme().muted_foreground).child(entry.activity_type.clone()))
-                .child(div().w(px(130.)).flex_none().text_right().child(entry.duration_millis.map(format_millis).unwrap_or_else(|| "—".into())))
-                .child(div().w(px(110.)).flex_none().flex().justify_end().child(status))
-        })))
+        ui::section(head, cx).flex_1().child(columns).child(div().id("timeline").flex_1().overflow_y_scroll().children(
+            details.activity_timeline.iter().map(|entry| {
+                let status = if entry.canceled {
+                    ui::pill("отменён", Tone::Warning, cx)
+                } else if entry.end_time.is_none() {
+                    ui::pill("активен", Tone::Info, cx)
+                } else {
+                    ui::pill("выполнен", Tone::Success, cx)
+                };
+                h_flex()
+                    .px_4()
+                    .py_3()
+                    .gap_4()
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .text_sm()
+                    .child(
+                        div()
+                            .w(px(150.))
+                            .flex_none()
+                            .font_family(crate::theme::MONO)
+                            .text_xs()
+                            .child(model::short_time(entry.start_time.as_deref())),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .truncate()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(entry.activity_name.clone().unwrap_or_else(|| entry.activity_id.clone())),
+                            )
+                            .child(div().truncate().text_xs().text_color(cx.theme().muted_foreground).child(entry.activity_id.clone())),
+                    )
+                    .child(
+                        div().w(px(150.)).flex_none().truncate().text_color(cx.theme().muted_foreground).child(entry.activity_type.clone()),
+                    )
+                    .child(
+                        div()
+                            .w(px(130.))
+                            .flex_none()
+                            .text_right()
+                            .child(entry.duration_millis.map(format_millis).unwrap_or_else(|| "—".into())),
+                    )
+                    .child(div().w(px(110.)).flex_none().flex().justify_end().child(status))
+            }),
+        ))
     }
 
     fn render_metadata(&self, details: &ProcessInstanceDetails, cx: &App) -> impl IntoElement {
@@ -445,7 +515,13 @@ impl Render for InstanceView {
         let suspended = self.details.as_ref().filter(|details| !details.instance.ended).map(|details| details.instance.suspended);
         let header = h_flex()
             .gap_3()
-            .child(Button::new("back").icon(IconName::ChevronLeft).ghost().small().on_click(cx.listener(|_, _, _, cx| cx.emit(Navigate::Back))))
+            .child(
+                Button::new("back")
+                    .icon(IconName::ChevronLeft)
+                    .ghost()
+                    .small()
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(Navigate::Back))),
+            )
             .child(
                 v_flex()
                     .flex_1()
@@ -472,16 +548,16 @@ impl Render for InstanceView {
                             })
                             .when_some(self.details.as_ref(), |this, details| {
                                 this.child(ui::instance_state(details.instance.suspended, details.instance.ended, cx))
-                                    .when(!details.incidents.is_empty(), |this| this.child(ui::pill(format!("{} инц.", details.incidents.len()), Tone::Danger, cx)))
+                                    .when(!details.incidents.is_empty(), |this| {
+                                        this.child(ui::pill(format!("{} инц.", details.incidents.len()), Tone::Danger, cx))
+                                    })
                             }),
                     )
-                    .child(
-                        div().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(format!(
-                            "{} · {}",
-                            self.details.as_ref().map(|details| details.instance.definition_key.clone()).unwrap_or_default(),
-                            self.instance_id
-                        )),
-                    ),
+                    .child(div().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(format!(
+                        "{} · {}",
+                        self.details.as_ref().map(|details| details.instance.definition_key.clone()).unwrap_or_default(),
+                        self.instance_id
+                    ))),
             )
             .child(
                 Button::new("reload")
@@ -555,7 +631,9 @@ impl Render for InstanceView {
                     .min_h_0()
                     .items_start()
                     .gap_4()
-                    .child(div().size_full().border_1().border_color(cx.theme().border).rounded_md().overflow_hidden().child(diagram.clone()))
+                    .child(
+                        div().size_full().border_1().border_color(cx.theme().border).rounded_md().overflow_hidden().child(diagram.clone()),
+                    )
                     .child(self.render_side(details, cx))
                     .into_any_element(),
                 1 => self.render_timeline(details, cx).into_any_element(),
@@ -577,18 +655,16 @@ impl Render for InstanceView {
                 }
             }))
             .child(header)
-            .child(
-                TabBar::new("instance-tabs")
-                    .underline()
-                    .selected_index(self.tab)
-                    .children(TABS)
-                    .on_click(cx.listener(|this, index: &usize, _, cx| {
-                        this.tab = *index;
-                        cx.notify();
-                    })),
-            )
+            .child(TabBar::new("instance-tabs").underline().selected_index(self.tab).children(TABS).on_click(cx.listener(
+                |this, index: &usize, _, cx| {
+                    this.tab = *index;
+                    cx.notify();
+                },
+            )))
             .when_some(self.notice.clone(), |this, notice| {
-                this.child(div().px_4().py_2().rounded_md().bg(cx.theme().success.opacity(0.12)).text_color(cx.theme().success).child(notice))
+                this.child(
+                    div().px_4().py_2().rounded_md().bg(cx.theme().success.opacity(0.12)).text_color(cx.theme().success).child(notice),
+                )
             })
             .when_some(self.error.clone(), |this, error| {
                 this.child(div().px_4().py_2().rounded_md().bg(cx.theme().danger.opacity(0.1)).text_color(cx.theme().danger).child(error))
@@ -597,15 +673,7 @@ impl Render for InstanceView {
             .when_some(self.pending.clone(), |this, operation| this.child(deferred(self.render_confirm(&operation, cx))))
             .when_some(self.teleport.clone(), |this, teleport| {
                 this.child(deferred(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .p_6()
-                        .bg(black().opacity(0.45))
-                        .child(teleport),
+                    div().absolute().inset_0().flex().items_center().justify_center().p_6().bg(black().opacity(0.45)).child(teleport),
                 ))
             })
     }

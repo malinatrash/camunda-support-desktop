@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::camunda::http::{classify_network_error, NetworkErrorKind};
+use crate::camunda::http::{NetworkErrorKind, classify_network_error};
 use crate::models::ConnectionTestSuccess;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -16,10 +16,7 @@ pub async fn test_connection(client: &reqwest::Client, rest_url: &str) -> Result
         .await
         .map_err(|error| failure(&network_message(&classify_network_error(&error)), &version_url))?;
     let status = response.status().as_u16();
-    let body = response
-        .text()
-        .await
-        .map_err(|error| failure(&network_message(&classify_network_error(&error)), &version_url))?;
+    let body = response.text().await.map_err(|error| failure(&network_message(&classify_network_error(&error)), &version_url))?;
     match status {
         200..=299 => Ok(ConnectionTestSuccess { engine_version: extract_version(&body) }),
         _ => Err(failure(&status_message(status), &version_url)),
@@ -46,8 +43,7 @@ fn network_message(kind: &NetworkErrorKind) -> String {
         NetworkErrorKind::Timeout => "Время ожидания подключения истекло. Проверьте URL, VPN и сеть.".to_string(),
         NetworkErrorKind::UnknownHost => "Хост не найден — ошибка DNS. Проверьте имя хоста и VPN.".to_string(),
         NetworkErrorKind::TlsHandshake => {
-            "Не удалось установить TLS-соединение. Сертификат сервера может быть недействительным или недоверенным."
-                .to_string()
+            "Не удалось установить TLS-соединение. Сертификат сервера может быть недействительным или недоверенным.".to_string()
         }
         NetworkErrorKind::Tls => "Ошибка защищённого соединения TLS. Проверьте сертификат и настройку HTTPS.".to_string(),
         NetworkErrorKind::ConnectionRefused => {
@@ -99,9 +95,7 @@ mod tests {
     #[tokio::test]
     async fn unauthorized_ping_returns_specific_error() {
         let server = start_server(401, "Unauthorized").await;
-        let message = test_connection(&camunda_client(), &format!("{}/engine-rest", server.uri()))
-            .await
-            .expect_err("ожидалась ошибка");
+        let message = test_connection(&camunda_client(), &format!("{}/engine-rest", server.uri())).await.expect_err("ожидалась ошибка");
         assert!(message.contains("Требуется авторизация (HTTP 401)"), "{message}");
         assert!(message.contains("/engine-rest/version"), "{message}");
         assert!(message.contains("\nПроверялся адрес: "), "{message}");
@@ -110,9 +104,7 @@ mod tests {
     #[tokio::test]
     async fn missing_endpoint_returns_specific_error() {
         let server = start_server(404, "Not found").await;
-        let message = test_connection(&camunda_client(), &format!("{}/engine-rest", server.uri()))
-            .await
-            .expect_err("ожидалась ошибка");
+        let message = test_connection(&camunda_client(), &format!("{}/engine-rest", server.uri())).await.expect_err("ожидалась ошибка");
         assert!(message.contains("Endpoint Camunda не найден (HTTP 404)"), "{message}");
     }
 

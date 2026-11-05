@@ -137,7 +137,6 @@ struct Palette {
     success: Hsla,
 }
 
-
 impl Render for BpmnView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
@@ -174,11 +173,14 @@ impl Render for BpmnView {
                 }
             }))
             .on_pinch(cx.listener(|this, event: &PinchEvent, _, cx| this.zoom_at(1. + event.delta, event.position, cx)))
-            .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, _, cx| {
-                this.drag = Some((event.position, this.current().1));
-                this.moved = false;
-                cx.notify();
-            }))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                    this.drag = Some((event.position, this.current().1));
+                    this.moved = false;
+                    cx.notify();
+                }),
+            )
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
                 let Some((start, offset)) = this.drag else { return };
                 let delta = event.position - start;
@@ -191,17 +193,20 @@ impl Render for BpmnView {
                     cx.notify();
                 }
             }))
-            .on_mouse_up(MouseButton::Left, cx.listener(|this, event: &MouseUpEvent, _, cx| {
-                if !this.moved {
-                    let id = this.node_at(event.position).map(|node| node.id.clone());
-                    if let Some(id) = &id {
-                        cx.emit(SelectNode(id.clone()));
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, event: &MouseUpEvent, _, cx| {
+                    if !this.moved {
+                        let id = this.node_at(event.position).map(|node| node.id.clone());
+                        if let Some(id) = &id {
+                            cx.emit(SelectNode(id.clone()));
+                        }
+                        this.selected = id;
                     }
-                    this.selected = id;
-                }
-                this.drag = None;
-                cx.notify();
-            }))
+                    this.drag = None;
+                    cx.notify();
+                }),
+            )
             .child(
                 canvas(
                     move |bounds, _, _| {
@@ -229,12 +234,10 @@ impl Render for BpmnView {
                         let center = this.center_of();
                         this.zoom_at(0.8, center, cx)
                     })))
-                    .child(
-                        Button::new("fit").label("По размеру").ghost().xsmall().on_click(cx.listener(|this, _, _, cx| {
-                            this.transform = None;
-                            cx.notify();
-                        })),
-                    )
+                    .child(Button::new("fit").label("По размеру").ghost().xsmall().on_click(cx.listener(|this, _, _, cx| {
+                        this.transform = None;
+                        cx.notify();
+                    })))
                     .child(Button::new("zoom-in").icon(IconName::Plus).ghost().xsmall().on_click(cx.listener(|this, _, _, cx| {
                         let center = this.center_of();
                         this.zoom_at(1.25, center, cx)
@@ -422,7 +425,7 @@ fn ellipsize(text: &str, max_width: Pixels, font_size: Pixels, window: &mut Wind
     let chars: Vec<char> = text.chars().collect();
     let (mut low, mut high) = (0, chars.len());
     while low < high {
-        let middle = (low + high + 1) / 2;
+        let middle = (low + high).div_ceil(2);
         let candidate: String = chars[..middle].iter().collect::<String>() + "…";
         if shaped_width(&candidate, font_size, window) <= max_width { low = middle } else { high = middle - 1 }
     }
@@ -430,12 +433,20 @@ fn ellipsize(text: &str, max_width: Pixels, font_size: Pixels, window: &mut Wind
 }
 
 fn shaped_width(text: &str, font_size: Pixels, window: &mut Window) -> Pixels {
-    let run = TextRun { len: text.len(), font: window.text_style().font(), color: black(), background_color: None, underline: None, strikethrough: None };
+    let run = TextRun {
+        len: text.len(),
+        font: window.text_style().font(),
+        color: black(),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
     window.text_system().shape_line(SharedString::from(text.to_string()), font_size, &[run], None).width
 }
 
 fn paint_text(text: &str, area: Bounds<Pixels>, font_size: Pixels, color: Hsla, window: &mut Window, cx: &mut App) {
-    let run = TextRun { len: text.len(), font: window.text_style().font(), color, background_color: None, underline: None, strikethrough: None };
+    let run =
+        TextRun { len: text.len(), font: window.text_style().font(), color, background_color: None, underline: None, strikethrough: None };
     let line = window.text_system().shape_line(SharedString::from(text.to_string()), font_size, &[run], None);
     let line_height = font_size * 1.3;
     let origin = point(area.center().x - line.width / 2., area.center().y - line_height / 2.);

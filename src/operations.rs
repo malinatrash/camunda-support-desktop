@@ -69,11 +69,23 @@ pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut
                     .flex_1()
                     .min_w_0()
                     .gap_1()
-                    .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(cx.theme().danger).child(
-                        incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_else(|| incident.incident_type.clone()),
-                    ))
+                    .child(
+                        div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(cx.theme().danger).child(
+                            incident
+                                .failed_activity_id
+                                .clone()
+                                .or_else(|| incident.activity_id.clone())
+                                .unwrap_or_else(|| incident.incident_type.clone()),
+                        ),
+                    )
                     .child(div().text_sm().child(incident.message.clone().unwrap_or_else(|| "Сообщение отсутствует".into())))
-                    .child(div().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(meta.into_iter().flatten().collect::<Vec<_>>().join(" · "))),
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_family(crate::theme::MONO)
+                            .text_color(cx.theme().muted_foreground)
+                            .child(meta.into_iter().flatten().collect::<Vec<_>>().join(" · ")),
+                    ),
             )
         }))
         .when(details.incidents.is_empty(), |this| this.child(empty("Открытых инцидентов нет", cx)));
@@ -87,9 +99,17 @@ pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut
                         .flex_1()
                         .min_w_0()
                         .gap_1()
-                        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(format!("Задание · осталось попыток: {}", job.retries)))
+                        .child(
+                            div().text_sm().font_weight(FontWeight::SEMIBOLD).child(format!("Задание · осталось попыток: {}", job.retries)),
+                        )
                         .child(failure(job.exception_message.as_deref(), cx))
-                        .child(div().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(job.failed_activity_id.clone().unwrap_or_else(|| job.id.clone()))),
+                        .child(
+                            div()
+                                .text_xs()
+                                .font_family(crate::theme::MONO)
+                                .text_color(cx.theme().muted_foreground)
+                                .child(job.failed_activity_id.clone().unwrap_or_else(|| job.id.clone())),
+                        ),
                 )
                 .child(
                     Button::new(SharedString::from(format!("job-{}", job.id)))

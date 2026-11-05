@@ -54,7 +54,16 @@ impl CommandPalette {
             InputEvent::PressEnter { .. } => this.confirm(cx),
             _ => {}
         });
-        Self { connection, query, results: Vec::new(), selected: 0, searching: false, error: None, search: None, _subscription: subscription }
+        Self {
+            connection,
+            query,
+            results: Vec::new(),
+            selected: 0,
+            searching: false,
+            error: None,
+            search: None,
+            _subscription: subscription,
+        }
     }
 
     fn needle(&self, cx: &App) -> String {
@@ -169,7 +178,12 @@ impl Render for CommandPalette {
                                 .flex_1()
                                 .min_w_0()
                                 .gap_0p5()
-                                .child(div().truncate().font_weight(FontWeight::MEDIUM).child(instance.business_key.clone().unwrap_or_else(|| "Без бизнес-ключа".into())))
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .child(instance.business_key.clone().unwrap_or_else(|| "Без бизнес-ключа".into())),
+                                )
                                 .child(
                                     div()
                                         .truncate()
@@ -210,17 +224,16 @@ impl Render for CommandPalette {
             .occlude()
             .on_key_down(cx.listener(Self::on_key))
             .child(Input::new(&self.query).large())
-            .child(
-                div()
-                    .px_1()
-                    .text_xs()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(cx.theme().muted_foreground)
-                    .child(if empty { "Разделы" } else { "Заявки" }),
-            )
+            .child(div().px_1().text_xs().font_weight(FontWeight::SEMIBOLD).text_color(cx.theme().muted_foreground).child(if empty {
+                "Разделы"
+            } else {
+                "Заявки"
+            }))
             .child(v_flex().id("palette-list").flex_1().min_h_0().overflow_y_scroll().gap_0p5().children(list))
             .when_some(self.error.clone(), |this, error| this.child(ui::pill(error, Tone::Danger, cx)))
-            .when_some(footer, |this, footer| this.child(div().px_1().py_1().text_sm().text_color(cx.theme().muted_foreground).child(footer)))
+            .when_some(footer, |this, footer| {
+                this.child(div().px_1().py_1().text_sm().text_color(cx.theme().muted_foreground).child(footer))
+            })
             .child(
                 h_flex()
                     .px_1()

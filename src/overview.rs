@@ -122,11 +122,8 @@ impl OverviewView {
     }
 
     fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let presets = [
-            (DashboardDatePreset::Live, "Сейчас"),
-            (DashboardDatePreset::Today, "Сегодня"),
-            (DashboardDatePreset::Yesterday, "Вчера"),
-        ];
+        let presets =
+            [(DashboardDatePreset::Live, "Сейчас"), (DashboardDatePreset::Today, "Сегодня"), (DashboardDatePreset::Yesterday, "Вчера")];
         let status: SharedString = if self.load.is_some() && self.dashboard.is_none() {
             "загружаем…".into()
         } else {
@@ -200,7 +197,9 @@ impl OverviewView {
             .child(self.tab_button(Tab::Waiting, "Ожидание", dashboard.longest_waiting_activities.len(), cx));
         let body = div().id("errors").flex_1().overflow_y_scroll();
         let body = match self.tab {
-            Tab::Errors if self.incident_groups.is_empty() => body.child(div().p_6().text_color(cx.theme().muted_foreground).child("Инцидентов нет")),
+            Tab::Errors if self.incident_groups.is_empty() => {
+                body.child(div().p_6().text_color(cx.theme().muted_foreground).child("Инцидентов нет"))
+            }
             Tab::Errors => body.children(self.incident_groups.iter().map(|group| self.render_group(group, cx))),
             Tab::Waiting => body.children(dashboard.longest_waiting_activities.iter().map(|item| {
                 let id = item.oldest_process_instance_id.clone();
@@ -224,14 +223,17 @@ impl OverviewView {
                     .child(
                         v_flex()
                             .min_w_0()
-                            .child(div().truncate().font_weight(FontWeight::MEDIUM).child(item.activity_name.clone().unwrap_or_else(|| item.activity_id.clone())))
                             .child(
                                 div()
                                     .truncate()
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child(format!("{} · заявок {}", item.process_definition_id.split(':').next().unwrap_or_default(), item.instance_count)),
-                            ),
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(item.activity_name.clone().unwrap_or_else(|| item.activity_id.clone())),
+                            )
+                            .child(div().truncate().text_sm().text_color(cx.theme().muted_foreground).child(format!(
+                                "{} · заявок {}",
+                                item.process_definition_id.split(':').next().unwrap_or_default(),
+                                item.instance_count
+                            ))),
                     )
                     .on_click(cx.listener(move |_, _, _, cx| cx.emit(Navigate::Instance(id.clone()))))
             })),
@@ -333,11 +335,9 @@ impl OverviewView {
             .child(div().flex_1().pl(px(28.)).child("Процесс"))
             .child(div().w(px(80.)).text_right().child(if live { "в работе" } else { "стартов" }))
             .child(div().w(px(80.)).text_right().child("инциденты"));
-        ui::section(head, cx)
-            .w(px(460.))
-            .flex_none()
-            .child(columns)
-            .child(div().id("processes").flex_1().overflow_y_scroll().children(self.processes.iter().map(|group| self.render_process(group, cx))))
+        ui::section(head, cx).w(px(460.)).flex_none().child(columns).child(
+            div().id("processes").flex_1().overflow_y_scroll().children(self.processes.iter().map(|group| self.render_process(group, cx))),
+        )
     }
 
     fn render_process(&self, group: &ProcessGroup, cx: &mut Context<Self>) -> AnyElement {
@@ -358,21 +358,19 @@ impl OverviewView {
                     .gap_3()
                     .cursor_pointer()
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .child(Icon::new(if open { IconName::ChevronDown } else { IconName::ChevronRight }).small().text_color(cx.theme().muted_foreground))
                     .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .child(div().truncate().child(model::display_name(latest).to_string()))
-                            .child(
-                                div()
-                                    .truncate()
-                                    .text_xs()
-                                    .font_family(crate::theme::MONO)
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child(format!("{} · v{}{versions}{}", latest.key, latest.version, if latest.suspended { " · пауза" } else { "" })),
-                            ),
+                        Icon::new(if open { IconName::ChevronDown } else { IconName::ChevronRight })
+                            .small()
+                            .text_color(cx.theme().muted_foreground),
                     )
+                    .child(v_flex().flex_1().min_w_0().child(div().truncate().child(model::display_name(latest).to_string())).child(
+                        div().truncate().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(format!(
+                            "{} · v{}{versions}{}",
+                            latest.key,
+                            latest.version,
+                            if latest.suspended { " · пауза" } else { "" }
+                        )),
+                    ))
                     .child(div().w(px(80.)).text_right().child(model::grouped(group.instances as i64)))
                     .child(div().w(px(80.)).flex().justify_end().child(incidents_cell(group.incidents, cx)))
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -448,13 +446,21 @@ fn version_row(
 
 impl Render for OverviewView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let content = match self.dashboard.clone() {
+        let content = match &self.dashboard {
             Some(dashboard) => v_flex()
                 .flex_1()
                 .min_h_0()
                 .gap_4()
-                .child(self.render_stats(&dashboard, cx))
-                .child(h_flex().flex_1().min_h_0().items_start().gap_4().child(self.render_errors(&dashboard, cx)).child(self.render_processes(cx)))
+                .child(self.render_stats(dashboard, cx))
+                .child(
+                    h_flex()
+                        .flex_1()
+                        .min_h_0()
+                        .items_start()
+                        .gap_4()
+                        .child(self.render_errors(dashboard, cx))
+                        .child(self.render_processes(cx)),
+                )
                 .into_any_element(),
             None => div().p_6().text_color(cx.theme().muted_foreground).child("Загружаем дашборд…").into_any_element(),
         };

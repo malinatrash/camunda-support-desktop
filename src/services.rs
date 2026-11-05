@@ -1,7 +1,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use camunda_core::camunda::{http, CamundaApi};
+use camunda_core::camunda::{CamundaApi, http};
 use camunda_core::storage::Storage;
 use gpui_kit::{App, Global};
 
@@ -16,15 +16,11 @@ pub struct Services {
 impl Global for Services {}
 
 impl Services {
-    // Хранилище то же, что у Tauri-версии: подключения и тема общие.
+    // Та же папка данных, что у версий 1.x–2.x: подключения и тема переживают обновление.
     pub fn new() -> Self {
         let root = dirs::data_dir().unwrap_or_else(std::env::temp_dir).join(APP_IDENTIFIER);
         let storage = Arc::new(Storage::new(root));
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
-            .enable_all()
-            .build()
-            .expect("tokio runtime");
+        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("tokio runtime");
         let client = runtime.block_on(async { http::camunda_client() });
         Self { api: Arc::new(CamundaApi::new(client, storage.clone())), storage, runtime }
     }

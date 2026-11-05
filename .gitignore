@@ -1,9 +1,5 @@
-node_modules/
-dist/
-target/
-src-tauri/gen/schemas/
+/target
 .DS_Store
-*.log
 .idea/
 .vscode/
-research_notes/
+*.log

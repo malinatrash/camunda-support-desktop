@@ -31,7 +31,13 @@ pub struct VariablesView {
 impl EventEmitter<VariablesChanged> for VariablesView {}
 
 impl VariablesView {
-    pub fn new(connection: CamundaConnection, instance_id: String, variables: Vec<ProcessVariable>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        connection: CamundaConnection,
+        instance_id: String,
+        variables: Vec<ProcessVariable>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Поиск по ключу, типу или значению"));
         let subscription = cx.subscribe(&query, |_, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
@@ -69,7 +75,8 @@ impl VariablesView {
         };
         let name = update.name.clone();
         let (connection, instance_id) = (self.connection.clone(), self.instance_id.clone());
-        let request = services::request(cx, move |api| async move { api.update_process_variable(&connection, &instance_id, &update).await });
+        let request =
+            services::request(cx, move |api| async move { api.update_process_variable(&connection, &instance_id, &update).await });
         self.save = Some(cx.spawn(async move |this, cx| {
             let result = request.await;
             this.update(cx, |this, cx| {
@@ -116,7 +123,9 @@ impl VariablesView {
                 .child(div().text_sm().text_color(cx.theme().muted_foreground).child(hint(&variable.value_type)))
                 .child(Textarea::new(&editing.value).h(px(160.)))
                 .when_some(editing.error.clone(), |this, error| {
-                    this.child(div().px_3().py_2().rounded_md().bg(cx.theme().danger.opacity(0.1)).text_color(cx.theme().danger).child(error))
+                    this.child(
+                        div().px_3().py_2().rounded_md().bg(cx.theme().danger.opacity(0.1)).text_color(cx.theme().danger).child(error),
+                    )
                 })
                 .child(
                     h_flex()
@@ -156,7 +165,9 @@ fn hint(value_type: &str) -> String {
 fn validate(value_type: &str, value: &str) -> Option<String> {
     let value = value.trim();
     match value_type.to_lowercase().as_str() {
-        "boolean" => (!value.eq_ignore_ascii_case("true") && !value.eq_ignore_ascii_case("false")).then(|| "Допустимы только true или false.".into()),
+        "boolean" => {
+            (!value.eq_ignore_ascii_case("true") && !value.eq_ignore_ascii_case("false")).then(|| "Допустимы только true или false.".into())
+        }
         "short" => value.parse::<i16>().is_err().then(|| "Значение выходит за диапазон Short или не является целым числом.".into()),
         "integer" => value.parse::<i32>().is_err().then(|| "Значение выходит за диапазон Integer или не является целым числом.".into()),
         "long" => value.parse::<i64>().is_err().then(|| "Значение выходит за диапазон Long или не является целым числом.".into()),
@@ -196,7 +207,9 @@ impl Render for VariablesView {
                     v_flex()
                         .w(px(260.))
                         .flex_none()
-                        .child(div().truncate().font_family(crate::theme::MONO).font_weight(FontWeight::SEMIBOLD).child(variable.name.clone()))
+                        .child(
+                            div().truncate().font_family(crate::theme::MONO).font_weight(FontWeight::SEMIBOLD).child(variable.name.clone()),
+                        )
                         .child(div().text_xs().text_color(cx.theme().muted_foreground).child(variable.value_type.clone())),
                 )
                 .child(div().flex_1().min_w_0().line_clamp(3).font_family(crate::theme::MONO).text_xs().child(variable.value.clone()))
@@ -204,9 +217,15 @@ impl Render for VariablesView {
                     h_flex()
                         .flex_none()
                         .gap_1()
-                        .child(Button::new(SharedString::from(format!("copy-{}", variable.name))).label("Копировать").ghost().small().on_click(move |_, _, cx| {
-                            cx.write_to_clipboard(ClipboardItem::new_string(copy_value.clone()));
-                        }))
+                        .child(
+                            Button::new(SharedString::from(format!("copy-{}", variable.name)))
+                                .label("Копировать")
+                                .ghost()
+                                .small()
+                                .on_click(move |_, _, cx| {
+                                    cx.write_to_clipboard(ClipboardItem::new_string(copy_value.clone()));
+                                }),
+                        )
                         .child(
                             Button::new(SharedString::from(format!("edit-{}", variable.name)))
                                 .label(if can_edit { "Изменить" } else { "Только чтение" })

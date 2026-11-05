@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Записывает версию релиза (из тега vX.Y.Z или аргумента X.Y.Z) в Cargo.toml и Cargo.lock нативного приложения.
+// Записывает версию релиза (из тега vX.Y.Z или аргумента X.Y.Z) в версию workspace и Cargo.lock.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,7 +21,9 @@ function rewrite(file, transform) {
   console.log(`${file}: ${version}`);
 }
 
-rewrite("native/Cargo.toml", (text) => text.replace(/^version = "[^"]+"/m, `version = "${version}"`));
-rewrite("native/Cargo.lock", (text) =>
-  text.replace(/(\[\[package\]\]\nname = "camunda-support"\nversion = ")[^"]+(")/, `$1${version}$2`),
+rewrite("Cargo.toml", (text) =>
+  text.replace(/(\[workspace\.package\]\nversion = ")[^"]+(")/, `$1${version}$2`),
+);
+rewrite("Cargo.lock", (text) =>
+  text.replace(/(\[\[package\]\]\nname = "camunda-(?:core|support)"\nversion = ")[^"]+(")/g, `$1${version}$2`),
 );
