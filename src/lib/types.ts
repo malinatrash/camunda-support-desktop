@@ -53,13 +53,6 @@ export interface ProcessDefinitionSummary {
   startableInTasklist: boolean;
 }
 
-export interface DashboardTimelinePoint {
-  label: string;
-  started: number;
-  completed: number;
-  incidents: number;
-}
-
 export interface DashboardIncidentType {
   type: string;
   count: number;
@@ -71,11 +64,6 @@ export interface DashboardIncidentActivity {
   count: number;
   activityName: string | null;
   topic: string | null;
-}
-
-export interface DashboardDurationBucket {
-  label: string;
-  count: number;
 }
 
 export interface DashboardWaitingActivity {
@@ -93,17 +81,10 @@ export interface DashboardWaitingActivity {
 
 export interface ProcessDashboard {
   definitions: ProcessDefinitionSummary[];
-  timeline: DashboardTimelinePoint[];
   incidentTypes: DashboardIncidentType[];
   incidentActivities: DashboardIncidentActivity[];
   longestWaitingActivities: DashboardWaitingActivity[];
-  durationBuckets: DashboardDurationBucket[];
-  timelineTitle: string;
-  averageDurationMillis: number | null;
-  medianDurationMillis: number | null;
-  p95DurationMillis: number | null;
   completedInstances: number;
-  timelineTruncated: boolean;
   incidents: ProcessIncident[];
 }
 
@@ -380,7 +361,6 @@ export type AppDestination =
   | "Overview"
   | "Processes"
   | "Incidents"
-  | "Connections"
   | "Settings"
   | "ProcessDefinition"
   | "ProcessInstance";
@@ -393,10 +373,9 @@ export interface DestinationMeta {
   shortcut: string;
 }
 
-export const SIDEBAR_DESTINATIONS: DestinationMeta[] = [
-  { id: "Overview", title: "Монитор", description: "Что требует внимания прямо сейчас", icon: "monitor", shortcut: "1" },
+export const DESTINATIONS: DestinationMeta[] = [
+  { id: "Overview", title: "Обзор", description: "Что требует внимания прямо сейчас", icon: "monitor", shortcut: "1" },
   { id: "Processes", title: "Поиск", description: "Заявки по бизнес-ключу и переменным", icon: "search", shortcut: "2" },
   { id: "Incidents", title: "Инциденты", description: "Группы ошибок и массовый повтор", icon: "alert", shortcut: "3" },
-  { id: "Connections", title: "Подключения", description: "Окружения Camunda", icon: "plug", shortcut: "4" },
-  { id: "Settings", title: "Настройки", description: "Тема и обновления", icon: "settings", shortcut: "5" },
+  { id: "Settings", title: "Настройки", description: "Подключения, вид и обновления", icon: "settings", shortcut: "," },
 ];

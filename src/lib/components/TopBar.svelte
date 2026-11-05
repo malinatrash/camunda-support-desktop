@@ -1,76 +1,78 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import EnvironmentBadge from "./EnvironmentBadge.svelte";
   import { app } from "../state/app.svelte";
   import { palette } from "../state/palette.svelte";
+  import { updates } from "../state/updates.svelte";
   import { api } from "../api";
   import { cockpitDashboardUrl } from "../connection";
   import { clickOutside } from "../actions";
   import { environmentTone, ENVIRONMENT_LABEL } from "../format";
   import { pop } from "../motion";
+  import { DESTINATIONS, type AppDestination } from "../types";
 
   const connection = $derived(app.selectedConnection);
   const cockpitUrl = $derived(connection ? cockpitDashboardUrl(connection) : null);
   const isMac = typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
+  const modifier = isMac ? "⌘" : "Ctrl";
+  const sections = DESTINATIONS.filter((item) => item.id !== "Settings");
+  const current = $derived<AppDestination>(
+    app.destination === "ProcessDefinition" || app.destination === "ProcessInstance" ? "Overview" : app.destination,
+  );
   let switcherOpen = $state(false);
 </script>
 
 <header class="topbar" data-tauri-drag-region>
   <div class="switcher" use:clickOutside={() => (switcherOpen = false)}>
-    <button type="button" class="connection" class:open={switcherOpen} onclick={() => (switcherOpen = !switcherOpen)}>
-      {#if connection}
-        <span class="env-dot tone-{environmentTone(connection.environment)}"></span>
-        <span class="col grow">
-          <span class="name truncate">{connection.name}</span>
-          <span class="meta truncate">{ENVIRONMENT_LABEL[connection.environment].label}{connection.engineVersion ? ` · Camunda ${connection.engineVersion}` : ""}</span>
-        </span>
-      {:else}
-        <span class="env-dot tone-neutral"></span>
-        <span class="col grow">
-          <span class="name">Нет подключения</span>
-          <span class="meta">Добавьте окружение</span>
-        </span>
-      {/if}
-      <Icon name="chevron" size={14} class="chevron {switcherOpen ? 'flipped' : ''}" />
+    <button type="button" class="connection" onclick={() => (switcherOpen = !switcherOpen)}>
+      <span class="env-dot tone-{connection ? environmentTone(connection.environment) : 'neutral'}"></span>
+      <span class="name truncate">{connection?.name ?? "Нет подключения"}</span>
+      <Icon name="chevron" size={13} class="chevron {switcherOpen ? 'flipped' : ''}" />
     </button>
     {#if switcherOpen}
-      <div class="menu card" transition:pop={{ duration: 150, start: 0.97 }}>
+      <div class="menu" transition:pop={{ duration: 140, start: 0.98 }}>
         {#each app.connections as item (item.id)}
           <button type="button" class="menu-item" class:active={item.id === app.selectedConnectionId} onclick={() => { app.selectConnection(item.id); switcherOpen = false; }}>
             <span class="env-dot tone-{environmentTone(item.environment)}"></span>
             <span class="col grow">
-              <span class="name truncate">{item.name}</span>
-              <span class="meta mono truncate">{item.restUrl}</span>
+              <span class="truncate">{item.name}</span>
+              <span class="faint mono truncate small">{ENVIRONMENT_LABEL[item.environment].label}{item.engineVersion ? ` · ${item.engineVersion}` : ""}</span>
             </span>
-            <EnvironmentBadge environment={item.environment} />
+            {#if item.id === app.selectedConnectionId}<Icon name="check" size={14} />{/if}
           </button>
-        {:else}
-          <div class="menu-empty muted">Подключений пока нет</div>
         {/each}
         <div class="divider"></div>
-        <button type="button" class="menu-item add" onclick={() => { app.openConnectionDialog(); switcherOpen = false; }}>
-          <Icon name="plus" size={14} />
-          <span>Добавить подключение</span>
+        {#if cockpitUrl}
+          <button type="button" class="menu-item" onclick={() => { api.openInBrowser(cockpitUrl); switcherOpen = false; }}>
+            <Icon name="external" size={14} /><span>Открыть Cockpit</span>
+          </button>
+        {/if}
+        <button type="button" class="menu-item" onclick={() => { app.openConnectionDialog(); switcherOpen = false; }}>
+          <Icon name="plus" size={14} /><span>Добавить подключение</span>
         </button>
       </div>
     {/if}
   </div>
 
+  <nav class="nav">
+    {#each sections as item (item.id)}
+      <button type="button" class="nav-item" class:active={current === item.id} title="{item.description} · {modifier} {item.shortcut}" onclick={() => app.navigate(item.id)}>
+        {item.title}
+      </button>
+    {/each}
+  </nav>
+
+  <span class="grow" data-tauri-drag-region></span>
+
   <button type="button" class="search" onclick={() => palette.show()}>
-    <Icon name="search" size={15} />
-    <span class="search-text">Найти заявку…</span>
-    <span class="kbd">{isMac ? "⌘" : "Ctrl"}</span><span class="kbd">K</span>
+    <Icon name="search" size={14} />
+    <span>Найти заявку</span>
+    <span class="hint">{modifier}K</span>
   </button>
 
-  <div class="actions">
-    <button type="button" class="action" title="Обновить данные ({isMac ? '⌘' : 'Ctrl'} R)" onclick={() => palette.requestRefresh()}>
-      <Icon name="refresh" size={15} />
-    </button>
-    <button type="button" class="action" disabled={!cockpitUrl} title="Открыть Cockpit в браузере" onclick={() => cockpitUrl && api.openInBrowser(cockpitUrl)}>
-      <Icon name="external" size={15} />
-      <span>Cockpit</span>
-    </button>
-  </div>
+  <button type="button" class="icon-button" class:active={current === "Settings"} title="Настройки · {modifier} ," onclick={() => app.navigate("Settings")}>
+    <Icon name="settings" size={16} />
+    {#if updates.visible}<span class="badge" aria-label="Доступно обновление"></span>{/if}
+  </button>
 </header>
 
 <style>
@@ -79,58 +81,43 @@
     flex: none;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0 14px 0 10px;
-    background: var(--surface);
+    gap: 16px;
+    padding: 0 16px;
     border-bottom: 1px solid var(--border);
-    transition: background-color var(--dur-slow) var(--ease-out), border-color var(--dur-slow) var(--ease-out);
+    background: var(--canvas);
   }
   .switcher {
     position: relative;
-    width: 280px;
-    flex: none;
   }
   .connection {
     display: flex;
     align-items: center;
-    gap: 9px;
-    width: 100%;
-    height: 36px;
-    padding: 0 8px 0 10px;
-    border: 1px solid transparent;
+    gap: 8px;
+    max-width: 240px;
+    height: 30px;
+    padding: 0 8px;
+    margin-left: -8px;
+    border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
-    text-align: left;
-    transition: background-color var(--dur-fast), border-color var(--dur-fast);
+    font-weight: 600;
   }
-  .connection:hover,
-  .connection.open {
+  .connection:hover {
     background: var(--surface-2);
-    border-color: var(--border);
   }
   .env-dot {
-    width: 9px;
-    height: 9px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     flex: none;
+    background: var(--neutral);
   }
-  .tone-danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
-  .tone-warning { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent); }
-  .tone-development { background: var(--info); box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 18%, transparent); }
-  .tone-neutral { background: var(--neutral); box-shadow: 0 0 0 3px color-mix(in srgb, var(--neutral) 18%, transparent); }
-  .name {
-    font-size: 12.5px;
-    font-weight: 600;
-    line-height: 1.2;
-  }
-  .meta {
-    font-size: 10px;
-    color: var(--ink-3);
-    line-height: 1.3;
-  }
+  .env-dot.tone-danger { background: var(--danger); }
+  .env-dot.tone-warning { background: var(--warning); }
+  .env-dot.tone-development { background: var(--info); }
   :global(.chevron) {
     color: var(--ink-3);
-    transition: transform var(--dur-base) var(--ease-spring);
+    transition: transform var(--dur-base) var(--ease-out);
   }
   :global(.chevron.flipped) {
     transform: rotate(180deg);
@@ -138,91 +125,103 @@
   .menu {
     position: absolute;
     top: calc(100% + 6px);
-    left: 0;
-    width: 360px;
-    z-index: 60;
-    padding: 6px;
+    left: -8px;
+    z-index: 40;
+    width: 300px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-3);
-    transform-origin: top left;
   }
   .menu-item {
     display: flex;
     align-items: center;
     gap: 10px;
     width: 100%;
-    padding: 8px 9px;
+    padding: 7px 8px;
     border: 0;
     border-radius: var(--radius-xs);
     background: transparent;
     text-align: left;
-    transition: background-color var(--dur-fast);
   }
   .menu-item:hover {
     background: var(--surface-2);
   }
   .menu-item.active {
-    background: var(--accent-soft);
-  }
-  .menu-item.add {
     color: var(--accent);
-    font-weight: 500;
-  }
-  .menu-empty {
-    padding: 10px;
-    font-size: 12px;
   }
   .menu .divider {
-    margin: 6px 0;
+    margin: 4px 0;
+  }
+  .small {
+    font-size: var(--text-xs);
+  }
+  .nav {
+    display: flex;
+    gap: 2px;
+  }
+  .nav-item {
+    height: 30px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .nav-item:hover {
+    color: var(--ink);
+  }
+  .nav-item.active {
+    color: var(--ink);
+    background: var(--surface-3);
   }
   .search {
-    flex: 1;
-    max-width: 420px;
-    height: 34px;
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 0 8px 0 12px;
+    gap: 8px;
+    width: 240px;
+    height: 30px;
+    padding: 0 10px;
     border: 1px solid var(--border);
-    border-radius: 9px;
-    background: var(--surface);
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--ink-3);
-    transition: border-color var(--dur-fast);
   }
   .search:hover {
     border-color: var(--border-strong);
   }
-  .search-text {
+  .search span:nth-child(2) {
     flex: 1;
     text-align: left;
-    font-size: 12.5px;
   }
-  .actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  .hint {
+    font-size: var(--text-xs);
   }
-  .action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 10px;
-    border: 1px solid transparent;
+  .icon-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--ink-2);
-    font-size: 12px;
-    font-weight: 500;
-    transition: background-color var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
   }
-  .action:hover:not(:disabled) {
-    background: var(--surface-2);
-    border-color: var(--border);
+  .icon-button:hover,
+  .icon-button.active {
     color: var(--ink);
+    background: var(--surface-3);
   }
-  .action:disabled {
-    opacity: 0.45;
-    cursor: default;
+  .badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
   }
 </style>

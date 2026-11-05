@@ -21,6 +21,6 @@
     animation: spin 0.8s linear infinite;
   }
   .label {
-    font-size: 12px;
+    font-size: var(--text-md);
   }
 </style>

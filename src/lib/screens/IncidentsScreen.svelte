@@ -1,10 +1,8 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import Button from "../components/Button.svelte";
-  import Combobox, { type ComboboxItem } from "../components/Combobox.svelte";
-  import DateFilterBar from "../components/DateFilterBar.svelte";
   import EmptyPanel from "../components/EmptyPanel.svelte";
-  import SectionTitle from "../components/SectionTitle.svelte";
-  import TextField from "../components/TextField.svelte";
+  import PeriodPicker from "../components/PeriodPicker.svelte";
   import VirtualList from "../components/VirtualList.svelte";
   import ConfirmDialog from "../components/ConfirmDialog.svelte";
   import Icon from "../components/Icon.svelte";
@@ -14,8 +12,8 @@
   import { toasts } from "../state/toasts.svelte";
   import { api, errorMessage } from "../api";
   import { groupIncidents, relativeTime, retryableCount, type IncidentGroup } from "../incidents";
-  import { contains, DATE_PRESET_LABEL, definitionKeyOf, definitionVersionOf, incidentTypeLabel, isLive } from "../format";
-  import { expand, rise } from "../motion";
+  import { contains, definitionKeyOf, definitionVersionOf, incidentTypeLabel } from "../format";
+  import { expand } from "../motion";
   import type { DashboardDateFilter, ProcessIncident } from "../types";
 
   interface VersionOption {
@@ -38,7 +36,6 @@
   let appliedFilter = $state<DashboardDateFilter>(app.selectedIncidentDateFilter);
   let selectedDefinitionId = $state<string | null>(scopedDefinitionId);
   let versions = $state<VersionOption[]>([]);
-  let versionsLoading = $state(false);
   let view = $state<"groups" | "list">("groups");
   let selected = $state<Set<string>>(new Set());
   let pendingRetry = $state<ProcessIncident[] | null>(null);
@@ -48,7 +45,7 @@
 
   $effect(() => {
     palette.refreshSerial;
-    refreshToken += 1;
+    untrack(() => (refreshToken += 1));
   });
 
   function toggle(id: string) {
@@ -84,7 +81,6 @@
     versions = [];
     if (!current || !processDefinitionKey) return;
     let cancelled = false;
-    versionsLoading = true;
     api
       .loadProcessDefinitionVersions(current, processDefinitionKey)
       .then((loaded) => {
@@ -96,10 +92,7 @@
           versionTag: definition.versionTag,
         }));
       })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) versionsLoading = false;
-      });
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -159,10 +152,6 @@
     return `${scoped ? "" : `${option.processKey} · `}Версия ${option.version}${option.versionTag ? ` · ${option.versionTag}` : ""}`;
   }
 
-  const versionItems = $derived<ComboboxItem[]>(
-    versionOptions.map((option) => ({ id: option.definitionId, title: optionLabel(option), subtitle: option.definitionId })),
-  );
-
   const filtered = $derived(
     incidents.filter(
       (incident) =>
@@ -192,97 +181,66 @@
 </script>
 
 <div class="page">
-  <SectionTitle
-    title={scopedDefinitionId == null ? "Инциденты" : "Инциденты процесса"}
-    description={`${isLive(appliedFilter) ? "Открытые инциденты Camunda" : `История инцидентов: ${DATE_PRESET_LABEL[appliedFilter.preset].toLowerCase()}`}${processDefinitionKey ? ` · ${processDefinitionKey}` : ""}`}
-  >
-    {#if connection}
-      <Button loading={loading} onclick={() => (refreshToken += 1)}>{loading ? "Обновляем…" : "Обновить"}</Button>
-    {/if}
-  </SectionTitle>
-
   {#if !connection}
     <EmptyPanel title="Требуется подключение" description="Добавьте подключение Camunda, чтобы просматривать инциденты." actionLabel="Добавить подключение" onaction={() => app.openConnectionDialog()} />
   {:else}
-    {#if error}
-      <div transition:expand>
-        <EmptyPanel title="Не удалось загрузить инциденты" description={error} actionLabel="Повторить" onaction={() => (refreshToken += 1)} tone="danger" compact />
-      </div>
-    {/if}
-
-    <div class="card filters" in:rise>
-      <div class="row filters-top">
-        <div class="grow">
-          <DateFilterBar applied={appliedFilter} onapply={(filter) => (appliedFilter = filter)} label="Период" liveLabel="Открытые" />
-        </div>
-        <div class="version">
-          <Combobox
-            label="Версия"
-            items={versionItems}
-            selectedId={selectedDefinitionId}
-            onselect={(item) => (selectedDefinitionId = item.id)}
-            placeholder={processDefinitionKey == null ? "Все процессы и версии" : "Все версии процесса"}
-            loading={versionsLoading}
-            loadingText="Загружаем версии…"
-            allowClear
-            clearLabel={processDefinitionKey == null ? "Все процессы и версии" : "Все версии процесса"}
-            onclear={() => (selectedDefinitionId = null)}
-            width="380px"
-          />
-        </div>
-      </div>
-      <div class="row">
-        <span class="bold">Всего: {incidents.length}</span>
-        <TextField class="grow" size="sm" placeholder="Сообщение, заявка, кубик или ID" bind:value={query} type="search" />
-        <SegmentedTabs items={[{ id: "groups", label: "Группы", badge: groups.length }, { id: "list", label: "Список", badge: filtered.length }]} selected={view} onselect={(id) => (view = id)} size="sm" />
-        {#if view === "list"}
-          <Button size="sm" variant="primary" disabled={retryableSelected.length === 0} onclick={() => (pendingRetry = retryableSelected)}>
-            <Icon name="play" size={12} /> Повторить выбранные ({retryableSelected.length})
-          </Button>
-        {/if}
-      </div>
-      <div class="row types">
-        <button type="button" class="chip" class:active={selectedType == null} onclick={() => (selectedType = null)}>Все · {incidents.length}</button>
-        {#each types.slice(0, 6) as [type, count] (type)}
-          <button type="button" class="chip" class:active={selectedType === type} onclick={() => (selectedType = type)}>{incidentTypeLabel(type)} · {count}</button>
+    <header class="head">
+      {#if processDefinitionKey}<span class="scope mono">{processDefinitionKey}</span>{/if}
+      <PeriodPicker value={appliedFilter} onchange={(filter) => (appliedFilter = filter)} />
+      <select class="select" value={selectedDefinitionId ?? ""} onchange={(event) => (selectedDefinitionId = event.currentTarget.value || null)}>
+        <option value="">{processDefinitionKey == null ? "Все процессы" : "Все версии"}</option>
+        {#each versionOptions as option (option.definitionId)}
+          <option value={option.definitionId}>{optionLabel(option)}</option>
         {/each}
-      </div>
+      </select>
+      <span class="grow"></span>
+      <input class="search" type="search" placeholder="Сообщение, заявка, кубик или ID" bind:value={query} />
+      <button type="button" class="icon-button" class:spinning={loading} title="Обновить" onclick={() => (refreshToken += 1)}>
+        <Icon name="refresh" size={15} />
+      </button>
+    </header>
+
+    <div class="bar">
+      <SegmentedTabs items={[{ id: "groups", label: "Группы", badge: groups.length }, { id: "list", label: "Список", badge: filtered.length }]} selected={view} onselect={(id) => (view = id)} size="sm" />
+      <span class="sep"></span>
+      <button type="button" class="type" class:active={selectedType == null} onclick={() => (selectedType = null)}>Все типы</button>
+      {#each types.slice(0, 6) as [type, count] (type)}
+        <button type="button" class="type" class:active={selectedType === type} onclick={() => (selectedType = type)}>{incidentTypeLabel(type)} <span class="faint">{count}</span></button>
+      {/each}
+      <span class="grow"></span>
+      {#if view === "list"}
+        <Button size="sm" variant="primary" disabled={retryableSelected.length === 0} onclick={() => (pendingRetry = retryableSelected)}>Повторить выбранные ({retryableSelected.length})</Button>
+      {/if}
     </div>
 
+    {#if error}
+      <div transition:expand><div class="message message-danger selectable">{error}</div></div>
+    {/if}
+
     {#if loading && incidents.length === 0}
-      <div class="col gap">
-        {#each [0, 1, 2] as index (index)}<div class="card shimmer skeleton"></div>{/each}
-      </div>
+      <div class="col gap">{#each [0, 1, 2, 3] as index (index)}<div class="shimmer skeleton"></div>{/each}</div>
     {:else if filtered.length === 0}
-      <EmptyPanel title="Инциденты не найдены" description="Измените фильтр или обновите данные." compact />
+      <p class="calm">{incidents.length === 0 ? "Инцидентов нет" : "Ничего не найдено — измените фильтр"}</p>
     {:else if view === "groups"}
-      <div class="groups scroll" in:rise={{ delay: 40 }}>
+      <div class="groups scroll">
         {#each groups as group (group.key)}
           {@const open = expandedGroup === group.key}
-          <div class="card group" class:open>
-            <button type="button" class="group-row" onclick={() => (expandedGroup = open ? null : group.key)}>
-              <span class="count mono">{group.count}</span>
+          <div class="group" class:open>
+            <div class="group-row" role="button" tabindex="0" onclick={() => (expandedGroup = open ? null : group.key)} onkeydown={(event) => event.key === "Enter" && (expandedGroup = open ? null : group.key)}>
+              <span class="count">{group.count}</span>
               <span class="col grow">
-                <span class="row">
-                  <span class="group-title truncate">{group.activityId ?? "Без кубика"}</span>
-                  <span class="pill pill-danger">{incidentTypeLabel(group.type)}</span>
-                  <span class="faint small">{groupProcessLabel(group)}</span>
-                </span>
+                <span class="group-title truncate">{group.activityId ?? "Без кубика"}</span>
                 <span class="group-message truncate selectable">{group.signature}</span>
-                <span class="faint small">заявок: {group.instanceIds.length} · последний {relativeTime(group.latestTimestamp)}</span>
+                <span class="faint small truncate">{groupProcessLabel(group)} · {incidentTypeLabel(group.type)} · заявок {group.instanceIds.length} · {relativeTime(group.latestTimestamp)}</span>
               </span>
-              <Button size="sm" variant="primary" disabled={retryableCount(group) === 0} onclick={(event) => { event.stopPropagation(); pendingRetry = group.incidents; }}>
-                <Icon name="play" size={12} /> Повторить ({retryableCount(group)})
-              </Button>
-              <Icon name="chevron" size={14} class="chevron {open ? 'flipped' : ''}" />
-            </button>
+              <Button size="sm" variant="ghost" disabled={retryableCount(group) === 0} onclick={(event) => { event.stopPropagation(); pendingRetry = group.incidents; }}>Повторить ({retryableCount(group)})</Button>
+            </div>
             {#if open}
-              <div class="group-body" transition:expand={{ duration: 200 }}>
+              <div class="group-body" transition:expand={{ duration: 180 }}>
                 {#each group.incidents.slice(0, 50) as incident (incident.id)}
                   <div class="row group-incident">
-                    <span class="faint small">{incident.timestamp ?? "—"}</span>
-                    <span class="mono small truncate grow selectable">{incident.processInstanceId ?? "—"}</span>
-                    <button type="button" class="link small" disabled={!incident.processInstanceId} onclick={() => incident.processInstanceId && app.openProcessInstance(incident.processInstanceId)}>Открыть заявку</button>
+                    <span class="faint small mono">{incident.timestamp?.slice(0, 19).replace("T", " ") ?? "—"}</span>
+                    <button type="button" class="link mono small truncate" disabled={!incident.processInstanceId} onclick={() => incident.processInstanceId && app.openProcessInstance(incident.processInstanceId)}>{incident.processInstanceId ?? "—"}</button>
                   </div>
                 {/each}
                 {#if group.incidents.length > 50}<span class="faint small">Показаны первые 50 из {group.incidents.length}</span>{/if}
@@ -292,37 +250,19 @@
         {/each}
       </div>
     {:else}
-      <div class="list" in:rise={{ delay: 40 }}>
-        <div class="row select-all">
-          <label class="pick-all"><input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onchange={toggleAll} /> Выбрать все ({filtered.length})</label>
-        </div>
-        <VirtualList items={filtered} itemHeight={118} key={(incident) => incident.id}>
+      <div class="list">
+        <label class="pick-all small muted"><input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onchange={toggleAll} /> Выбрать все</label>
+        <VirtualList items={filtered} itemHeight={76} key={(incident) => incident.id}>
           {#snippet row(incident)}
-            <div class="incident-slot">
-              <div class="card incident row" class:selected={selected.has(incident.id)}>
-                <label class="pick">
-                  <input type="checkbox" checked={selected.has(incident.id)} onchange={() => toggle(incident.id)} />
-                </label>
-                <div class="col grow gap5">
-                  <div class="row">
-                    <span class="pill pill-danger">{incidentTypeLabel(incident.type)}</span>
-                    <span class="faint small">{incident.timestamp ?? "Время неизвестно"}</span>
-                  </div>
-                  <span class="message-text clamp-2 selectable">{incident.message ?? "Camunda не вернула сообщение ошибки"}</span>
-                  <span class="mono faint tiny clamp-2 selectable">
-                    {[
-                      incident.failedActivityId ? `кубик: ${incident.failedActivityId}` : null,
-                      processLabel(incident),
-                      incident.processInstanceId ? `заявка: ${incident.processInstanceId}` : null,
-                      incident.tenantId ? `тенант: ${incident.tenantId}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "Технические связи отсутствуют"}
-                  </span>
-                  {#if incident.annotation?.trim()}<span class="muted small truncate">Комментарий: {incident.annotation}</span>{/if}
-                </div>
-                <Button disabled={!incident.processInstanceId} onclick={() => incident.processInstanceId && app.openProcessInstance(incident.processInstanceId)}>Открыть заявку</Button>
+            <div class="incident" class:selected={selected.has(incident.id)}>
+              <input type="checkbox" checked={selected.has(incident.id)} onchange={() => toggle(incident.id)} />
+              <div class="col grow">
+                <span class="truncate selectable">{incident.message ?? "Camunda не вернула сообщение ошибки"}</span>
+                <span class="mono faint small truncate selectable">
+                  {[incidentTypeLabel(incident.type), incident.failedActivityId, processLabel(incident), incident.timestamp?.slice(0, 19).replace("T", " ")].filter(Boolean).join(" · ")}
+                </span>
               </div>
+              <Button size="sm" variant="ghost" disabled={!incident.processInstanceId} onclick={() => incident.processInstanceId && app.openProcessInstance(incident.processInstanceId)}>Заявка →</Button>
             </div>
           {/snippet}
         </VirtualList>
@@ -344,183 +284,158 @@
   .page {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    min-height: 0;
+    gap: 14px;
     height: 100%;
-  }
-  .filters {
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-  }
-  .filters-top {
-    gap: 10px;
-    align-items: flex-start;
-  }
-  .filters :global(.bar) {
-    box-shadow: none;
-    border: 0;
-    padding: 0;
-    background: transparent;
-  }
-  .version {
-    width: 300px;
-    flex: none;
-  }
-  .bold {
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .types {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .chip {
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--ink-2);
-    border-radius: 999px;
-    padding: 5px 11px;
-    font-size: 10.5px;
-    font-weight: 600;
-    transition: border-color var(--dur-fast), color var(--dur-fast), background-color var(--dur-fast), transform var(--dur-fast) var(--ease-spring);
-  }
-  .chip:hover {
-    border-color: var(--border-strong);
-    color: var(--ink);
-  }
-  .chip.active {
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    background: var(--accent-soft);
-  }
-  .chip:active {
-    transform: scale(0.96);
-  }
-  .gap {
-    gap: 8px;
-  }
-  .skeleton {
-    height: 100px;
-  }
-  .list {
-    flex: 1;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    padding-bottom: 16px;
   }
-  .select-all {
-    padding: 0 4px;
+  .head,
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     flex: none;
   }
-  .pick-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    cursor: pointer;
+  .head :global(.picker) {
+    margin-left: -9px;
   }
-  .pick-all input {
-    accent-color: var(--accent);
+  .bar {
+    border-bottom: 1px solid var(--border);
   }
-  .pick {
+  .scope {
+    font-weight: 600;
+  }
+  .select,
+  .search {
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--canvas);
+    font-size: var(--text-md);
+    outline: none;
+  }
+  .select {
+    max-width: 260px;
+  }
+  .search {
+    width: 280px;
+  }
+  .search:focus {
+    border-color: var(--accent);
+  }
+  .icon-button {
     display: grid;
     place-items: center;
-    width: 24px;
-    flex: none;
-    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--ink-2);
   }
-  .pick input {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--accent);
-    cursor: pointer;
+  .icon-button:hover {
+    background: var(--surface-3);
+    color: var(--ink);
   }
-  .incident.selected {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+  .icon-button.spinning :global(svg) {
+    animation: spin 0.9s linear infinite;
+  }
+  .sep {
+    width: 1px;
+    height: 14px;
+    background: var(--border-strong);
+  }
+  .type {
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--text-md);
+  }
+  .type:hover,
+  .type.active {
+    color: var(--ink);
+  }
+  .type.active {
+    font-weight: 600;
+  }
+  .gap {
+    gap: 12px;
+  }
+  .skeleton {
+    height: 52px;
+  }
+  .calm {
+    padding: 32px 0;
+    color: var(--ink-3);
   }
   .groups {
     flex: 1;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-right: 4px;
   }
-  .groups > :global(*) {
-    flex-shrink: 0;
-  }
-  .group.open {
-    border-color: var(--border-strong);
+  .group {
+    border-bottom: 1px solid var(--border);
   }
   .group-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    width: 100%;
-    padding: 10px 12px;
-    border: 0;
-    background: transparent;
-    text-align: left;
+    gap: 14px;
+    padding: 10px 0;
+    cursor: pointer;
+  }
+  .group-row:hover .group-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .count {
-    min-width: 32px;
+    min-width: 40px;
+    text-align: right;
     color: var(--danger);
     font-weight: 600;
-    font-size: 15px;
-    flex: none;
-    text-align: right;
+    font-variant-numeric: tabular-nums;
+    align-self: flex-start;
   }
   .group-title {
-    font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 500;
   }
   .group-message {
-    font-size: 11.5px;
     color: var(--ink-2);
+    font-size: var(--text-md);
+  }
+  .small {
+    font-size: var(--text-sm);
   }
   .group-body {
-    padding: 0 12px 10px 56px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
+    padding: 0 0 12px 54px;
   }
   .group-incident {
-    gap: 10px;
-    padding: 2px 0;
+    gap: 16px;
   }
-  .incident-slot {
+  .list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .pick-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding-bottom: 8px;
-    height: 100%;
   }
   .incident {
-    height: 100%;
-    padding: 12px 13px;
+    display: flex;
+    align-items: center;
     gap: 12px;
-    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-    transition: border-color var(--dur-fast), box-shadow var(--dur-base);
+    height: 76px;
+    border-bottom: 1px solid var(--border);
   }
-  .incident:hover {
-    border-color: color-mix(in srgb, var(--danger) 65%, transparent);
-    box-shadow: var(--shadow-2);
-  }
-  .gap5 {
-    gap: 5px;
-  }
-  .small {
-    font-size: 10.5px;
-  }
-  .tiny {
-    font-size: 9.5px;
-  }
-  .message-text {
-    font-weight: 600;
-    font-size: 12.5px;
-    line-height: 1.4;
+  .incident.selected {
+    background: var(--surface-2);
   }
 </style>

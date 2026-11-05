@@ -98,12 +98,12 @@
     background: var(--accent);
   }
   .tab-title {
-    font-size: 11.5px;
+    font-size: var(--text-sm);
     font-weight: 600;
     max-width: 120px;
   }
   .tab-meta {
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--ink-3);
   }
   .tab-close {

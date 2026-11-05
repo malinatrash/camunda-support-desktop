@@ -69,6 +69,6 @@
     font-weight: 700;
   }
   .small {
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
 </style>

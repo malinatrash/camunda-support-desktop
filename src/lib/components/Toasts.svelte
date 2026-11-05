@@ -45,7 +45,7 @@
     border: 1px solid var(--border);
     background: var(--surface);
     box-shadow: var(--shadow-3);
-    font-size: 12px;
+    font-size: var(--text-md);
     color: var(--ink);
     text-align: left;
   }

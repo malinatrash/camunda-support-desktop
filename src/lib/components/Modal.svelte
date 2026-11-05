@@ -85,19 +85,19 @@
     padding: 18px 20px 12px;
   }
   .title {
-    font-size: 18px;
+    font-size: var(--text-xl);
     font-weight: 650;
     letter-spacing: -0.01em;
   }
   .subtitle {
     margin-top: 3px;
-    font-size: 12px;
+    font-size: var(--text-md);
   }
   .close {
     border: 0;
     background: transparent;
     color: var(--ink-3);
-    font-size: 22px;
+    font-size: var(--text-2xl);
     line-height: 1;
     width: 28px;
     height: 28px;

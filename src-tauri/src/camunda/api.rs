@@ -25,7 +25,7 @@ const VARIABLE_CATALOG_INSTANCE_LIMIT: usize = SEARCH_LIMIT;
 const VARIABLE_INSTANCE_ID_BATCH_SIZE: usize = 40;
 const MAX_PARALLEL_HISTORY_REQUESTS: usize = 6;
 const HISTORY_PAGE_SIZE: usize = 1_000;
-const HISTORY_CHART_LIMIT: usize = 20_000;
+const HISTORY_LIMIT: usize = 20_000;
 const DASHBOARD_ACTIVITY_LIMIT: usize = 12;
 const DASHBOARD_WAITING_ACTIVITY_LIMIT: usize = 6;
 const VARIABLE_CATALOG_CACHE_TTL_MILLIS: i64 = 24 * 60 * 60 * 1_000;
@@ -90,18 +90,6 @@ struct CachedVariableCatalog {
     loaded_at: DateTime<Utc>,
 }
 
-#[derive(Debug)]
-struct PagedResult<T> {
-    values: Vec<T>,
-    truncated: bool,
-}
-
-impl<T> Default for PagedResult<T> {
-    fn default() -> Self {
-        Self { values: Vec::new(), truncated: false }
-    }
-}
-
 impl CamundaApi {
     pub fn new(client: reqwest::Client, catalog_repository: Arc<dyn ProcessVariableCatalogRepository>) -> Self {
         Self {
@@ -125,12 +113,13 @@ impl CamundaApi {
         date_filter: &DashboardDateFilter,
     ) -> Result<ProcessDashboard, String> {
         let definitions_url =
-            format!("{}/process-definition?latestVersion=true&sortBy=deployTime&sortOrder=desc", connection.rest_url);
+            format!("{}/process-definition?sortBy=deployTime&sortOrder=desc", connection.rest_url);
         self.dashboard(connection, date_filter, &definitions_url)
             .await
             .map_err(|error| http::user_message(&error, &definitions_url))
     }
 
+    // Каждая версия процесса отдельной строкой со своими счётчиками.
     async fn dashboard(
         &self,
         connection: &CamundaConnection,
@@ -156,58 +145,38 @@ impl CamundaApi {
                 self.load_historic_statistics(connection, &definitions, date_filter).await
             }
         };
-        let started = async { self.load_historic_instances(connection, &range, false).await.unwrap_or_default() };
-        let completed = async { self.load_historic_instances(connection, &range, true).await.unwrap_or_default() };
-        let historic_incidents =
-            async { self.load_historic_incidents(connection, &range, None, None).await.unwrap_or_default() };
-        let runtime_incidents = async {
+        let incidents = async {
             if live {
-                Some(self.load_runtime_incidents(connection, None, None).await.unwrap_or_default())
+                self.load_runtime_incidents(connection, None, None).await.unwrap_or_default()
             } else {
-                None
+                self.load_historic_incidents(connection, &range, None, None).await.unwrap_or_default()
             }
         };
         let unfinished_activities = async { self.load_unfinished_activities(connection).await.unwrap_or_default() };
         let completed_count =
             async { self.get(&completed_count_url).await.ok().and_then(|body| parse_count(&body).ok()) };
 
-        let (definitions, statistics, started, completed, historic_incidents, runtime_incidents, unfinished, completed_count) = tokio::join!(
-            definitions.clone(),
-            statistics,
-            started,
-            completed,
-            historic_incidents,
-            runtime_incidents,
-            unfinished_activities,
-            completed_count
-        );
+        let (definitions, statistics, incidents, unfinished, completed_count) =
+            tokio::join!(definitions.clone(), statistics, incidents, unfinished_activities, completed_count);
         let definitions = definitions?;
         let statistics = statistics?;
 
-        let incidents_for_breakdown = runtime_incidents.unwrap_or_else(|| historic_incidents.values.clone());
-        let mut attention_incidents: Vec<ProcessIncident> = incidents_for_breakdown.iter().take(DASHBOARD_INCIDENT_LIMIT).cloned().collect();
+        let mut attention_incidents: Vec<ProcessIncident> = incidents.iter().take(DASHBOARD_INCIDENT_LIMIT).cloned().collect();
         attention_incidents.sort_by_cached_key(|incident| {
             std::cmp::Reverse(dates::parse_camunda_date_time(incident.timestamp.as_deref()).map(|value| value.with_timezone(&Utc)))
         });
-        let started_ids: HashSet<&str> = started.values.iter().map(|instance| instance.id.as_str()).collect();
+        let (range_start, range_end) = (range.start.with_timezone(&Utc), range.end.with_timezone(&Utc));
         let waiting_candidates: Vec<&HistoricActivityInstance> = unfinished
-            .values
             .iter()
-            .filter(|activity| activity.process_instance_id.as_deref().is_some_and(|id| started_ids.contains(id)))
+            .filter(|activity| live || dates::is_inside(activity.start_time.as_deref(), range_start, range_end))
             .collect();
         let (incident_activities, longest_waiting_activities) = tokio::join!(
-            self.load_incident_activities(connection, &incidents_for_breakdown),
+            self.load_incident_activities(connection, &incidents),
             self.load_longest_waiting_activities(connection, &waiting_candidates)
         );
 
-        let mut completed_durations: Vec<i64> = completed
-            .values
-            .iter()
-            .filter_map(|instance| dates::duration_millis(instance.start_time.as_deref(), instance.end_time.as_deref()))
-            .collect();
-        completed_durations.sort_unstable();
         let mut incident_types: Vec<DashboardIncidentType> =
-            count_in_order(incidents_for_breakdown.iter().map(|incident| incident.incident_type.clone()))
+            count_in_order(incidents.iter().map(|incident| incident.incident_type.clone()))
                 .into_iter()
                 .map(|(incident_type, count)| DashboardIncidentType { incident_type, count })
                 .collect();
@@ -221,17 +190,10 @@ impl CamundaApi {
                     ProcessDefinitionSummary { instances: counts.instances, incidents: counts.incidents, ..definition }
                 })
                 .collect(),
-            timeline: build_timeline(&range, &started.values, &completed.values, &historic_incidents.values),
             incident_types,
             incident_activities,
             longest_waiting_activities,
-            duration_buckets: build_duration_buckets(&completed_durations),
-            timeline_title: dates::timeline_title(date_filter),
-            average_duration_millis: average(&completed_durations),
-            median_duration_millis: percentile(&completed_durations, 0.50),
-            p95_duration_millis: percentile(&completed_durations, 0.95),
-            completed_instances: completed_count.unwrap_or(completed.values.len() as i32),
-            timeline_truncated: started.truncated || completed.truncated || historic_incidents.truncated || unfinished.truncated,
+            completed_instances: completed_count.unwrap_or_default(),
             incidents: attention_incidents,
         })
     }
@@ -249,7 +211,7 @@ impl CamundaApi {
                 self.load_runtime_incidents(connection, process_definition_id, process_definition_key).await?
             } else {
                 let range = dates::camunda_date_range(date_filter).map_err(ApiError::Invalid)?;
-                self.load_historic_incidents(connection, &range, process_definition_id, process_definition_key).await?.values
+                self.load_historic_incidents(connection, &range, process_definition_id, process_definition_key).await?
             };
             incidents.sort_by_cached_key(|incident| {
                 std::cmp::Reverse(dates::parse_camunda_date_time(incident.timestamp.as_deref()).map(|value| value.with_timezone(&Utc)))
@@ -367,7 +329,7 @@ impl CamundaApi {
                         "{}/variable-instance?processInstanceIdIn={ids}&deserializeValues=false&sortBy=variableName&sortOrder=asc",
                         connection.rest_url
                     );
-                    Ok::<_, ApiError>(self.load_paged(&base_url, parse_variable_descriptors).await?.values)
+                    self.load_paged(&base_url, parse_variable_descriptors).await
                 }
             });
             let samples: Vec<VariableDescriptorSample> = try_join_all(batches).await?.into_iter().flatten().collect();
@@ -419,44 +381,51 @@ impl CamundaApi {
         self.catalog_repository.remove(&connection.rest_url, normalized_key);
     }
 
+    // all_versions: заявки и инциденты всех версий процесса по ключу, иначе только выбранной версии.
     pub async fn load_process_definition_details(
         &self,
         connection: &CamundaConnection,
         process_definition_id: &str,
         date_filter: &DashboardDateFilter,
+        all_versions: bool,
     ) -> Result<ProcessDefinitionDetails, String> {
         let rest_url = &connection.rest_url;
-        let path_id = encode(process_definition_id);
-        let query_id = encode(process_definition_id);
-        let definition_url = format!("{rest_url}/process-definition/{path_id}");
+        let definition_url = format!("{rest_url}/process-definition/{}", encode(process_definition_id));
         let result = async {
             let range = if date_filter.is_live() {
                 None
             } else {
                 Some(dates::camunda_date_range(date_filter).map_err(ApiError::Invalid)?)
             };
+            let definition_json = json_object(&self.get(&definition_url).await?)?;
+            let definition = parse_definition(&definition_json)?;
+            let (instance_filter, incident_filter, history_incident_filter) = if all_versions {
+                let key_filter = definition_key_filter(&definition.key, definition.tenant_id.as_deref());
+                let incident_filter = key_filter.replacen("processDefinitionKey=", "processDefinitionKeyIn=", 1);
+                (key_filter.clone(), incident_filter, key_filter)
+            } else {
+                let id_filter = format!("processDefinitionId={}", encode(process_definition_id));
+                (id_filter.clone(), id_filter.clone(), id_filter)
+            };
             let instances_url = match &range {
                 None => format!(
-                    "{rest_url}/process-instance?processDefinitionId={query_id}&sortBy=instanceId&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}"
+                    "{rest_url}/process-instance?{instance_filter}&sortBy=instanceId&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}"
                 ),
                 Some(range) => format!(
-                    "{rest_url}/history/process-instance?processDefinitionId={query_id}&startedAfter={}&startedBefore={}&sortBy=startTime&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}",
+                    "{rest_url}/history/process-instance?{instance_filter}&startedAfter={}&startedBefore={}&sortBy=startTime&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}",
                     encode(&range.after),
                     encode(&range.before)
                 ),
             };
             let incidents_url = match &range {
-                None => format!("{rest_url}/incident?processDefinitionId={query_id}&maxResults={DETAIL_LIST_LIMIT}"),
+                None => format!("{rest_url}/incident?{incident_filter}&maxResults={DETAIL_LIST_LIMIT}"),
                 Some(range) => format!(
-                    "{rest_url}/history/incident?processDefinitionId={query_id}&createTimeAfter={}&createTimeBefore={}&sortBy=createTime&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}",
+                    "{rest_url}/history/incident?{history_incident_filter}&createTimeAfter={}&createTimeBefore={}&sortBy=createTime&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}",
                     encode(&range.after),
                     encode(&range.before)
                 ),
             };
-            let (definition_body, instances_body, incidents_body) =
-                tokio::try_join!(self.get(&definition_url), self.get(&instances_url), self.get(&incidents_url))?;
-            let definition_json = json_object(&definition_body)?;
-            let definition = parse_definition(&definition_json)?;
+            let (instances_body, incidents_body) = tokio::try_join!(self.get(&instances_url), self.get(&incidents_url))?;
             let instances = parse_instances(&instances_body)?;
             let incidents = parse_incidents(&incidents_body)?;
             let incidents_by_instance: HashMap<&str, i32> =
@@ -506,7 +475,7 @@ impl CamundaApi {
                         parse_historic_activity_instances,
                     )
                     .await?;
-                Ok::<_, ApiError>((to_activity_execution_summaries(&history.values), to_activity_timeline(&history.values)))
+                Ok::<_, ApiError>((to_activity_execution_summaries(&history), to_activity_timeline(&history)))
             };
             let incidents = async {
                 let incidents =
@@ -784,7 +753,7 @@ impl CamundaApi {
             .collect()
     }
 
-    async fn load_unfinished_activities(&self, connection: &CamundaConnection) -> ApiResult<PagedResult<HistoricActivityInstance>> {
+    async fn load_unfinished_activities(&self, connection: &CamundaConnection) -> ApiResult<Vec<HistoricActivityInstance>> {
         let base_url = format!("{}/history/activity-instance?unfinished=true&sortBy=startTime&sortOrder=asc", connection.rest_url);
         self.load_paged(&base_url, parse_historic_activity_instances).await
     }
@@ -863,13 +832,13 @@ impl CamundaApi {
             let (semaphore, after, before) = (&semaphore, &after, &before);
             async move {
                 let _permit = semaphore.acquire().await.map_err(|_| ApiError::Other("семафор закрыт".to_string()))?;
-                let definition_id = encode(&definition.id);
+                let filter = format!("processDefinitionId={}", encode(&definition.id));
                 let instances_url = format!(
-                    "{}/history/process-instance/count?processDefinitionId={definition_id}&startedAfter={after}&startedBefore={before}",
+                    "{}/history/process-instance/count?{filter}&startedAfter={after}&startedBefore={before}",
                     connection.rest_url
                 );
                 let incidents_url = format!(
-                    "{}/history/incident/count?processDefinitionId={definition_id}&createTimeAfter={after}&createTimeBefore={before}",
+                    "{}/history/incident/count?{filter}&createTimeAfter={after}&createTimeBefore={before}",
                     connection.rest_url
                 );
                 let statistics = DefinitionStatistics {
@@ -882,28 +851,13 @@ impl CamundaApi {
         Ok(try_join_all(loads).await?.into_iter().collect())
     }
 
-    async fn load_historic_instances(
-        &self,
-        connection: &CamundaConnection,
-        range: &CamundaDateRange,
-        completed: bool,
-    ) -> ApiResult<PagedResult<ProcessInstanceSummary>> {
-        let time_filter = if completed {
-            format!("completed=true&finishedAfter={}&finishedBefore={}&sortBy=endTime", encode(&range.after), encode(&range.before))
-        } else {
-            format!("startedAfter={}&startedBefore={}&sortBy=startTime", encode(&range.after), encode(&range.before))
-        };
-        let base_url = format!("{}/history/process-instance?{time_filter}&sortOrder=asc", connection.rest_url);
-        self.load_paged(&base_url, parse_instances).await
-    }
-
     async fn load_historic_incidents(
         &self,
         connection: &CamundaConnection,
         range: &CamundaDateRange,
         process_definition_id: Option<&str>,
         process_definition_key: Option<&str>,
-    ) -> ApiResult<PagedResult<ProcessIncident>> {
+    ) -> ApiResult<Vec<ProcessIncident>> {
         let definition_filter = process_definition_id.map(|id| format!("&processDefinitionId={}", encode(id))).unwrap_or_default();
         let key_filter = process_definition_key.map(|key| format!("&processDefinitionKeyIn={}", encode(key))).unwrap_or_default();
         let base_url = format!(
@@ -930,26 +884,26 @@ impl CamundaApi {
         .collect();
         let filter = if filters.is_empty() { String::new() } else { format!("?{}", filters.join("&")) };
         let base_url = format!("{}/incident{filter}", connection.rest_url);
-        Ok(self.load_paged(&base_url, parse_plain_incidents).await?.values)
+        self.load_paged(&base_url, parse_plain_incidents).await
     }
 
-    // Листает ответ страницами по HISTORY_PAGE_SIZE, пока страница не окажется неполной или не наберётся HISTORY_CHART_LIMIT.
-    async fn load_paged<T>(&self, base_url: &str, parser: fn(&str) -> ApiResult<Vec<T>>) -> ApiResult<PagedResult<T>> {
+    // Листает ответ страницами по HISTORY_PAGE_SIZE, пока страница не окажется неполной или не наберётся HISTORY_LIMIT.
+    async fn load_paged<T>(&self, base_url: &str, parser: fn(&str) -> ApiResult<Vec<T>>) -> ApiResult<Vec<T>> {
         let mut values = Vec::new();
         let mut first_result = 0;
-        while values.len() < HISTORY_CHART_LIMIT {
+        while values.len() < HISTORY_LIMIT {
             let separator = if base_url.contains('?') { '&' } else { '?' };
             let page_url = format!("{base_url}{separator}firstResult={first_result}&maxResults={HISTORY_PAGE_SIZE}");
             let page = parser(&self.get(&page_url).await?)?;
             let page_size = page.len();
             values.extend(page);
             if page_size < HISTORY_PAGE_SIZE {
-                return Ok(PagedResult { values, truncated: false });
+                return Ok(values);
             }
             first_result += page_size;
         }
-        values.truncate(HISTORY_CHART_LIMIT);
-        Ok(PagedResult { values, truncated: true })
+        values.truncate(HISTORY_LIMIT);
+        Ok(values)
     }
 }
 
@@ -978,15 +932,23 @@ fn parse_definition(value: &Value) -> ApiResult<ProcessDefinitionSummary> {
     })
 }
 
+// Складывает статистику всех версий процесса под ключом key|tenant.
 fn parse_statistics(body: &str) -> ApiResult<HashMap<String, DefinitionStatistics>> {
-    Ok(json_array(body)?
-        .iter()
-        .filter_map(|value| {
-            let id = string(value, "id")?;
-            let incidents = as_array(value.get("incidents")).iter().map(|incident| int(incident, "incidentCount")).sum();
-            Some((id, DefinitionStatistics { instances: int(value, "instances"), incidents }))
-        })
-        .collect())
+    let mut result: HashMap<String, DefinitionStatistics> = HashMap::new();
+    for value in json_array(body)? {
+        let Some(id) = string(&value, "id") else { continue };
+        let entry = result.entry(id).or_default();
+        entry.instances += int(&value, "instances");
+        entry.incidents += as_array(value.get("incidents")).iter().map(|incident| int(incident, "incidentCount")).sum::<i32>();
+    }
+    Ok(result)
+}
+
+fn definition_key_filter(key: &str, tenant_id: Option<&str>) -> String {
+    match tenant_id {
+        Some(tenant_id) => format!("processDefinitionKey={}&tenantIdIn={}", encode(key), encode(tenant_id)),
+        None => format!("processDefinitionKey={}", encode(key)),
+    }
 }
 
 fn parse_instances(body: &str) -> ApiResult<Vec<ProcessInstanceSummary>> {
@@ -1331,57 +1293,6 @@ fn parse_count(body: &str) -> ApiResult<i32> {
     Ok(int(&json_object(body)?, "count"))
 }
 
-fn build_timeline(
-    range: &CamundaDateRange,
-    started: &[ProcessInstanceSummary],
-    completed: &[ProcessInstanceSummary],
-    incidents: &[ProcessIncident],
-) -> Vec<DashboardTimelinePoint> {
-    dates::timeline_buckets(range)
-        .into_iter()
-        .map(|bucket| DashboardTimelinePoint {
-            label: bucket.label,
-            started: started.iter().filter(|instance| dates::is_inside(instance.start_time.as_deref(), bucket.start, bucket.end)).count() as i32,
-            completed: completed.iter().filter(|instance| dates::is_inside(instance.end_time.as_deref(), bucket.start, bucket.end)).count() as i32,
-            incidents: incidents.iter().filter(|incident| dates::is_inside(incident.timestamp.as_deref(), bucket.start, bucket.end)).count() as i32,
-        })
-        .collect()
-}
-
-fn build_duration_buckets(durations: &[i64]) -> Vec<DashboardDurationBucket> {
-    let minute = 60_000i64;
-    let hour = 60 * minute;
-    let count = |from: i64, to: Option<i64>| {
-        durations.iter().filter(|&&duration| duration >= from && to.is_none_or(|to| duration < to)).count() as i32
-    };
-    vec![
-        DashboardDurationBucket { label: "< 1 мин".to_string(), count: count(i64::MIN, Some(minute)) },
-        DashboardDurationBucket { label: "1–5 мин".to_string(), count: count(minute, Some(5 * minute)) },
-        DashboardDurationBucket { label: "5–15 мин".to_string(), count: count(5 * minute, Some(15 * minute)) },
-        DashboardDurationBucket { label: "15–60 мин".to_string(), count: count(15 * minute, Some(hour)) },
-        DashboardDurationBucket { label: "1–4 ч".to_string(), count: count(hour, Some(4 * hour)) },
-        DashboardDurationBucket { label: "4–24 ч".to_string(), count: count(4 * hour, Some(24 * hour)) },
-        DashboardDurationBucket { label: "> 24 ч".to_string(), count: count(24 * hour, None) },
-    ]
-}
-
-fn average(sorted: &[i64]) -> Option<i64> {
-    if sorted.is_empty() {
-        return None;
-    }
-    Some((sorted.iter().sum::<i64>() as f64 / sorted.len() as f64) as i64)
-}
-
-// Перцентиль с линейной интерполяцией между соседними значениями отсортированного списка.
-fn percentile(sorted: &[i64], value: f64) -> Option<i64> {
-    let last_index = sorted.len().checked_sub(1)?;
-    let position = last_index as f64 * value.clamp(0.0, 1.0);
-    let lower_index = position as usize;
-    let upper_index = (lower_index + 1).min(last_index);
-    let fraction = position - lower_index as f64;
-    Some(sorted[lower_index] + ((sorted[upper_index] - sorted[lower_index]) as f64 * fraction) as i64)
-}
-
 // Для «Авто» подбирает все правдоподобные типы значения: строку, число и логическое.
 fn search_json_values(value: &str, value_type: VariableValueType) -> ApiResult<Vec<Value>> {
     let trimmed = value.trim();
@@ -1600,7 +1511,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dashboard_joins_latest_definitions_with_runtime_statistics() {
+    async fn dashboard_lists_every_process_version_with_own_statistics() {
         let server = MockServer::start().await;
         mount(
             &server,
@@ -1609,7 +1520,8 @@ mod tests {
             200,
             r#"[
                 {"id":"alpha:2:abc","key":"alpha","name":"Alpha","version":2,"deploymentId":"dep-2","suspended":false,"tenantId":null},
-                {"id":"beta:4:def","key":"beta","name":null,"version":4,"deploymentId":"dep-4","suspended":true,"tenantId":"b2c"}
+                {"id":"beta:4:def","key":"beta","name":null,"version":4,"deploymentId":"dep-4","suspended":true,"tenantId":"b2c"},
+                {"id":"alpha:1:old","key":"alpha","name":"Alpha","version":1,"deploymentId":"dep-1","suspended":false,"tenantId":null}
             ]"#,
         )
         .await;
@@ -1619,23 +1531,25 @@ mod tests {
             "/engine-rest/process-definition/statistics",
             200,
             r#"[
-                {"id":"alpha:2:abc","instances":6,"incidents":[{"incidentType":"failedJob","incidentCount":2}]},
-                {"id":"beta:4:def","instances":24,"incidents":[{"incidentType":"failedJob","incidentCount":3},{"incidentType":"externalTask","incidentCount":1}]}
+                {"id":"alpha:2:abc","instances":6,"incidents":[{"incidentType":"failedJob","incidentCount":2}],"definition":{"key":"alpha","tenantId":null}},
+                {"id":"alpha:1:old","instances":4,"incidents":[{"incidentType":"failedJob","incidentCount":1}],"definition":{"key":"alpha","tenantId":null}},
+                {"id":"beta:4:def","instances":24,"incidents":[{"incidentType":"failedJob","incidentCount":3},{"incidentType":"externalTask","incidentCount":1}],"definition":{"key":"beta","tenantId":"b2c"}}
             ]"#,
         )
         .await;
 
         let dashboard = api().load_dashboard(&connection(&server), &DashboardDateFilter::default()).await.expect("дашборд");
 
-        assert_eq!(dashboard.definitions.len(), 2);
-        assert_eq!(sum_instances(&dashboard), 30);
-        assert_eq!(sum_incidents(&dashboard), 6);
+        assert_eq!(dashboard.definitions.len(), 3);
+        assert_eq!((dashboard.definitions[0].instances, dashboard.definitions[0].incidents), (6, 2));
+        assert_eq!((dashboard.definitions[2].instances, dashboard.definitions[2].incidents), (4, 1), "старая версия своей строкой");
+        assert_eq!(sum_instances(&dashboard), 34);
+        assert_eq!(sum_incidents(&dashboard), 7);
         assert_eq!(dashboard.definitions[1].display_name(), "beta");
         assert!(dashboard.definitions[1].suspended);
-        assert_eq!(dashboard.timeline_title, "Динамика за последние 24 часа");
         assert_eq!(dashboard.completed_instances, 0);
         let definition_query = query(&requests_to(&server, "/engine-rest/process-definition").await[0]);
-        assert!(definition_query.contains("latestVersion=true"), "{definition_query}");
+        assert!(!definition_query.contains("latestVersion"), "{definition_query}");
         assert!(definition_query.contains("sortBy=deployTime"), "{definition_query}");
         assert!(definition_query.contains("sortOrder=desc"), "{definition_query}");
     }
@@ -1797,7 +1711,7 @@ mod tests {
 
         assert!(message.contains("Доступ запрещён (HTTP 403)"), "{message}");
         assert!(message.contains("\nЗапрос: http://"), "{message}");
-        assert!(message.contains("/engine-rest/process-definition?latestVersion=true"), "{message}");
+        assert!(message.contains("/engine-rest/process-definition?sortBy=deployTime"), "{message}");
     }
 
     #[tokio::test]
@@ -1818,20 +1732,20 @@ mod tests {
 
         assert_eq!(sum_instances(&dashboard), 17);
         assert_eq!(sum_incidents(&dashboard), 3);
-        assert_eq!(dashboard.timeline_title, "Динамика за период 2026-07-15 — 2026-07-16");
         let process_queries: Vec<String> =
             requests_to(&server, "/engine-rest/history/process-instance/count").await.iter().map(query).collect();
-        let definition_query = process_queries.iter().find(|query| query.contains("processDefinitionId=")).expect("запрос по определению");
+        let definition_query = process_queries.iter().find(|query| query.contains("processDefinitionId=")).expect("запрос по версии");
         assert!(definition_query.contains("processDefinitionId=alpha%3A2%3Aabc"), "{definition_query}");
         assert!(definition_query.contains("startedAfter="), "{definition_query}");
         assert!(definition_query.contains("startedBefore="), "{definition_query}");
         let incident_query = query(&requests_to(&server, "/engine-rest/history/incident/count").await[0]);
+        assert!(incident_query.contains("processDefinitionId=alpha%3A2%3Aabc"), "{incident_query}");
         assert!(incident_query.contains("createTimeAfter="), "{incident_query}");
         assert!(incident_query.contains("createTimeBefore="), "{incident_query}");
     }
 
     #[tokio::test]
-    async fn dashboard_builds_started_completed_and_incident_timeline() {
+    async fn dashboard_groups_incidents_and_waiting_activities_for_period() {
         let server = MockServer::start().await;
         let bpmn_xml = r#"<?xml version="1.0" encoding="UTF-8"?><definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"><process id="alpha"><serviceTask id="sendDocuments" name="Отправить документы" /></process><bpmndi:BPMNDiagram><bpmndi:BPMNPlane bpmnElement="alpha"><bpmndi:BPMNShape bpmnElement="sendDocuments"><dc:Bounds x="100" y="100" width="100" height="80" /></bpmndi:BPMNShape></bpmndi:BPMNPlane></bpmndi:BPMNDiagram></definitions>"#;
         mount(&server, "GET", "/engine-rest/process-definition/alpha%3A2%3Aabc/xml", 200, &json!({ "bpmn20Xml": bpmn_xml }).to_string()).await;
@@ -1907,17 +1821,6 @@ mod tests {
         assert_eq!(sum_instances(&dashboard), 3);
         assert_eq!(dashboard.completed_instances, 2);
         assert_eq!(sum_incidents(&dashboard), 2);
-        assert_eq!(dashboard.timeline.len(), 48);
-        assert_eq!(dashboard.timeline.iter().map(|point| point.started).sum::<i32>(), 3);
-        assert_eq!(dashboard.timeline.iter().map(|point| point.completed).sum::<i32>(), 2);
-        assert_eq!(dashboard.timeline.iter().map(|point| point.incidents).sum::<i32>(), 2);
-        assert_eq!(dashboard.average_duration_millis, Some(4_500_000));
-        assert_eq!(dashboard.median_duration_millis, Some(4_500_000));
-        assert_eq!(dashboard.p95_duration_millis, Some(6_930_000));
-        let bucket = |label: &str| dashboard.duration_buckets.iter().find(|bucket| bucket.label == label).map(|bucket| bucket.count);
-        assert_eq!(bucket("15–60 мин"), Some(1));
-        assert_eq!(bucket("1–4 ч"), Some(1));
-        assert_eq!(bucket("< 1 мин"), Some(0));
         let incident_types: HashSet<&str> = dashboard.incident_types.iter().map(|value| value.incident_type.as_str()).collect();
         assert_eq!(incident_types, HashSet::from(["failedJob", "failedExternalTask"]));
         assert_eq!(dashboard.incident_activities.len(), 1);
@@ -1933,7 +1836,6 @@ mod tests {
         assert_eq!(waiting.maximum_waiting_millis, 93_600_000);
         assert_eq!(waiting.average_waiting_millis, 50_400_000);
         assert_eq!(waiting.oldest_started_at.as_deref(), Some("2026-07-15T10:00:00.000+0000"));
-        assert!(!dashboard.timeline_truncated);
         let xml_route = "/engine-rest/process-definition/alpha%3A2%3Aabc/xml";
         let xml_requests = requests_to(&server, xml_route).await.len();
         assert!((1..=2).contains(&xml_requests), "{xml_requests}");
@@ -2284,7 +2186,7 @@ mod tests {
         mount(&server, "GET", "/engine-rest/history/incident", 200, "[]").await;
         let filter = DashboardDateFilter { preset: DashboardDatePreset::Yesterday, ..DashboardDateFilter::default() };
 
-        let details = api().load_process_definition_details(&connection(&server), "alpha:2:abc", &filter).await.expect("детали процесса");
+        let details = api().load_process_definition_details(&connection(&server), "alpha:2:abc", &filter, false).await.expect("детали процесса");
 
         assert_eq!(details.instances.len(), 1);
         assert_eq!(details.instances[0].instance.business_key.as_deref(), Some("APP-YESTERDAY"));
@@ -2336,7 +2238,7 @@ mod tests {
         .await;
 
         let details = api()
-            .load_process_definition_details(&connection(&server), "alpha:2:abc", &DashboardDateFilter::default())
+            .load_process_definition_details(&connection(&server), "alpha:2:abc", &DashboardDateFilter::default(), false)
             .await
             .expect("детали процесса");
 
@@ -2348,15 +2250,41 @@ mod tests {
         assert!(instance_query.contains("maxResults=500"), "{instance_query}");
     }
 
-    #[test]
-    fn percentiles_and_buckets_follow_kotlin_rules() {
-        let durations = vec![1_800_000, 7_200_000];
-        assert_eq!(percentile(&durations, 0.50), Some(4_500_000));
-        assert_eq!(percentile(&durations, 0.95), Some(6_930_000));
-        assert_eq!(percentile(&[], 0.5), None);
-        assert_eq!(average(&durations), Some(4_500_000));
-        let buckets = build_duration_buckets(&[30_000, 60_000, 299_999, 86_400_000]);
-        assert_eq!(buckets.iter().map(|bucket| bucket.count).collect::<Vec<_>>(), vec![1, 2, 0, 0, 0, 0, 1]);
+    #[tokio::test]
+    async fn definition_details_can_cover_all_versions_by_key() {
+        let server = MockServer::start().await;
+        mount(
+            &server,
+            "GET",
+            "/engine-rest/process-definition/alpha%3A3%3Anew",
+            200,
+            r#"{"id":"alpha:3:new","key":"alpha","name":"Alpha","version":3,"suspended":false,"tenantId":"b2c"}"#,
+        )
+        .await;
+        mount(
+            &server,
+            "GET",
+            "/engine-rest/process-instance",
+            200,
+            r#"[
+                {"id":"i-new","definitionId":"alpha:3:new","definitionKey":"alpha"},
+                {"id":"i-old","definitionId":"alpha:1:old","definitionKey":"alpha"}
+            ]"#,
+        )
+        .await;
+        mount(&server, "GET", "/engine-rest/incident", 200, r#"[{"id":"inc-1","processInstanceId":"i-old","incidentType":"failedJob"}]"#).await;
+
+        let details = api()
+            .load_process_definition_details(&connection(&server), "alpha:3:new", &DashboardDateFilter::default(), true)
+            .await
+            .expect("детали процесса");
+
+        assert_eq!(details.instances.len(), 2);
+        assert_eq!(details.instances[1].incident_count, 1);
+        let instance_query = query(&requests_to(&server, "/engine-rest/process-instance").await[0]);
+        assert!(instance_query.contains("processDefinitionKey=alpha&tenantIdIn=b2c"), "{instance_query}");
+        let incident_query = query(&requests_to(&server, "/engine-rest/incident").await[0]);
+        assert!(incident_query.contains("processDefinitionKeyIn=alpha&tenantIdIn=b2c"), "{incident_query}");
     }
 
     #[test]

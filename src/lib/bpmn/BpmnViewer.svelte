@@ -254,7 +254,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: var(--text-md);
     background: var(--surface-2);
     pointer-events: none;
   }
@@ -285,17 +285,17 @@
     background: transparent;
     color: var(--ink);
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--text-base);
     transition: background-color var(--dur-fast);
   }
   .zoom button:hover {
     background: var(--surface-3);
   }
   .zoom .fit {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .level {
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--ink-2);
     padding: 0 6px;
     min-width: 40px;
@@ -364,7 +364,7 @@
   }
   :global(.bpmn-host .bjs-breadcrumbs) {
     font-family: var(--font-sans);
-    font-size: 12px;
+    font-size: var(--text-md);
     top: 10px;
     left: 10px;
     padding: 6px 10px;

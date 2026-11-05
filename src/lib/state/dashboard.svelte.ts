@@ -1,8 +1,9 @@
+import { untrack } from "svelte";
 import { api, errorMessage } from "../api";
 import { dateFilterKey } from "../format";
 import type { CamundaConnection, DashboardDateFilter, ProcessDashboard } from "../types";
 
-export const DASHBOARD_POLLING_SECONDS = 10;
+export const DASHBOARD_POLLING_SECONDS = 15;
 
 export interface DashboardEntry {
   dashboard: ProcessDashboard | null;
@@ -20,23 +21,21 @@ function queryKey(connection: CamundaConnection, dateFilter: DashboardDateFilter
 // Кэш дашбордов по подключению и периоду с защитой от параллельных обновлений.
 export class DashboardStore {
   entries = $state<Record<string, DashboardEntry>>({});
-  secondsUntilRefresh = $state(DASHBOARD_POLLING_SECONDS);
 
   // Чтение без мутации: подходит для $derived; запись в кэш делает только refresh.
   entry(connection: CamundaConnection, dateFilter: DashboardDateFilter): DashboardEntry {
     return this.entries[queryKey(connection, dateFilter)] ?? EMPTY_ENTRY;
   }
 
-  private ensure(connection: CamundaConnection, dateFilter: DashboardDateFilter): DashboardEntry {
-    const key = queryKey(connection, dateFilter);
-    if (!this.entries[key]) {
-      this.entries[key] = { dashboard: null, isRefreshing: false, error: null, lastSuccessfulRefresh: null };
-    }
-    return this.entries[key];
+  // untrack: вызов из $effect не должен подписывать эффект на поля записи, иначе каждый ответ перезапускает загрузку.
+  refresh(connection: CamundaConnection, dateFilter: DashboardDateFilter, force = false): Promise<void> {
+    return untrack(() => this.load(connection, dateFilter, force));
   }
 
-  async refresh(connection: CamundaConnection, dateFilter: DashboardDateFilter, force = false) {
-    const entry = this.ensure(connection, dateFilter);
+  private async load(connection: CamundaConnection, dateFilter: DashboardDateFilter, force: boolean) {
+    const key = queryKey(connection, dateFilter);
+    this.entries[key] ??= { ...EMPTY_ENTRY };
+    const entry = this.entries[key];
     const fresh =
       entry.lastSuccessfulRefresh != null && Date.now() - entry.lastSuccessfulRefresh < DASHBOARD_POLLING_SECONDS * 1000;
     if (entry.isRefreshing || (!force && fresh)) return;

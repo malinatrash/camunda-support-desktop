@@ -89,7 +89,9 @@ const tauriApi = {
     connection: CamundaConnection,
     processDefinitionId: string,
     dateFilter: DashboardDateFilter,
-  ) => invoke<ProcessDefinitionDetails>("load_process_definition_details", { connection, processDefinitionId, dateFilter }),
+    allVersions: boolean,
+  ) =>
+    invoke<ProcessDefinitionDetails>("load_process_definition_details", { connection, processDefinitionId, dateFilter, allVersions }),
   loadProcessInstanceDetails: (connection: CamundaConnection, processInstanceId: string) =>
     invoke<ProcessInstanceDetails>("load_process_instance_details", { connection, processInstanceId }),
   searchInstancesByBusinessKey: (connection: CamundaConnection, query: string) =>

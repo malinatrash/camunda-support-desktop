@@ -62,12 +62,12 @@
   .btn-md {
     height: 32px;
     padding: 0 13px;
-    font-size: 12.5px;
+    font-size: var(--text-md);
   }
   .btn-sm {
     height: 26px;
     padding: 0 10px;
-    font-size: 11.5px;
+    font-size: var(--text-sm);
     border-radius: var(--radius-xs);
   }
   .block {

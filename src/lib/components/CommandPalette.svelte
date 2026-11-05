@@ -9,7 +9,7 @@
   import { api, errorMessage } from "../api";
   import { fadeFast, pop } from "../motion";
   import { contains } from "../format";
-  import { SIDEBAR_DESTINATIONS, type ProcessInstanceSummary } from "../types";
+  import { DESTINATIONS, type ProcessInstanceSummary } from "../types";
 
   let { onOpenLink }: { onOpenLink: (raw: string) => void } = $props();
 
@@ -68,7 +68,7 @@
   });
 
   const commands = $derived.by<Item[]>(() => {
-    const list: Item[] = SIDEBAR_DESTINATIONS.map((item) => ({
+    const list: Item[] = DESTINATIONS.map((item) => ({
       kind: "command",
       id: `nav:${item.id}`,
       title: item.title,
@@ -293,7 +293,7 @@
     border: 0;
     outline: none;
     background: transparent;
-    font-size: 15px;
+    font-size: var(--text-lg);
     height: 28px;
   }
   .input::placeholder {
@@ -314,7 +314,7 @@
   }
   .section {
     padding: 8px 10px 4px;
-    font-size: 10px;
+    font-size: var(--text-xs);
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -350,11 +350,11 @@
     color: var(--accent-ink);
   }
   .title {
-    font-size: 13px;
+    font-size: var(--text-base);
     font-weight: 500;
   }
   .subtitle {
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     color: var(--ink-3);
   }
   .enter {
@@ -367,7 +367,7 @@
   .empty {
     padding: 28px;
     text-align: center;
-    font-size: 12.5px;
+    font-size: var(--text-md);
   }
   .error {
     margin: 4px;
@@ -375,7 +375,7 @@
     border-radius: var(--radius-xs);
     background: var(--danger-soft);
     color: var(--danger);
-    font-size: 11.5px;
+    font-size: var(--text-sm);
     white-space: pre-wrap;
   }
   .foot {
@@ -385,7 +385,7 @@
     padding: 8px 14px;
     border-top: 1px solid var(--border);
     background: var(--surface-2);
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     color: var(--ink-2);
   }
   .foot .kbd {

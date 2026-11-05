@@ -154,8 +154,9 @@ pub async fn load_process_definition_details(
     connection: CamundaConnection,
     process_definition_id: String,
     date_filter: DashboardDateFilter,
+    all_versions: bool,
 ) -> Result<ProcessDefinitionDetails, String> {
-    state.api.load_process_definition_details(&connection, &process_definition_id, &date_filter).await
+    state.api.load_process_definition_details(&connection, &process_definition_id, &date_filter, all_versions).await
 }
 
 #[tauri::command]

@@ -140,7 +140,7 @@
   }
   .hint-row {
     margin-top: -6px;
-    font-size: 10.5px;
+    font-size: var(--text-xs);
   }
   .env-block {
     gap: 8px;
@@ -156,7 +156,7 @@
     border: 1px solid var(--border);
     background: transparent;
     color: var(--ink-2);
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     font-weight: 700;
     letter-spacing: 0.05em;
     transition:

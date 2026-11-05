@@ -48,18 +48,12 @@ const definitions = [
   definition("wpl", "Единый лимит", 3, 17, 1, { versionTag: "wpl-800" }),
 ];
 
-function timeline(points: number) {
-  return Array.from({ length: points }, (_, index) => ({
-    label: `23.10 ${String(index).padStart(2, "0")}:00`,
-    started: Math.round(20 + 18 * Math.sin(index / 3) + (index % 5) * 3),
-    completed: Math.round(14 + 15 * Math.sin(index / 3 - 0.6) + (index % 4) * 2),
-    incidents: index % 7 === 3 ? 4 : index % 5 === 0 ? 1 : 0,
-  }));
-}
-
 const dashboard: ProcessDashboard = {
-  definitions,
-  timeline: timeline(24),
+  definitions: [
+    ...definitions,
+    definition("drzi", "Доверенность ЭЦП", 11, 9, 1, { versionTag: "2.4.0" }),
+    definition("pledge-loan", "Залоговый кредит", 30, 41, 0),
+  ],
   incidentTypes: [
     { type: "failedExternalTask", count: 7 },
     { type: "failedJob", count: 3 },
@@ -75,21 +69,7 @@ const dashboard: ProcessDashboard = {
     { activityId: "Task_score", activityName: "Скоринг", activityType: "serviceTask", topic: "scoring", processDefinitionId: definitions[1].id, oldestProcessInstanceId: "9d1f6e2a-0002", instanceCount: 8, averageWaitingMillis: 40 * 60_000, maximumWaitingMillis: 6 * 3_600_000, oldestStartedAt: "2026-10-23T08:02:11.000+0500" },
     { activityId: "Task_sign", activityName: "Подписание", activityType: "receiveTask", topic: null, processDefinitionId: definitions[2].id, oldestProcessInstanceId: "9d1f6e2a-0003", instanceCount: 41, averageWaitingMillis: 12 * 60_000, maximumWaitingMillis: 55 * 60_000, oldestStartedAt: "2026-10-23T12:40:00.000+0500" },
   ],
-  durationBuckets: [
-    { label: "< 1 мин", count: 120 },
-    { label: "1–5 мин", count: 310 },
-    { label: "5–15 мин", count: 180 },
-    { label: "15–60 мин", count: 95 },
-    { label: "1–4 ч", count: 40 },
-    { label: "4–24 ч", count: 12 },
-    { label: "> 24 ч", count: 6 },
-  ],
-  timelineTitle: "Динамика за последние 24 часа",
-  averageDurationMillis: 23 * 60_000,
-  medianDurationMillis: 6 * 60_000,
-  p95DurationMillis: 3 * 3_600_000,
   completedInstances: 763,
-  timelineTruncated: false,
   incidents: [],
 };
 
@@ -192,13 +172,16 @@ export const mockApi: typeof realApi = {
   setTheme: async (theme) => localStorage.setItem("mock-theme", theme),
   loadDashboard: async (_connection, dateFilter) => {
     await delay(500);
-    return { ...dashboard, incidents, timelineTitle: dateFilter.preset === "Live" ? dashboard.timelineTitle : `Динамика за ${dateFilter.preset.toLowerCase()}` };
+    return { ...dashboard, incidents, completedInstances: dateFilter.preset === "Live" ? dashboard.completedInstances : 214 };
   },
   loadIncidents: async () => {
     await delay(400);
     return incidents;
   },
-  loadProcessDefinitionVersions: async () => definitions.slice(0, 1).map((d) => ({ ...d })),
+  loadProcessDefinitionVersions: async (_c, key) => {
+    const latest = definitions.find((d) => d.key === key) ?? definitions[0];
+    return Array.from({ length: Math.min(latest.version, 4) }, (_, index) => ({ ...latest, id: `${latest.key}:${latest.version - index}:${latest.key.length}f3a-${latest.version - index}`, version: latest.version - index }));
+  },
   searchProcessInstances: async () => {
     await delay(600);
     return instances.slice(0, 25);
@@ -212,10 +195,13 @@ export const mockApi: typeof realApi = {
     return { processDefinitionKey: key, variables: [{ name: "applicationId", types: ["String"], occurrences: 60 }, { name: "borrower_iin", types: ["String"], occurrences: 58 }, { name: "amount", types: ["Long", "Double"], occurrences: 60 }], inspectedInstanceCount: 60, instancesTruncated: false };
   },
   invalidateProcessVariableCatalog: async () => undefined,
-  loadProcessDefinitionDetails: async (_c, processDefinitionId, dateFilter) => {
+  loadProcessDefinitionDetails: async (_c, processDefinitionId, dateFilter, allVersions) => {
     await delay(400);
-    const def = definitions.find((candidate) => candidate.id === processDefinitionId) ?? definitions[0];
-    return { definition: def, instances: instances.map((item, index) => ({ instance: item, incidentCount: index % 7 === 0 ? 1 : 0 })), metadata: [{ label: "ID определения", value: def.id }, { label: "Ключ", value: def.key }, { label: "Версия", value: String(def.version) }], dateFilter };
+    const key = processDefinitionId.split(":")[0];
+    const def = definitions.find((candidate) => candidate.key === key) ?? definitions[0];
+    const versioned = instances.map((item, index) => ({ ...item, definitionId: `${def.key}:${def.version - (index % 3)}:mock` }));
+    const scoped = allVersions ? versioned : versioned.filter((item) => item.definitionId.split(":")[1] === processDefinitionId.split(":")[1]);
+    return { definition: def, instances: scoped.map((item, index) => ({ instance: item, incidentCount: index % 7 === 0 ? 1 : 0 })), metadata: [{ label: "ID определения", value: def.id }, { label: "Ключ", value: def.key }, { label: "Версия", value: String(def.version) }], dateFilter };
   },
   loadProcessInstanceDetails: async (_c, processInstanceId) => {
     await delay(500);

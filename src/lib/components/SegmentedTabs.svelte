@@ -67,35 +67,29 @@
   .segmented {
     position: relative;
     display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: 10px;
-    background: var(--surface-3);
+    gap: 18px;
     isolation: isolate;
   }
   .indicator {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
+    bottom: 0;
     left: 0;
-    border-radius: 8px;
-    background: var(--surface);
-    box-shadow: var(--shadow-1);
+    height: 2px;
+    border-radius: 1px;
+    background: var(--ink);
     opacity: 0;
-    z-index: 0;
   }
   .indicator.ready {
     opacity: 1;
     transition:
-      transform var(--dur-slow) var(--ease-spring),
-      width var(--dur-slow) var(--ease-out);
+      transform var(--dur-base) var(--ease-out),
+      width var(--dur-base) var(--ease-out);
   }
   .tab {
     position: relative;
-    z-index: 1;
     border: 0;
     background: transparent;
-    border-radius: 8px;
+    padding: 0;
     color: var(--ink-2);
     font-weight: 500;
     display: inline-flex;
@@ -104,31 +98,19 @@
     transition: color var(--dur-fast) var(--ease-out);
   }
   .segmented-md .tab {
-    height: 30px;
-    padding: 0 14px;
-    font-size: 12px;
+    height: 32px;
+    font-size: var(--text-base);
   }
   .segmented-sm .tab {
-    height: 24px;
-    padding: 0 10px;
-    font-size: 11px;
+    height: 28px;
+    font-size: var(--text-md);
   }
-  .tab:hover {
-    color: var(--ink);
-  }
+  .tab:hover,
   .tab.active {
     color: var(--ink);
-    font-weight: 600;
-  }
-  .tone-primary .tab.active {
-    color: var(--accent-ink);
   }
   .badge {
-    font-family: var(--font-mono);
-    font-size: 10px;
     color: var(--ink-3);
-  }
-  .tab.active .badge {
-    color: var(--accent);
+    font-weight: 400;
   }
 </style>

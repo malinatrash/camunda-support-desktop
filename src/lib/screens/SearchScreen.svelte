@@ -2,7 +2,6 @@
   import Button from "../components/Button.svelte";
   import Combobox, { type ComboboxItem } from "../components/Combobox.svelte";
   import EmptyPanel from "../components/EmptyPanel.svelte";
-  import SectionTitle from "../components/SectionTitle.svelte";
   import SegmentedTabs from "../components/SegmentedTabs.svelte";
   import Spinner from "../components/Spinner.svelte";
   import StateBadge from "../components/StateBadge.svelte";
@@ -177,19 +176,18 @@
 </script>
 
 <div class="page">
-  <SectionTitle title="Поиск заявок" description="По бизнес-ключу или ID среди запущенных и завершённых заявок, либо по точному значению переменной.">
-    <SegmentedTabs items={[{ id: "key", label: "Бизнес-ключ / ID" }, { id: "variables", label: "По переменным" }]} selected={mode} onselect={(id) => (mode = id)} size="sm" tone="primary" />
-  </SectionTitle>
+  <div class="tabs-bar">
+    <SegmentedTabs items={[{ id: "key", label: "Бизнес-ключ или ID" }, { id: "variables", label: "По переменной" }]} selected={mode} onselect={(id) => (mode = id)} />
+  </div>
 
   {#if !connection}
     <EmptyPanel title="Требуется подключение" description="Выберите или добавьте подключение Camunda перед поиском заявок." actionLabel="Добавить подключение" onaction={() => app.openConnectionDialog()} />
   {:else if mode === "key"}
-    <div class="card key-form" in:rise>
+    <div class="key-form" in:rise>
       <div class="row">
         <TextField class="grow" size="md" placeholder="Бизнес-ключ целиком или его часть, либо ID заявки" bind:value={keyQuery} onenter={searchByKey} mono autofocus />
         <Button variant="primary" loading={keySearching} onclick={searchByKey}>{keySearching ? "Ищем…" : "Найти"}</Button>
       </div>
-      <span class="muted small">Ищет по подстроке в runtime и History API, до 50 результатов в каждом. Та же строка доступна из любого экрана: <span class="kbd">⌘</span> <span class="kbd">K</span></span>
     </div>
     {#if keyError}<div class="message message-danger selectable" transition:expand>{keyError}</div>{/if}
     {#if keyResults}
@@ -222,10 +220,10 @@
         </div>
       {/if}
     {:else}
-      <EmptyPanel title="Введите бизнес-ключ" description="Например, номер заявки из обращения клиента. Завершённые заявки тоже найдутся — через History API." />
+      <p class="faint hint">Подстрока бизнес-ключа или ID заявки — ищем среди запущенных и завершённых.</p>
     {/if}
   {:else}
-    <div class="card form" in:rise>
+    <div class="form" in:rise>
       <div class="row fields">
         <div class="grow picker">
           <Combobox
@@ -269,8 +267,6 @@
         <span class="muted small">{stepText}</span>
         {#if catalog?.instancesTruncated}<span class="warning small">· список построен по первым 100 активным заявкам</span>{/if}
         <button type="button" class="link small" disabled={!selectedDefinition || variablesLoading} onclick={refreshVariables}>Обновить ключи</button>
-        <span class="grow"></span>
-        <span class="mono faint tiny">{connection.name} · POST /process-instance · точное совпадение</span>
       </div>
     </div>
 
@@ -331,6 +327,13 @@
 </div>
 
 <style>
+  .tabs-bar {
+    flex: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .hint {
+    padding: 8px 0;
+  }
   .page {
     display: flex;
     flex-direction: column;
@@ -339,7 +342,7 @@
     height: 100%;
   }
   .form {
-    padding: 14px;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -370,7 +373,7 @@
     background: transparent;
     border-radius: 7px;
     padding: 0 9px;
-    font-size: 11px;
+    font-size: var(--text-sm);
     font-weight: 500;
     color: var(--ink-2);
     transition: background-color var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast);
@@ -385,10 +388,10 @@
     gap: 10px;
   }
   .small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .tiny {
-    font-size: 9.5px;
+    font-size: var(--text-xs);
   }
   .bold {
     font-weight: 600;
@@ -400,7 +403,7 @@
     color: var(--accent);
   }
   .results-title {
-    font-size: 16px;
+    font-size: var(--text-xl);
     font-weight: 650;
   }
   .table {
@@ -415,7 +418,7 @@
     min-height: 0;
   }
   .key-form {
-    padding: 12px 14px;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;

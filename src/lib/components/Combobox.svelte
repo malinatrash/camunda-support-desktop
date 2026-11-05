@@ -196,7 +196,7 @@
     cursor: default;
   }
   .value {
-    font-size: 12.5px;
+    font-size: var(--text-md);
     font-weight: 600;
     color: var(--ink);
     line-height: 1.3;
@@ -206,12 +206,12 @@
     font-weight: 500;
   }
   .subtitle {
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--ink-2);
   }
   .chevron {
     color: var(--ink-3);
-    font-size: 16px;
+    font-size: var(--text-xl);
     line-height: 1;
     transition: transform var(--dur-base) var(--ease-spring);
   }
@@ -249,7 +249,7 @@
     box-shadow: var(--focus-ring);
   }
   .count {
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     white-space: nowrap;
     padding-right: 4px;
   }
@@ -279,16 +279,16 @@
     color: var(--accent-ink);
   }
   .item-title {
-    font-size: 12.5px;
+    font-size: var(--text-md);
     font-weight: 500;
   }
   .item-subtitle {
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--ink-2);
   }
   .empty {
     padding: 14px;
     text-align: center;
-    font-size: 12px;
+    font-size: var(--text-md);
   }
 </style>

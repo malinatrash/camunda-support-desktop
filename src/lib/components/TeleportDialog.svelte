@@ -136,7 +136,7 @@
     color: var(--accent);
   }
   .picker-title {
-    font-size: 13px;
+    font-size: var(--text-base);
     font-weight: 650;
   }
   .list {
@@ -180,16 +180,16 @@
     transform: scale(1.3);
   }
   .item-title {
-    font-size: 11.5px;
+    font-size: var(--text-sm);
   }
   .selected .item-title {
     font-weight: 650;
   }
   .small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .tiny {
-    font-size: 9.5px;
+    font-size: var(--text-xs);
   }
   .route {
     padding: 10px;
@@ -198,6 +198,6 @@
   }
   .route-text {
     font-weight: 650;
-    font-size: 11.5px;
+    font-size: var(--text-sm);
   }
 </style>

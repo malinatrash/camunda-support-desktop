@@ -47,11 +47,11 @@
     background: linear-gradient(135deg, var(--danger-soft), var(--surface-3));
   }
   .title {
-    font-size: 13.5px;
+    font-size: var(--text-base);
     font-weight: 650;
   }
   .description {
-    font-size: 12px;
+    font-size: var(--text-md);
     max-width: 640px;
     white-space: pre-wrap;
     line-height: 1.5;

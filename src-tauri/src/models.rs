@@ -137,28 +137,12 @@ impl ProcessDefinitionSummary {
 #[serde(rename_all = "camelCase")]
 pub struct ProcessDashboard {
     pub definitions: Vec<ProcessDefinitionSummary>,
-    pub timeline: Vec<DashboardTimelinePoint>,
     pub incident_types: Vec<DashboardIncidentType>,
     pub incident_activities: Vec<DashboardIncidentActivity>,
     pub longest_waiting_activities: Vec<DashboardWaitingActivity>,
-    pub duration_buckets: Vec<DashboardDurationBucket>,
-    pub timeline_title: String,
-    pub average_duration_millis: Option<i64>,
-    pub median_duration_millis: Option<i64>,
-    pub p95_duration_millis: Option<i64>,
     pub completed_instances: i32,
-    pub timeline_truncated: bool,
     #[serde(default)]
     pub incidents: Vec<ProcessIncident>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DashboardTimelinePoint {
-    pub label: String,
-    pub started: i32,
-    pub completed: i32,
-    pub incidents: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,13 +161,6 @@ pub struct DashboardIncidentActivity {
     pub count: i32,
     pub activity_name: Option<String>,
     pub topic: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DashboardDurationBucket {
-    pub label: String,
-    pub count: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

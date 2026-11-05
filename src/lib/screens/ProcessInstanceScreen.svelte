@@ -272,12 +272,12 @@
   ];
 
   const EVIDENCE_LABEL: Record<CurrentActivityEvidence, { label: string; tone: string }> = {
-    RuntimeActivity: { label: "АКТИВЕН", tone: "primary" },
-    Transition: { label: "ПЕРЕХОД", tone: "warning" },
-    UnfinishedHistory: { label: "НЕ ЗАВЕРШЁН", tone: "warning" },
-    Incident: { label: "ИНЦИДЕНТ", tone: "danger" },
-    Job: { label: "JOB", tone: "danger" },
-    ExternalTask: { label: "EXTERNAL TASK", tone: "danger" },
+    RuntimeActivity: { label: "активен", tone: "primary" },
+    Transition: { label: "переход", tone: "warning" },
+    UnfinishedHistory: { label: "не завершён", tone: "warning" },
+    Incident: { label: "инцидент", tone: "danger" },
+    Job: { label: "задание", tone: "danger" },
+    ExternalTask: { label: "внешняя задача", tone: "danger" },
   };
 
   function hasFailure(activity: ActiveActivityInstance): boolean {
@@ -298,49 +298,38 @@
 </script>
 
 <div class="page">
-  <div class="row head">
-    <Button onclick={() => app.backFromProcessInstance()}>← Назад</Button>
+  <header class="head">
+    <button type="button" class="icon-button" onclick={() => app.backFromProcessInstance()} title="Назад"><Icon name="arrowLeft" size={16} /></button>
     <div class="col grow">
       <div class="row">
-        <h1 class="title">Заявка</h1>
+        {#if details?.instance.businessKey}
+          <button type="button" class="title-button" title="Скопировать бизнес-ключ" onclick={() => copy(details!.instance.businessKey!, `Бизнес-ключ ${details!.instance.businessKey} скопирован.`, "Не удалось скопировать бизнес-ключ.")}>
+            <h1 class="title truncate">{details.instance.businessKey}</h1>
+          </button>
+        {:else}
+          <h1 class="title">Заявка</h1>
+        {/if}
         {#if details}<StateBadge suspended={details.instance.suspended} ended={details.instance.ended} labels="instance" />{/if}
+        {#if details && details.incidents.length > 0}<span class="pill pill-danger">{details.incidents.length} инц.</span>{/if}
       </div>
-      <div class="row">
-        <span class="mono muted small selectable">{processInstanceId}</span>
-        <span class="small" class:primary={loading && details != null} class:muted={!(loading && details != null)}>
-          {loading && details ? "Обновляем состояние…" : `Автообновление через: ${secondsUntilRefresh} сек.`}
-        </span>
-      </div>
+      <span class="faint small mono selectable truncate">
+        {details ? `${details.instance.definitionKey} · ` : ""}{processInstanceId} · {loading && details ? "обновляем…" : `обновление через ${secondsUntilRefresh} с`}
+      </span>
     </div>
     <div class="icon-actions">
-      <Button variant="ghost" loading={loading} disabled={operationBusy} onclick={refreshNow} title="Обновить (⌘R)"><Icon name="refresh" size={15} /></Button>
-      <Button variant="ghost" disabled={!cockpitUrl} onclick={() => cockpitUrl && api.openInBrowser(cockpitUrl)} title="Открыть в Cockpit"><Icon name="external" size={15} /></Button>
-      <Button variant="ghost" onclick={copyLink} title="Скопировать ссылку camunda-support://"><Icon name="link" size={15} /></Button>
-      <Button variant="ghost" onclick={copyReport} disabled={!details} title="Скопировать отчёт в Markdown"><Icon name="file" size={15} /></Button>
-      <Button variant="ghost" class={pinned ? "pinned" : ""} onclick={togglePin} title={pinned ? "Открепить" : "Закрепить в недавних"}><Icon name="star" size={15} /></Button>
+      <button type="button" class="icon-button" class:spinning={loading} disabled={operationBusy} onclick={refreshNow} title="Обновить (⌘R)"><Icon name="refresh" size={15} /></button>
+      <button type="button" class="icon-button" disabled={!cockpitUrl} onclick={() => cockpitUrl && api.openInBrowser(cockpitUrl)} title="Открыть в Cockpit"><Icon name="external" size={15} /></button>
+      <button type="button" class="icon-button" onclick={copyLink} title="Скопировать ссылку camunda-support://"><Icon name="link" size={15} /></button>
+      <button type="button" class="icon-button" onclick={copyReport} disabled={!details} title="Скопировать отчёт в Markdown"><Icon name="file" size={15} /></button>
+      <button type="button" class="icon-button" class:pinned onclick={togglePin} title={pinned ? "Открепить" : "Закрепить в недавних"}><Icon name="star" size={15} /></button>
     </div>
     {#if details}
-      <Button disabled={operationBusy} onclick={() => (pendingAction = { kind: "suspension", suspended: !details!.instance.suspended })}>
+      <Button size="sm" variant="ghost" disabled={operationBusy} onclick={() => (pendingAction = { kind: "suspension", suspended: !details!.instance.suspended })}>
         {details.instance.suspended ? "Активировать" : "Приостановить"}
       </Button>
-      <Button variant="primary" disabled={operationBusy || !canTeleport} onclick={() => { teleportTargetId = null; teleportOpen = true; }}>Телепорт</Button>
+      <Button size="sm" variant="primary" disabled={operationBusy || !canTeleport} onclick={() => { teleportTargetId = null; teleportOpen = true; }}>Телепорт</Button>
     {/if}
-  </div>
-
-  {#if details}
-    <div class="facts card row" in:rise>
-      {#if details.instance.businessKey}
-        <button type="button" class="fact link" onclick={() => copy(details!.instance.businessKey!, `Бизнес-ключ ${details!.instance.businessKey} скопирован.`, "Не удалось скопировать бизнес-ключ.")}>
-          <span class="muted">Бизнес-ключ:</span> <span class="bold">{details.instance.businessKey}</span> <span class="tiny">⧉</span>
-        </button>
-      {:else}
-        <span class="fact"><span class="muted">Бизнес-ключ:</span> <span class="muted">—</span></span>
-      {/if}
-      <span class="fact"><span class="muted">Процесс:</span> <span class="bold">{details.instance.definitionKey}</span></span>
-      <span class="fact"><span class="muted">Текущих позиций:</span> <span class="bold">{details.activeActivities.length}</span></span>
-      <span class="fact"><span class="muted">Инцидентов:</span> <span class="bold" class:danger={details.incidents.length > 0} class:healthy={details.incidents.length === 0}>{details.incidents.length}</span></span>
-    </div>
-  {/if}
+  </header>
 
   {#if operationError ?? entry.error}
     <div class="message message-danger selectable" transition:expand>{operationError ?? entry.error}</div>
@@ -365,17 +354,11 @@
               <div class="card diagram-card">
                 <div class="diagram-head">
                   <div class="row">
-                    <span class="bold">Путь заявки</span>
+                    <span class="faint small">Нажмите кубик для действий · ⌘ + колесо — масштаб</span>
                     <span class="grow"></span>
                     <span class="fact"><span class="muted">Пройдено:</span> <span class="healthy bold">{diagramProgress.completed} из {diagramProgress.total}</span></span>
                     <span class="fact"><span class="muted">Выполнений:</span> <span class="bold">{diagramProgress.executions}</span></span>
                     {#if diagramProgress.repeats > 0}<span class="fact"><span class="muted">Повторов:</span> <span class="warning bold">{diagramProgress.repeats}</span></span>{/if}
-                  </div>
-                  <div class="row legend">
-                    <span class="pill pill-neutral">пройден</span>
-                    <span class="pill pill-primary">активен</span>
-                    <span class="pill pill-danger">инцидент</span>
-                    <span class="faint grow truncate">Нажмите кубик для действий · Ctrl/⌘ + колесо — масштаб · колесо — прокрутка</span>
                   </div>
                 </div>
                 <div class="divider"></div>
@@ -390,9 +373,7 @@
               <div class="side">
                 <div class="card node-card" class:empty={!selectedNode}>
                   {#if !selectedNode}
-                    <span class="eyebrow">Действия с кубиком</span>
-                    <span class="bold">Нажмите на кубик в BPMN-схеме</span>
-                    <span class="muted small">Покажем доступные действия именно для выбранного элемента.</span>
+                    <span class="faint small">Выберите кубик на схеме, чтобы увидеть действия</span>
                   {:else}
                     {@const facts = nodeFacts(selectedNode)}
                     {#key selectedNode.id}
@@ -594,31 +575,67 @@
   .page {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
     min-height: 0;
     height: 100%;
+    padding-bottom: 16px;
   }
   .head {
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .icon-button {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--ink-2);
+  }
+  .icon-button:hover:not(:disabled) {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+  .icon-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .icon-button.spinning :global(svg) {
+    animation: spin 0.9s linear infinite;
+  }
+  .title-button {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .title-button:hover .title {
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 4px;
   }
   .icon-actions {
     display: flex;
     gap: 2px;
   }
-  .icon-actions :global(.pinned) {
+  .icon-actions .pinned {
     color: var(--warning);
   }
   .title {
-    font-size: 20px;
-    font-weight: 650;
+    font-size: var(--text-xl);
+    font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.2;
   }
   .small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .tiny {
-    font-size: 9.5px;
+    font-size: var(--text-xs);
   }
   .bold {
     font-weight: 650;
@@ -627,22 +644,12 @@
   .healthy { color: var(--healthy); }
   .danger { color: var(--danger); }
   .warning { color: var(--warning); }
-  .facts {
-    padding: 8px 12px;
-    gap: 20px;
-  }
   .fact {
-    font-size: 11px;
+    font-size: var(--text-sm);
     display: inline-flex;
     gap: 5px;
     align-items: baseline;
     white-space: nowrap;
-  }
-  .fact.link {
-    color: var(--ink);
-  }
-  .fact.link .bold {
-    color: var(--accent);
   }
   .skeleton {
     flex: 1;
@@ -677,12 +684,7 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
-    font-size: 12px;
-  }
-  .legend {
-    font-size: 10.5px;
-    font-weight: 600;
-    gap: 12px;
+    font-size: var(--text-md);
   }
   .diagram-body {
     flex: 1;
@@ -705,15 +707,10 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    border-color: var(--accent);
     flex: none;
   }
-  .node-card.empty {
-    background: var(--accent-soft);
-    border-color: var(--border);
-  }
   .node-name {
-    font-size: 13px;
+    font-size: var(--text-base);
     font-weight: 650;
   }
   .gap8 {
@@ -732,7 +729,7 @@
     min-height: 0;
   }
   .panel-title {
-    font-size: 12px;
+    font-size: var(--text-md);
     font-weight: 600;
   }
   .panel-body {
@@ -837,7 +834,7 @@
   }
   .tl-time {
     width: 92px;
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     flex: none;
   }
   .tl-dot {

@@ -22,22 +22,22 @@ async fn main() {
     let dashboard = api.load_dashboard(&connection, &DashboardDateFilter::default()).await;
     match &dashboard {
         Ok(dashboard) => println!(
-            "dashboard: {} definitions, timeline {} points, incidents types {}, waiting {}",
+            "dashboard: {} definitions, {} instances, incidents types {}, waiting {}",
             dashboard.definitions.len(),
-            dashboard.timeline.len(),
+            dashboard.definitions.iter().map(|definition| definition.instances).sum::<i32>(),
             dashboard.incident_types.len(),
             dashboard.longest_waiting_activities.len()
         ),
         Err(error) => println!("dashboard error: {error}"),
     }
     let today = api.load_dashboard(&connection, &DashboardDateFilter { preset: DashboardDatePreset::Today, from_date: String::new(), to_date: String::new() }).await;
-    println!("today: {}", today.as_ref().map(|d| format!("{} completed, title {}", d.completed_instances, d.timeline_title)).unwrap_or_else(|e| e.clone()));
+    println!("today: {}", today.as_ref().map(|d| format!("{} completed", d.completed_instances)).unwrap_or_else(|e| e.clone()));
     let definitions = api.load_search_process_definitions(&connection).await.unwrap_or_default();
     println!("search definitions: {}", definitions.len());
     let Some(definition) = definitions.first() else { return };
     let catalog = api.load_process_variable_catalog(&connection, &definition.key).await;
     println!("catalog {}: {}", definition.key, catalog.as_ref().map(|c| format!("{} vars from {} instances", c.variables.len(), c.inspected_instance_count)).unwrap_or_else(|e| e.clone()));
-    let details = api.load_process_definition_details(&connection, &definition.id, &DashboardDateFilter::default()).await;
+    let details = api.load_process_definition_details(&connection, &definition.id, &DashboardDateFilter::default(), true).await;
     println!("definition details: {}", details.as_ref().map(|d| format!("{} instances", d.instances.len())).unwrap_or_else(|e| e.clone()));
     if let Ok(details) = &details {
         if let Some(item) = details.instances.first() {

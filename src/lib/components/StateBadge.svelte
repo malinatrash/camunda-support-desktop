@@ -6,7 +6,9 @@
   } = $props();
 
   const text = $derived(
-    ended ? "ЗАВЕРШЁН" : suspended ? (labels === "instance" ? "ПРИОСТАНОВЛЕНА" : "ПРИОСТАНОВЛЕН") : labels === "instance" ? "ЗАПУЩЕНА" : "АКТИВЕН",
+    labels === "instance"
+      ? ended ? "завершена" : suspended ? "приостановлена" : "в работе"
+      : ended ? "завершён" : suspended ? "приостановлен" : "активен",
   );
   const tone = $derived(ended ? "neutral" : suspended ? "warning" : "healthy");
 </script>

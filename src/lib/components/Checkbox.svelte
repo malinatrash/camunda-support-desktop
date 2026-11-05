@@ -23,7 +23,7 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--text-md);
   }
   .check.disabled {
     opacity: 0.6;

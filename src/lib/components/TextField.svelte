@@ -93,7 +93,7 @@
     min-width: 0;
   }
   .field-label {
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--ink-2);
     letter-spacing: 0.02em;
@@ -115,7 +115,7 @@
   }
   .field-sm .control {
     height: 28px;
-    font-size: 12px;
+    font-size: var(--text-md);
     padding: 0 9px;
   }
   textarea.control {
@@ -123,7 +123,7 @@
     padding: 8px 10px;
     resize: vertical;
     line-height: 1.5;
-    font-size: 12px;
+    font-size: var(--text-md);
   }
   .control::placeholder {
     color: var(--ink-3);
@@ -145,7 +145,7 @@
     opacity: 0.6;
   }
   .field-help {
-    font-size: 10.5px;
+    font-size: var(--text-xs);
     color: var(--ink-2);
     line-height: 1.4;
   }
@@ -154,6 +154,6 @@
   }
   .mono {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--text-md);
   }
 </style>
