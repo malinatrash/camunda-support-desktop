@@ -198,6 +198,7 @@ impl Default for InstanceTable {
                 Column::new("state", "Состояние").width(140.),
                 Column::new("business_key", "Бизнес-ключ").width(220.),
                 Column::new("id", "ID заявки").width(320.),
+                Column::new("start", "Создана").width(160.),
                 Column::new("version", "Версия").width(80.),
                 Column::new("incidents", "Инциденты").width(100.),
                 Column::new("tenant", "Тенант").width(140.),
@@ -226,6 +227,12 @@ impl TableDelegate for InstanceTable {
             "state" => ui::instance_state(instance.suspended, instance.ended, cx).into_any_element(),
             "business_key" => div().truncate().child(instance.business_key.clone().unwrap_or_else(|| "—".into())).into_any_element(),
             "id" => div().truncate().text_sm().font_family(crate::theme::MONO).child(instance.id.clone()).into_any_element(),
+            "start" => div()
+                .text_sm()
+                .font_family(crate::theme::MONO)
+                .text_color(cx.theme().muted_foreground)
+                .child(model::short_time(instance.start_time.as_deref()))
+                .into_any_element(),
             "version" => {
                 let version = instance.definition_id.split(':').nth(1).unwrap_or("?");
                 div().text_sm().text_color(cx.theme().muted_foreground).child(format!("v{version}")).into_any_element()

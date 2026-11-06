@@ -395,7 +395,7 @@ impl CamundaApi {
             };
             let instances_url = match &range {
                 None => format!(
-                    "{rest_url}/process-instance?{instance_filter}&sortBy=instanceId&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}"
+                    "{rest_url}/history/process-instance?{instance_filter}&unfinished=true&sortBy=startTime&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}"
                 ),
                 Some(range) => format!(
                     "{rest_url}/history/process-instance?{instance_filter}&startedAfter={}&startedBefore={}&sortBy=startTime&sortOrder=desc&maxResults={DETAIL_LIST_LIMIT}",
@@ -956,7 +956,7 @@ fn parse_instance(value: &Value) -> ApiResult<ProcessInstanceSummary> {
         id,
         definition_id,
         business_key: string(value, "businessKey"),
-        suspended: boolean(value, "suspended"),
+        suspended: boolean(value, "suspended") || state.as_deref() == Some("SUSPENDED"),
         tenant_id: string(value, "tenantId"),
         ended: boolean(value, "ended") || end_time.is_some() || ended_by_state,
         start_time: string(value, "startTime"),
@@ -2227,11 +2227,11 @@ mod tests {
         mount(
             &server,
             "GET",
-            "/engine-rest/process-instance",
+            "/engine-rest/history/process-instance",
             200,
             r#"[
-                {"id":"i-1","definitionId":"alpha:2:abc","definitionKey":"alpha","ended":false,"suspended":false},
-                {"id":"i-2","definitionId":"alpha:2:abc","definitionKey":"alpha","ended":false,"suspended":true}
+                {"id":"i-1","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-11-06T10:00:00.000+0000","state":"ACTIVE"},
+                {"id":"i-2","processDefinitionId":"alpha:2:abc","processDefinitionKey":"alpha","startTime":"2026-11-05T10:00:00.000+0000","state":"SUSPENDED"}
             ]"#,
         )
         .await;
@@ -2255,8 +2255,11 @@ mod tests {
         assert_eq!(details.definition.instances, 2);
         assert_eq!(details.definition.incidents, 2);
         assert_eq!(details.instances.iter().map(|item| item.incident_count).collect::<Vec<_>>(), vec![2, 0]);
-        let instance_query = query(&requests_to(&server, "/engine-rest/process-instance").await[0]);
+        assert!(details.instances[1].instance.suspended);
+        assert_eq!(details.instances[0].instance.start_time.as_deref(), Some("2026-11-06T10:00:00.000+0000"));
+        let instance_query = query(&requests_to(&server, "/engine-rest/history/process-instance").await[0]);
         assert!(instance_query.contains("processDefinitionId=alpha%3A2%3Aabc"), "{instance_query}");
+        assert!(instance_query.contains("unfinished=true&sortBy=startTime&sortOrder=desc"), "{instance_query}");
         assert!(instance_query.contains("maxResults=500"), "{instance_query}");
     }
 
@@ -2274,11 +2277,11 @@ mod tests {
         mount(
             &server,
             "GET",
-            "/engine-rest/process-instance",
+            "/engine-rest/history/process-instance",
             200,
             r#"[
-                {"id":"i-new","definitionId":"alpha:3:new","definitionKey":"alpha"},
-                {"id":"i-old","definitionId":"alpha:1:old","definitionKey":"alpha"}
+                {"id":"i-new","processDefinitionId":"alpha:3:new","processDefinitionKey":"alpha"},
+                {"id":"i-old","processDefinitionId":"alpha:1:old","processDefinitionKey":"alpha"}
             ]"#,
         )
         .await;
@@ -2292,7 +2295,7 @@ mod tests {
 
         assert_eq!(details.instances.len(), 2);
         assert_eq!(details.instances[1].incident_count, 1);
-        let instance_query = query(&requests_to(&server, "/engine-rest/process-instance").await[0]);
+        let instance_query = query(&requests_to(&server, "/engine-rest/history/process-instance").await[0]);
         assert!(instance_query.contains("processDefinitionKey=alpha&tenantIdIn=b2c"), "{instance_query}");
         let incident_query = query(&requests_to(&server, "/engine-rest/incident").await[0]);
         assert!(incident_query.contains("processDefinitionKeyIn=alpha&tenantIdIn=b2c"), "{incident_query}");
