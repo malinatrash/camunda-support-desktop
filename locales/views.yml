@@ -380,3 +380,24 @@ definition.column.incidents:
 definition.column.tenant:
   en: "Tenant"
   ru: "Тенант"
+overview.stats.incidents_caption:
+  en: "%{groups} error groups"
+  ru: "групп ошибок: %{groups}"
+overview.stats.running_caption:
+  en: "across %{processes} processes"
+  ru: "процессов: %{processes}"
+overview.stats.stuck_caption:
+  en: "%{activities} waiting activities"
+  ru: "кубиков в ожидании: %{activities}"
+overview.stats.completed_caption:
+  en: "finished in the period"
+  ru: "закончились за период"
+overview.stats.per_hour:
+  en: "%{count} incidents"
+  ru: "инцидентов: %{count}"
+incidents.by_process:
+  en: By process
+  ru: По процессам
+incidents.count:
+  en: "%{count} incidents"
+  ru: "инцидентов: %{count}"

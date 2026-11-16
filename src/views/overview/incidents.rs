@@ -6,6 +6,7 @@ use gpui_kit::*;
 
 use super::OverviewView;
 use crate::model::{self, IncidentGroup, Navigate};
+use crate::platform::motion;
 
 const CARD_IDS: usize = 10;
 
@@ -17,13 +18,13 @@ impl OverviewView {
             this.expanded_group = open.first().and_then(|ix| keys.get(*ix)).cloned();
             cx.notify();
         }));
-        self.incident_groups.iter().fold(accordion, |accordion, group| {
+        self.incident_groups.iter().enumerate().fold(accordion, |accordion, (index, group)| {
             let open = self.expanded_group.as_ref() == Some(&group.key);
             let links: Vec<_> = group.instance_ids.iter().take(50).map(|id| instance_link(group, id, cx)).collect();
             accordion.item(|item| {
                 item.open(open)
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .title(group_title(group, cx))
+                    .title(motion::stagger(SharedString::from(format!("group-{}", group.key)), index, group_title(group, cx)))
                     .content_style(StyleRefinement::default().pl(px(72.)))
                     .children(links)
             })

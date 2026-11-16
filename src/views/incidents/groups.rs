@@ -1,6 +1,7 @@
 use camunda_core::models::ProcessIncident;
 use gpui_kit::component::accordion::Accordion;
 use gpui_kit::component::button::Button;
+use gpui_kit::component::chart::BarChart;
 use gpui_kit::component::tag::Tag;
 use gpui_kit::component::{ActiveTheme, Disableable, Sizable, h_flex, v_flex};
 use gpui_kit::*;
@@ -68,7 +69,45 @@ impl IncidentsView {
                     .child(tr!("incidents.groups")),
             )
             .child(div().id("incident-groups-scroll").flex_1().min_h_0().overflow_y_scroll().child(accordion))
+            .child(by_process(filtered, cx))
     }
+}
+
+// Столбики инцидентов по процессам под списком групп.
+fn by_process(incidents: &[ProcessIncident], cx: &App) -> impl IntoElement {
+    let mut counts: Vec<(SharedString, f64)> = Vec::new();
+    for incident in incidents {
+        let process = incident.process_definition_id.as_deref().and_then(|id| id.split(':').next()).unwrap_or_default();
+        match counts.iter_mut().find(|(key, _)| key.as_ref() == process) {
+            Some((_, count)) => *count += 1.,
+            None => counts.push((SharedString::from(process.to_string()), 1.)),
+        }
+    }
+    counts.sort_by(|a, b| b.1.total_cmp(&a.1));
+    counts.truncate(6);
+    let danger = cx.theme().danger;
+    v_flex()
+        .px_4()
+        .py_3()
+        .gap_2()
+        .border_t_1()
+        .border_color(cx.theme().border)
+        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(tr!("incidents.by_process")))
+        .child(
+            div().h(px(150.)).child(
+                BarChart::new(counts)
+                    .band(|(process, _)| process.clone())
+                    .value(|(_, count)| *count)
+                    .fill(move |_, _, _, _| danger.opacity(0.75))
+                    .label(|(_, count)| (*count as i64).to_string())
+                    .corner_radii(px(4.))
+                    .max_band_width(px(48.))
+                    .value_axis(false)
+                    .grid(false)
+                    .appear(true)
+                    .tooltip_value(|_, count| tr!("incidents.count", count = count as i64)),
+            ),
+        )
 }
 
 pub(super) fn group_key(incident: &ProcessIncident) -> String {

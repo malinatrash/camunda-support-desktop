@@ -61,6 +61,7 @@ impl AppView {
             cx.subscribe_in(&overview, window, Self::navigate),
             cx.subscribe_in(&search, window, Self::navigate),
             cx.subscribe_in(&incidents, window, Self::navigate),
+            cx.observe(&overview, |_, _, cx| cx.notify()),
         ];
         self.overview = Some(overview);
         self.search = Some(search);

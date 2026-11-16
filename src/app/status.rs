@@ -67,7 +67,7 @@ impl AppView {
             Empty::new()
                 .header(
                     EmptyHeader::new()
-                        .media(EmptyMedia::new().child(Icon::new(Lucide::Workflow).large()))
+                        .media(EmptyMedia::new().child(Icon::new(Lucide::Network).large()))
                         .title(EmptyTitle::new().child(tr!("shell.welcome.title")))
                         .description(EmptyDescription::new().child(tr!("shell.welcome.description"))),
                 )

@@ -8,6 +8,7 @@ use gpui_kit::*;
 use super::OverviewView;
 use super::versions::{NUMBER_WIDTH, TRAILING, definition_card, incidents_cell};
 use crate::model::{self, ProcessGroup};
+use crate::platform::motion;
 
 impl OverviewView {
     // Панель процессов: фильтр, заголовки колонок и группы с версиями.
@@ -43,13 +44,13 @@ impl OverviewView {
             this.expanded_process = open.first().and_then(|ix| keys.get(*ix)).cloned();
             cx.notify();
         }));
-        let accordion = self.processes.iter().fold(accordion, |accordion, group| {
+        let accordion = self.processes.iter().enumerate().fold(accordion, |accordion, (index, group)| {
             let open = self.expanded_process.as_ref() == Some(&group.key);
             let versions = self.render_versions(group, cx);
             accordion.item(|item| {
                 item.open(open)
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .title(process_title(group, cx))
+                    .title(motion::stagger(SharedString::from(format!("process-{}", group.key)), index, process_title(group, cx)))
                     .content_style(StyleRefinement::default().p_0())
                     .children(versions)
             })

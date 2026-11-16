@@ -21,6 +21,8 @@ use gpui_kit::component::{ActiveTheme, WindowExt as _, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+use crate::platform::motion;
+
 use crate::bpmn::BpmnView;
 use crate::model::Navigate;
 use crate::platform::services;
@@ -145,6 +147,6 @@ impl Render for InstanceView {
             )))
             .when_some(self.notice.clone(), |this, notice| this.child(Alert::success("instance-notice", notice)))
             .when_some(self.error.clone(), |this, error| this.child(Alert::error("instance-error", error)))
-            .child(v_flex().flex_1().min_h_0().child(body))
+            .child(motion::enter("instance-tab", self.tab, v_flex().flex_1().min_h_0().child(body)))
     }
 }
