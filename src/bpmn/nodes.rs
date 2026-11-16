@@ -19,8 +19,8 @@ pub fn paint_nodes(
     cx: &mut App,
 ) {
     let (zoom, palette) = (stage.zoom, stage.palette);
-    // Размер шрифта с шагом 1 px: при плавном зуме глифы берутся из кеша, а не растеризуются каждый кадр.
-    let font_size = px((LABEL_FONT * zoom).round());
+    // Шрифт масштабируется вместе со схемой, шаг 0,5 px: при плавном зуме глифы берутся из кеша.
+    let font_size = px((LABEL_FONT * zoom * 2.).round() / 2.);
     prepare_labels(diagram, labels, window);
     for node in diagram.nodes.iter().filter(|node| !is_container(node)) {
         let rect = stage.rect(node);
@@ -44,7 +44,7 @@ pub fn paint_nodes(
             let ring = rect.dilate(px(4.));
             window.paint_quad(quad(ring, px(10. * zoom), transparent_black(), px(2.), palette.active, BorderStyle::Dashed));
         }
-        if font_size >= px(5.) {
+        if font_size >= px(1.5) {
             let lines = label_lines(node, labels, window);
             paint_label(&lines, rect, !is_event(node) && !is_gateway(node), font_size, palette.text, window, cx);
         }
