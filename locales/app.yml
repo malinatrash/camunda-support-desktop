@@ -1,0 +1,25 @@
+_version: 2
+app.name:
+  en: Camunda Support
+  ru: Поддержка Camunda
+settings.appearance.title:
+  en: Appearance
+  ru: Вид
+settings.appearance.theme:
+  en: Theme
+  ru: Тема
+settings.appearance.dark:
+  en: Dark theme
+  ru: Тёмная тема
+settings.appearance.dark_hint:
+  en: Default Dark from GPUI Kit; turn off to switch to Default Light.
+  ru: Default Dark из GPUI Kit; выключите, чтобы перейти на Default Light.
+settings.appearance.language:
+  en: Language
+  ru: Язык
+settings.appearance.language_label:
+  en: Interface language
+  ru: Язык интерфейса
+settings.appearance.language_hint:
+  en: Applies instantly to every screen.
+  ru: Применяется сразу на всех экранах.

@@ -13,6 +13,7 @@ chrono.workspace = true
 dirs.workspace = true
 futures.workspace = true
 gpui-kit.workspace = true
+rust-i18n.workspace = true
 tokio.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
@@ -39,6 +40,7 @@ gpui-kit = "0.10"
 log = "0.4"
 reqwest = { version = "0.12", features = ["json", "stream"] }
 roxmltree = "0.20"
+rust-i18n = "4.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

@@ -761,6 +761,7 @@ dependencies = [
  "log",
  "reqwest",
  "roxmltree 0.20.0",
+ "rust-i18n",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -780,6 +781,7 @@ dependencies = [
  "dirs 6.0.0",
  "futures",
  "gpui-kit",
+ "rust-i18n",
  "tokio",
  "winresource",
 ]
