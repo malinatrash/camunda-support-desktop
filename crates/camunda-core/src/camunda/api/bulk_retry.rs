@@ -26,7 +26,7 @@ impl CamundaApi {
         external_task_ids.sort_unstable();
         external_task_ids.dedup();
         if job_ids.is_empty() && external_task_ids.is_empty() {
-            return Err("Среди выбранных инцидентов нет заданий или внешних задач для повтора.".to_string());
+            return Err(rust_i18n::t!("core.incidents.nothing_to_retry").to_string());
         }
         if !job_ids.is_empty() {
             let url = format!("{}/job/retries", connection.rest_url);

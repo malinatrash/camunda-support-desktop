@@ -8,25 +8,24 @@ pub fn user_message(error: &ApiError, url: &str) -> String {
         }
         ApiError::Network(kind) => (describe_network_kind(kind), url),
         ApiError::Invalid(message) => {
-            let message =
-                if message.trim().is_empty() { "Некорректное значение запроса." } else { message.as_str() };
-            (message.to_string(), url)
+            let message = if message.trim().is_empty() { rust_i18n::t!("core.http.invalid_value").to_string() } else { message.clone() };
+            (message, url)
         }
-        ApiError::Other(message) => (format!("Не удалось выполнить операцию: {message}"), url),
+        ApiError::Other(message) => (rust_i18n::t!("core.http.operation_failed", message = message).to_string(), url),
     };
-    format!("{}\nЗапрос: {request_url}", message.trim())
+    format!("{}\n{}", message.trim(), rust_i18n::t!("core.http.request_url", url = request_url))
 }
 
 fn http_status_message(status: u16, server_message: Option<&str>) -> String {
     let server_message = server_message.unwrap_or_default();
     match status {
-        400 => format!("Camunda отклонила запрос (HTTP 400). {server_message}"),
-        401 => "Требуется авторизация (HTTP 401).".to_string(),
-        403 => "Доступ запрещён (HTTP 403). У подключения недостаточно прав.".to_string(),
-        404 => "REST endpoint Camunda не найден (HTTP 404).".to_string(),
-        429 => "Слишком много запросов (HTTP 429). Подождите и повторите попытку.".to_string(),
-        500..=599 => format!("Camunda или gateway вернули HTTP {status}. {server_message}"),
-        _ => format!("Camunda вернула HTTP {status}. {server_message}"),
+        400 => rust_i18n::t!("core.http.status_400", server_message = server_message).to_string(),
+        401 => rust_i18n::t!("core.http.status_401").to_string(),
+        403 => rust_i18n::t!("core.http.status_403").to_string(),
+        404 => rust_i18n::t!("core.http.status_404").to_string(),
+        429 => rust_i18n::t!("core.http.too_many_requests").to_string(),
+        500..=599 => rust_i18n::t!("core.http.status_5xx", status = status, server_message = server_message).to_string(),
+        _ => rust_i18n::t!("core.http.status_other", status = status, server_message = server_message).to_string(),
     }
 }
 
@@ -44,18 +43,18 @@ mod tests {
         };
         assert_eq!(
             user_message(&error, "ignored"),
-            "Camunda отклонила запрос (HTTP 400). bad variable\nЗапрос: http://camunda/engine-rest/job"
+            "Camunda rejected the request (HTTP 400). bad variable\nRequest: http://camunda/engine-rest/job"
         );
         let forbidden = ApiError::Http { status: 403, server_message: None, request_url: "u".to_string() };
-        assert_eq!(user_message(&forbidden, "u"), "Доступ запрещён (HTTP 403). У подключения недостаточно прав.\nЗапрос: u");
+        assert_eq!(user_message(&forbidden, "u"), "Access denied (HTTP 403). The connection lacks permissions.\nRequest: u");
         let server = ApiError::Http { status: 502, server_message: None, request_url: "u".to_string() };
-        assert_eq!(user_message(&server, "u"), "Camunda или gateway вернули HTTP 502.\nЗапрос: u");
+        assert_eq!(user_message(&server, "u"), "Camunda or the gateway returned HTTP 502.\nRequest: u");
     }
 
     #[test]
     fn formats_invalid_and_other_errors() {
-        assert_eq!(user_message(&ApiError::Invalid(String::new()), "u"), "Некорректное значение запроса.\nЗапрос: u");
-        assert_eq!(user_message(&ApiError::Other("boom".to_string()), "u"), "Не удалось выполнить операцию: boom\nЗапрос: u");
+        assert_eq!(user_message(&ApiError::Invalid(String::new()), "u"), "Invalid request value.\nRequest: u");
+        assert_eq!(user_message(&ApiError::Other("boom".to_string()), "u"), "Operation failed: boom\nRequest: u");
         assert_eq!(encode("approved by support"), "approved+by+support");
         assert_eq!(encode("alpha:2:abc"), "alpha%3A2%3Aabc");
     }

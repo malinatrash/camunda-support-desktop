@@ -17,10 +17,10 @@ impl AppUpdateService {
         if let Some(digest) = asset_digest {
             return Ok(digest);
         }
-        let checksum_url = update.checksum_url.as_deref().ok_or("В релизе отсутствует SHA256SUMS.txt")?;
+        let checksum_url = update.checksum_url.as_deref().ok_or_else(|| rust_i18n::t!("core.update.no_checksums").to_string())?;
         let response = self.download_request(checksum_url).send().await.map_err(|error| error.to_string())?;
         if !response.status().is_success() {
-            return Err("Не удалось получить контрольные суммы обновления".into());
+            return Err(rust_i18n::t!("core.update.checksums_failed").to_string());
         }
         let body = response.text().await.map_err(|error| error.to_string())?;
         let expected_name = release_asset_name(&asset.name);
@@ -33,7 +33,7 @@ impl AppUpdateService {
                 let file_name = file_name.strip_prefix("./").unwrap_or(file_name);
                 (hash.len() == SHA256_LENGTH && release_asset_name(file_name) == expected_name).then_some(hash)
             })
-            .ok_or_else(|| format!("Для {} не найдена контрольная сумма", asset.name))
+            .ok_or_else(|| rust_i18n::t!("core.update.checksum_missing", name = asset.name).to_string())
     }
 }
 

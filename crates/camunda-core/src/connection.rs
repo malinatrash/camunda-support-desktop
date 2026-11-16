@@ -4,21 +4,21 @@ use crate::models::{CamundaConnection, ConnectionDraft, ConnectionValidation};
 pub fn validate_connection_draft(draft: &ConnectionDraft) -> ConnectionValidation {
     fn generic_url_error(value: &str, required: bool) -> Option<String> {
         if value.trim().is_empty() {
-            return required.then(|| "Укажите URL".to_string());
+            return required.then(|| rust_i18n::t!("core.connection.url_required").to_string());
         }
         let normalized = value.trim();
         if !normalized.starts_with("https://") && !normalized.starts_with("http://") {
-            return Some("URL должен начинаться с https:// или http://".into());
+            return Some(rust_i18n::t!("core.connection.url_scheme").to_string());
         }
         if normalized.chars().any(char::is_whitespace) {
-            return Some("URL не должен содержать пробелы".into());
+            return Some(rust_i18n::t!("core.connection.url_whitespace").to_string());
         }
         if normalized.contains('?') || normalized.contains('#') {
-            return Some("URL не должен содержать query-параметры или fragment".into());
+            return Some(rust_i18n::t!("core.connection.url_query").to_string());
         }
         let authority_and_path = normalized.split_once("://").map(|(_, rest)| rest).unwrap_or("");
         if authority_and_path.split('/').next().unwrap_or("").trim().is_empty() {
-            return Some("URL должен содержать адрес хоста".into());
+            return Some(rust_i18n::t!("core.connection.url_host").to_string());
         }
         None
     }
@@ -29,13 +29,13 @@ pub fn validate_connection_draft(draft: &ConnectionDraft) -> ConnectionValidatio
         }
         let normalized = value.trim().trim_end_matches('/');
         if !normalized.ends_with("/engine-rest") {
-            return Some("Адрес Camunda REST должен заканчиваться на /engine-rest".into());
+            return Some(rust_i18n::t!("core.connection.rest_suffix").to_string());
         }
         None
     }
 
     ConnectionValidation {
-        name_error: draft.name.trim().is_empty().then(|| "Укажите название".to_string()),
+        name_error: draft.name.trim().is_empty().then(|| rust_i18n::t!("core.connection.name_required").to_string()),
         rest_url_error: rest_url_error(&draft.rest_url),
         cockpit_url_error: generic_url_error(&draft.cockpit_url, false),
     }
@@ -101,15 +101,21 @@ mod tests {
     #[test]
     fn validates_required_fields() {
         let validation = validate_connection_draft(&draft("", "", ""));
-        assert_eq!(validation.name_error.as_deref(), Some("Укажите название"));
-        assert_eq!(validation.rest_url_error.as_deref(), Some("Укажите URL"));
+        assert_eq!(validation.name_error.as_deref(), Some("Enter a name"));
+        assert_eq!(validation.rest_url_error.as_deref(), Some("Enter a URL"));
         assert!(validation.cockpit_url_error.is_none());
+    }
+
+    #[test]
+    fn has_russian_translations() {
+        assert_eq!(rust_i18n::t!("core.connection.name_required", locale = "ru"), "Укажите название");
+        assert_eq!(rust_i18n::t!("core.http.request_url", locale = "ru", url = "u"), "Запрос: u");
     }
 
     #[test]
     fn requires_engine_rest_suffix() {
         let validation = validate_connection_draft(&draft("Тест", "https://camunda.example.kz/rest", ""));
-        assert_eq!(validation.rest_url_error.as_deref(), Some("Адрес Camunda REST должен заканчиваться на /engine-rest"));
+        assert_eq!(validation.rest_url_error.as_deref(), Some("Camunda REST URL must end with /engine-rest"));
         assert!(validate_connection_draft(&draft("Тест", "https://camunda.example.kz/engine-rest/", "")).is_valid());
     }
 
@@ -117,15 +123,15 @@ mod tests {
     fn rejects_query_and_whitespace() {
         assert_eq!(
             validate_connection_draft(&draft("a", "https://host/engine-rest?x=1", "")).rest_url_error.as_deref(),
-            Some("URL не должен содержать query-параметры или fragment")
+            Some("URL must not contain query parameters or a fragment")
         );
         assert_eq!(
             validate_connection_draft(&draft("a", "ftp://host/engine-rest", "")).rest_url_error.as_deref(),
-            Some("URL должен начинаться с https:// или http://")
+            Some("URL must start with https:// or http://")
         );
         assert_eq!(
             validate_connection_draft(&draft("a", "https://host/engine-rest", "https:// host")).cockpit_url_error.as_deref(),
-            Some("URL не должен содержать пробелы")
+            Some("URL must not contain spaces")
         );
     }
 

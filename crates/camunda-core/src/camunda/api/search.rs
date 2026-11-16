@@ -66,10 +66,10 @@ fn search_json_values(value: &str, value_type: VariableValueType) -> ApiResult<V
             .map(Value::from)
             .or_else(|| as_double.map(Value::from))
             .map(|number| vec![number])
-            .ok_or_else(|| ApiError::Invalid("Значение переменной должно быть корректным числом.".to_string())),
+            .ok_or_else(|| ApiError::Invalid(rust_i18n::t!("core.search.invalid_number").to_string())),
         VariableValueType::Boolean => as_boolean
             .map(|flag| vec![Value::from(flag)])
-            .ok_or_else(|| ApiError::Invalid("Логическое значение должно быть true или false.".to_string())),
+            .ok_or_else(|| ApiError::Invalid(rust_i18n::t!("core.search.invalid_boolean").to_string())),
     }
 }
 
@@ -145,8 +145,8 @@ mod tests {
         let number = api().search_process_instances(&connection(&server), "loan", "amount", "abc", VariableValueType::Number).await;
         let boolean = api().search_process_instances(&connection(&server), "loan", "flag", "yes", VariableValueType::Boolean).await;
 
-        assert!(number.expect_err("число").starts_with("Значение переменной должно быть корректным числом.\nЗапрос: "));
-        assert!(boolean.expect_err("boolean").starts_with("Логическое значение должно быть true или false.\nЗапрос: "));
+        assert!(number.expect_err("число").starts_with("The variable value must be a valid number.\nRequest: "));
+        assert!(boolean.expect_err("boolean").starts_with("A boolean value must be true or false.\nRequest: "));
         assert!(server.received_requests().await.unwrap_or_default().is_empty());
     }
 

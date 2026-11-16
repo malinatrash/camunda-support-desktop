@@ -25,41 +25,37 @@ pub async fn test_connection(client: &reqwest::Client, rest_url: &str) -> Result
 
 fn status_message(status: u16) -> String {
     match status {
-        400 => "Camunda отклонила проверочный запрос (HTTP 400). Проверьте REST URL.".to_string(),
-        401 => "Требуется авторизация (HTTP 401). Подключение не имеет доступа к Camunda REST.".to_string(),
-        403 => "Доступ запрещён (HTTP 403). У пользователя или сети нет доступа к Camunda REST.".to_string(),
-        404 => "Endpoint Camunda не найден (HTTP 404). Проверьте, что REST API доступен по /engine-rest.".to_string(),
-        405 => "Сервер запрещает GET /version (HTTP 405). Проверьте proxy и настройки Camunda REST.".to_string(),
-        408 => "Camunda не успела обработать запрос (HTTP 408).".to_string(),
-        429 => "Слишком много запросов (HTTP 429). Подождите и повторите попытку.".to_string(),
-        500..=599 => format!("Camunda или gateway вернули серверную ошибку HTTP {status}."),
-        300..=399 => format!("Неожиданный redirect HTTP {status}. Проверьте REST URL и gateway авторизации."),
-        _ => format!("Неожиданный HTTP-ответ: {status}."),
+        400 => rust_i18n::t!("core.tester.http_400").to_string(),
+        401 => rust_i18n::t!("core.tester.http_401").to_string(),
+        403 => rust_i18n::t!("core.tester.http_403").to_string(),
+        404 => rust_i18n::t!("core.tester.http_404").to_string(),
+        405 => rust_i18n::t!("core.tester.http_405").to_string(),
+        408 => rust_i18n::t!("core.tester.http_408").to_string(),
+        429 => rust_i18n::t!("core.http.too_many_requests").to_string(),
+        500..=599 => rust_i18n::t!("core.tester.http_5xx", status = status).to_string(),
+        300..=399 => rust_i18n::t!("core.tester.http_3xx", status = status).to_string(),
+        _ => rust_i18n::t!("core.tester.http_other", status = status).to_string(),
     }
 }
 
 fn network_message(kind: &NetworkErrorKind) -> String {
     match kind {
-        NetworkErrorKind::Timeout => "Время ожидания подключения истекло. Проверьте URL, VPN и сеть.".to_string(),
-        NetworkErrorKind::UnknownHost => "Хост не найден — ошибка DNS. Проверьте имя хоста и VPN.".to_string(),
-        NetworkErrorKind::TlsHandshake => {
-            "Не удалось установить TLS-соединение. Сертификат сервера может быть недействительным или недоверенным.".to_string()
-        }
-        NetworkErrorKind::Tls => "Ошибка защищённого соединения TLS. Проверьте сертификат и настройку HTTPS.".to_string(),
-        NetworkErrorKind::ConnectionRefused => {
-            "Подключение отклонено или хост недоступен. Проверьте хост, порт, VPN и firewall.".to_string()
-        }
-        NetworkErrorKind::InvalidUrl => "Указан некорректный REST URL.".to_string(),
+        NetworkErrorKind::Timeout => rust_i18n::t!("core.tester.timeout").to_string(),
+        NetworkErrorKind::UnknownHost => rust_i18n::t!("core.tester.unknown_host").to_string(),
+        NetworkErrorKind::TlsHandshake => rust_i18n::t!("core.tester.tls_handshake").to_string(),
+        NetworkErrorKind::Tls => rust_i18n::t!("core.tester.tls").to_string(),
+        NetworkErrorKind::ConnectionRefused => rust_i18n::t!("core.tester.connection_refused").to_string(),
+        NetworkErrorKind::InvalidUrl => rust_i18n::t!("core.tester.invalid_url").to_string(),
         NetworkErrorKind::Io(message) => {
-            let message = if message.trim().is_empty() { "запрос не выполнен" } else { message.as_str() };
-            format!("Сетевая ошибка: {message}.")
+            let message = if message.trim().is_empty() { rust_i18n::t!("core.tester.request_failed").to_string() } else { message.clone() };
+            rust_i18n::t!("core.tester.io", message = message).to_string()
         }
-        NetworkErrorKind::Other(message) => format!("Не удалось проверить подключение: {message}."),
+        NetworkErrorKind::Other(message) => rust_i18n::t!("core.tester.other", message = message).to_string(),
     }
 }
 
 fn failure(message: &str, version_url: &str) -> String {
-    format!("{message}\nПроверялся адрес: {version_url}")
+    format!("{message}\n{}", rust_i18n::t!("core.tester.checked_url", url = version_url))
 }
 
 fn extract_version(body: &str) -> Option<String> {
@@ -96,22 +92,22 @@ mod tests {
     async fn unauthorized_ping_returns_specific_error() {
         let server = start_server(401, "Unauthorized").await;
         let message = test_connection(&camunda_client(), &format!("{}/engine-rest", server.uri())).await.expect_err("ожидалась ошибка");
-        assert!(message.contains("Требуется авторизация (HTTP 401)"), "{message}");
+        assert!(message.contains("Authorization required (HTTP 401)"), "{message}");
         assert!(message.contains("/engine-rest/version"), "{message}");
-        assert!(message.contains("\nПроверялся адрес: "), "{message}");
+        assert!(message.contains("\nChecked URL: "), "{message}");
     }
 
     #[tokio::test]
     async fn missing_endpoint_returns_specific_error() {
         let server = start_server(404, "Not found").await;
         let message = test_connection(&camunda_client(), &format!("{}/engine-rest", server.uri())).await.expect_err("ожидалась ошибка");
-        assert!(message.contains("Endpoint Camunda не найден (HTTP 404)"), "{message}");
+        assert!(message.contains("Camunda endpoint not found (HTTP 404)"), "{message}");
     }
 
     #[tokio::test]
     async fn refused_connection_returns_network_error() {
         let message = test_connection(&camunda_client(), "http://127.0.0.1:1/engine-rest").await.expect_err("порт закрыт");
-        assert!(message.starts_with("Подключение отклонено или хост недоступен. Проверьте хост, порт, VPN и firewall."), "{message}");
-        assert!(message.ends_with("Проверялся адрес: http://127.0.0.1:1/engine-rest/version"), "{message}");
+        assert!(message.starts_with("Connection refused or host unreachable. Check the host, port, VPN and firewall."), "{message}");
+        assert!(message.ends_with("Checked URL: http://127.0.0.1:1/engine-rest/version"), "{message}");
     }
 }
