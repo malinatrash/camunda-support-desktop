@@ -777,6 +777,7 @@ name = "camunda-support"
 version = "2.3.1"
 dependencies = [
  "camunda-core",
+ "chrono",
  "dirs 6.0.0",
  "futures",
  "gpui-kit",

@@ -25,7 +25,13 @@ impl OverviewView {
             let rows: Vec<_> = dashboard.longest_waiting_activities.iter().map(|item| self.render_waiting(item, cx)).collect();
             body.children(rows)
         } else if self.incident_groups.is_empty() {
-            body.child(Empty::new().header(EmptyHeader::new().title(EmptyTitle::new().child("Инцидентов нет"))))
+            body.child(Empty::new().header(EmptyHeader::new().title(EmptyTitle::new().child(
+                if self.preset == camunda_core::models::DashboardDatePreset::Live {
+                    "За последние 24 часа инцидентов нет"
+                } else {
+                    "Инцидентов нет"
+                },
+            ))))
         } else {
             body.child(self.render_incidents(cx))
         };

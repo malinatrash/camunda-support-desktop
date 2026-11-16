@@ -10,7 +10,7 @@ use crate::model;
 impl OverviewView {
     // Сводные цифры над панелями.
     pub(super) fn render_stats(&self, dashboard: &ProcessDashboard, cx: &App) -> impl IntoElement {
-        let incidents: i32 = dashboard.definitions.iter().map(|d| d.incidents).sum();
+        let incidents = self.incident_groups.iter().map(|group| group.count).sum::<usize>() as i32;
         let instances: i32 = dashboard.definitions.iter().map(|d| d.instances).sum();
         let stuck: i32 = dashboard
             .longest_waiting_activities
@@ -30,7 +30,7 @@ impl OverviewView {
         DescriptionList::vertical()
             .bordered(true)
             .columns(4)
-            .item("инцидентов", value(incidents, (incidents > 0).then_some(cx.theme().danger)), 1)
+            .item(if live { "инцидентов за 24 ч" } else { "инцидентов" }, value(incidents, (incidents > 0).then_some(cx.theme().danger)), 1)
             .item(if live { "в работе" } else { "стартов" }, value(instances, None), 1)
             .item("висят дольше 4 ч", value(stuck, (stuck > 0).then_some(cx.theme().warning)), 1)
             .item("завершено", value(dashboard.completed_instances, None), 1)

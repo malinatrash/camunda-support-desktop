@@ -1,6 +1,7 @@
 use std::time::Instant;
 
-use camunda_core::models::DashboardDateFilter;
+use camunda_core::camunda::dates;
+use camunda_core::models::{DashboardDateFilter, DashboardDatePreset, ProcessIncident};
 use gpui_kit::*;
 
 use super::OverviewView;
@@ -18,7 +19,7 @@ impl OverviewView {
             this.update(cx, |this, cx| {
                 match result {
                     Ok(dashboard) => {
-                        this.incident_groups = model::group_incidents(&dashboard.incidents);
+                        this.incident_groups = model::group_incidents(&recent(&dashboard.incidents, this.preset));
                         this.dashboard = Some(dashboard);
                         this.error = None;
                         this.refreshed_at = Some(Instant::now());
@@ -50,4 +51,14 @@ impl OverviewView {
             .collect();
         self.processes = model::group_processes(&definitions);
     }
+}
+
+// В режиме «Сейчас» главная показывает только инциденты за последние сутки.
+fn recent(incidents: &[ProcessIncident], preset: DashboardDatePreset) -> Vec<ProcessIncident> {
+    if preset != DashboardDatePreset::Live {
+        return incidents.to_vec();
+    }
+    let now = chrono::Utc::now();
+    let since = now - chrono::Duration::hours(24);
+    incidents.iter().filter(|incident| dates::is_inside(incident.timestamp.as_deref(), since, now)).cloned().collect()
 }
