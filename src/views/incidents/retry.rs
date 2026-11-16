@@ -6,7 +6,8 @@ use gpui_kit::component::{Disableable, WindowExt as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use super::{IncidentsView, plural_key};
+use super::IncidentsView;
+use crate::platform::locale::plural_key;
 use crate::platform::services;
 
 const RETRIES: i32 = 3;

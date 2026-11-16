@@ -34,30 +34,3 @@ pub(super) fn sync_placeholder(input: &Entity<InputState>, text: SharedString, w
         input.update(cx, |input, cx| input.set_placeholder(text, window, cx));
     }
 }
-
-// Форма множественного числа: ru — one/few/many, en — one/other.
-pub(super) fn plural(key: &str, count: usize) -> SharedString {
-    let form = if &*rust_i18n::locale() == "ru" {
-        match (count % 10, count % 100) {
-            (1, n) if n != 11 => "one",
-            (2..=4, n) if !(12..=14).contains(&n) => "few",
-            _ => "many",
-        }
-    } else if count == 1 {
-        "one"
-    } else {
-        "other"
-    };
-    tr!(&format!("{key}.{form}"), count = count)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::plural;
-
-    #[test]
-    fn picks_english_plural_forms() {
-        assert_eq!(plural("instance.timeline.events", 1).as_ref(), "1 event · History API");
-        assert_eq!(plural("instance.timeline.events", 5).as_ref(), "5 events · History API");
-    }
-}

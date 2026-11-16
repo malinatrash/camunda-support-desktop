@@ -17,7 +17,15 @@ impl AppView {
         let muted = cx.theme().muted_foreground;
         let left = match &self.connection {
             Some(connection) => {
-                let host = connection.rest_url.split("://").nth(1).unwrap_or(&connection.rest_url).split('/').next().unwrap_or_default().to_string();
+                let host = connection
+                    .rest_url
+                    .split("://")
+                    .nth(1)
+                    .unwrap_or(&connection.rest_url)
+                    .split('/')
+                    .next()
+                    .unwrap_or_default()
+                    .to_string();
                 h_flex()
                     .gap_2()
                     .min_w_0()
@@ -31,34 +39,26 @@ impl AppView {
         };
         let updating = Updater::global(cx).read(cx).status().is_busy();
         let dark = cx.theme().is_dark();
-        StatusBar::new()
-            .px_3()
-            .py_1()
-            .text_xs()
-            .text_color(muted)
-            .border_t_1()
-            .border_color(cx.theme().border)
-            .left(left)
-            .right(
-                h_flex()
-                    .gap_1()
-                    .when(updating, |this| this.child(Icon::new(Lucide::Download).xsmall()).child(tr!("shell.status.updating")))
-                    .child(
-                        Button::new("status-language")
-                            .ghost()
-                            .xsmall()
-                            .label(locale::current().to_uppercase())
-                            .on_click(|_, _, cx| locale::set(if locale::current() == "ru" { "en" } else { "ru" }, cx)),
-                    )
-                    .child(
-                        Button::new("status-theme")
-                            .ghost()
-                            .xsmall()
-                            .icon(if dark { Lucide::Sun } else { Lucide::Moon })
-                            .on_click(|_, window, cx| theme::toggle(window, cx)),
-                    )
-                    .child(div().px_1().child(format!("v{VERSION}"))),
-            )
+        StatusBar::new().px_3().py_1().text_xs().text_color(muted).border_t_1().border_color(cx.theme().border).left(left).right(
+            h_flex()
+                .gap_1()
+                .when(updating, |this| this.child(Icon::new(Lucide::Download).xsmall()).child(tr!("shell.status.updating")))
+                .child(
+                    Button::new("status-language")
+                        .ghost()
+                        .xsmall()
+                        .label(locale::current().to_uppercase())
+                        .on_click(|_, _, cx| locale::set(if locale::current() == "ru" { "en" } else { "ru" }, cx)),
+                )
+                .child(
+                    Button::new("status-theme")
+                        .ghost()
+                        .xsmall()
+                        .icon(if dark { Lucide::Sun } else { Lucide::Moon })
+                        .on_click(|_, window, cx| theme::toggle(window, cx)),
+                )
+                .child(div().px_1().child(format!("v{VERSION}"))),
+        )
     }
 
     // Первый запуск без подключений: приглашение добавить подключение.

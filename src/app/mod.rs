@@ -125,7 +125,13 @@ impl Render for AppView {
                     .h_full()
                     .bg(theme::surface(cx))
                     .child(self.render_toolbar(cx))
-                    .child(div().flex_1().min_h_0().overflow_hidden().child(motion::page(self.route, div().relative().size_full().child(self.content(cx)))))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .child(motion::page(self.route, div().relative().size_full().child(self.content(cx)))),
+                    )
                     .child(self.render_status(cx)),
             )
     }

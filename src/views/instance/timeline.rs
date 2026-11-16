@@ -6,13 +6,16 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::hover;
-use super::panel::{empty, list_panel, plural};
+use super::panel::{empty, list_panel};
 use crate::model;
 
 // Хронология прохождения кубиков по History API таблицей с прокруткой.
 pub(super) fn render(details: &ProcessInstanceDetails, cx: &App) -> impl IntoElement {
     let head = v_flex().child(div().font_weight(FontWeight::SEMIBOLD).child(tr!("instance.timeline.title"))).child(
-        div().text_sm().text_color(cx.theme().muted_foreground).child(plural("instance.timeline.events", details.activity_timeline.len())),
+        div()
+            .text_sm()
+            .text_color(cx.theme().muted_foreground)
+            .child(crate::platform::locale::plural("instance.timeline.events", details.activity_timeline.len())),
     );
     let columns = TableRow::new()
         .child(TableHead::new().col_span(2).child(tr!("instance.timeline.col_start")))

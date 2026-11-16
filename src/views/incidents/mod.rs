@@ -99,22 +99,6 @@ impl IncidentsView {
     }
 }
 
-// Ключ формы множественного числа: one/few/many по-русски, one/other по-английски.
-pub(crate) fn plural_key(key: &str, count: usize) -> String {
-    let form = if rust_i18n::locale().starts_with("ru") {
-        match (count % 10, count % 100) {
-            (1, n) if n != 11 => "one",
-            (2..=4, n) if !(12..=14).contains(&n) => "few",
-            _ => "many",
-        }
-    } else if count == 1 {
-        "one"
-    } else {
-        "other"
-    };
-    format!("{key}.{form}")
-}
-
 impl Render for IncidentsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.relabel(window, cx);

@@ -21,11 +21,13 @@ pub fn set(language: &str, cx: &mut App) {
 }
 
 // Форма по числу: ключи `<key>.one/.few/.many` для ru и `<key>.one/.other` для en, в тексте `%{count}`.
-#[allow(dead_code)]
-pub fn plural(key: &str, count: i64) -> SharedString {
-    let locale = rust_i18n::locale();
-    let key = format!("{key}.{}", plural_form(&locale, count));
-    SharedString::from(rust_i18n::t!(&key, count = count).into_owned())
+pub fn plural(key: &str, count: usize) -> SharedString {
+    tr!(&plural_key(key, count), count = count)
+}
+
+// Ключ нужной формы, когда в строку подставляется не только count.
+pub fn plural_key(key: &str, count: usize) -> String {
+    format!("{key}.{}", plural_form(&rust_i18n::locale(), count as i64))
 }
 
 fn plural_form(locale: &str, count: i64) -> &'static str {

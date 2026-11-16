@@ -7,7 +7,7 @@ use gpui_kit::*;
 
 use super::DefinitionView;
 use crate::model::{self, Navigate};
-use crate::views::incidents::plural_key;
+use crate::platform::locale::plural_key;
 
 impl DefinitionView {
     // Путь «Обзор / процесс / версия», название и действия.
