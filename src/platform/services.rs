@@ -19,6 +19,7 @@ impl Services {
     // Та же папка данных, что у версий 1.x–2.x; CAMUNDA_SUPPORT_DATA_DIR подменяет её для демо и отладки.
     pub fn new() -> Self {
         let root = std::env::var_os("CAMUNDA_SUPPORT_DATA_DIR")
+            .filter(|dir| !dir.is_empty())
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| dirs::data_dir().unwrap_or_else(std::env::temp_dir).join(APP_IDENTIFIER));
         let storage = Arc::new(Storage::new(root));
