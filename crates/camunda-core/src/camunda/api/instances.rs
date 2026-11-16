@@ -10,10 +10,10 @@ pub(super) fn parse_instances(body: &str) -> ApiResult<Vec<ProcessInstanceSummar
 }
 
 pub(super) fn parse_instance(value: &Value) -> ApiResult<ProcessInstanceSummary> {
-    let id = string(value, "id").ok_or_else(|| ApiError::Invalid("Camunda не вернула ID process instance".to_string()))?;
+    let id = string(value, "id").ok_or_else(|| ApiError::Invalid(rust_i18n::t!("core.json.missing_instance_id").to_string()))?;
     let definition_id = string(value, "definitionId")
         .or_else(|| string(value, "processDefinitionId"))
-        .ok_or_else(|| ApiError::Invalid("Camunda не вернула definitionId".to_string()))?;
+        .ok_or_else(|| ApiError::Invalid(rust_i18n::t!("core.json.missing_definition_id").to_string()))?;
     let state = string(value, "state");
     let end_time = string(value, "endTime");
     let ended_by_state = state.as_deref().is_some_and(|state| ENDED_HISTORY_STATES.contains(&state));

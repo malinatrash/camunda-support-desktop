@@ -1,4 +1,313 @@
 _version: 2
-core.placeholder:
-  en: ""
-  ru: ""
+core.bpmn.parse_failed:
+  en: "Could not parse BPMN XML: %{error}"
+  ru: "Не удалось разобрать BPMN XML: %{error}"
+core.connection.name_required:
+  en: "Enter a name"
+  ru: "Укажите название"
+core.connection.rest_suffix:
+  en: "Camunda REST URL must end with /engine-rest"
+  ru: "Адрес Camunda REST должен заканчиваться на /engine-rest"
+core.connection.url_host:
+  en: "URL must contain a host"
+  ru: "URL должен содержать адрес хоста"
+core.connection.url_query:
+  en: "URL must not contain query parameters or a fragment"
+  ru: "URL не должен содержать query-параметры или fragment"
+core.connection.url_required:
+  en: "Enter a URL"
+  ru: "Укажите URL"
+core.connection.url_scheme:
+  en: "URL must start with https:// or http://"
+  ru: "URL должен начинаться с https:// или http://"
+core.connection.url_whitespace:
+  en: "URL must not contain spaces"
+  ru: "URL не должен содержать пробелы"
+core.dates.invalid_format:
+  en: "Enter a date in YYYY-MM-DD format."
+  ru: "Введите дату в формате ГГГГ-ММ-ДД."
+core.dates.live_has_no_range:
+  en: "Live statistics do not use a date range"
+  ru: "Для текущей статистики диапазон дат не используется"
+core.dates.start_after_end:
+  en: "The start date cannot be after the end date."
+  ru: "Начальная дата не может быть позже конечной."
+core.deep_link.invalid_format:
+  en: "The link has an invalid format."
+  ru: "Ссылка имеет некорректный формат."
+core.deep_link.invalid_process_instance_id:
+  en: "The link contains an invalid process instance ID."
+  ru: "В ссылке указан некорректный идентификатор заявки."
+core.deep_link.missing_origin:
+  en: "The link has no valid Camunda domain."
+  ru: "В ссылке отсутствует корректный домен Camunda."
+core.deep_link.not_process_instance:
+  en: "The link does not point to a Camunda process instance."
+  ru: "Ссылка не относится к заявке Camunda."
+core.deep_link.unsupported_scheme:
+  en: "The app does not support this link protocol."
+  ru: "Приложение не поддерживает протокол этой ссылки."
+core.http.invalid_value:
+  en: "Invalid request value."
+  ru: "Некорректное значение запроса."
+core.http.operation_failed:
+  en: "Operation failed: %{message}"
+  ru: "Не удалось выполнить операцию: %{message}"
+core.http.request_url:
+  en: "Request: %{url}"
+  ru: "Запрос: %{url}"
+core.http.semaphore_closed:
+  en: "request queue closed"
+  ru: "семафор закрыт"
+core.http.status_400:
+  en: "Camunda rejected the request (HTTP 400). %{server_message}"
+  ru: "Camunda отклонила запрос (HTTP 400). %{server_message}"
+core.http.status_401:
+  en: "Authorization required (HTTP 401)."
+  ru: "Требуется авторизация (HTTP 401)."
+core.http.status_403:
+  en: "Access denied (HTTP 403). The connection lacks permissions."
+  ru: "Доступ запрещён (HTTP 403). У подключения недостаточно прав."
+core.http.status_404:
+  en: "Camunda REST endpoint not found (HTTP 404)."
+  ru: "REST endpoint Camunda не найден (HTTP 404)."
+core.http.status_5xx:
+  en: "Camunda or the gateway returned HTTP %{status}. %{server_message}"
+  ru: "Camunda или gateway вернули HTTP %{status}. %{server_message}"
+core.http.status_other:
+  en: "Camunda returned HTTP %{status}. %{server_message}"
+  ru: "Camunda вернула HTTP %{status}. %{server_message}"
+core.http.too_many_requests:
+  en: "Too many requests (HTTP 429). Wait and try again."
+  ru: "Слишком много запросов (HTTP 429). Подождите и повторите попытку."
+core.incidents.nothing_to_retry:
+  en: "The selected incidents have no jobs or external tasks to retry."
+  ru: "Среди выбранных инцидентов нет заданий или внешних задач для повтора."
+core.json.invalid:
+  en: "Camunda returned invalid JSON: %{error}"
+  ru: "Camunda вернула некорректный JSON: %{error}"
+core.json.missing_definition_id:
+  en: "Camunda did not return definitionId"
+  ru: "Camunda не вернула definitionId"
+core.json.missing_instance_id:
+  en: "Camunda did not return the process instance ID"
+  ru: "Camunda не вернула ID process instance"
+core.json.missing_process_definition_id:
+  en: "Camunda did not return the process definition ID"
+  ru: "Camunda не вернула ID process definition"
+core.json.missing_process_definition_key:
+  en: "Camunda did not return the process definition key"
+  ru: "Camunda не вернула key process definition"
+core.json.not_array:
+  en: "Camunda returned JSON that is not a list"
+  ru: "Camunda вернула не список, а другой JSON"
+core.json.not_object:
+  en: "Camunda returned JSON that is not an object"
+  ru: "Camunda вернула не объект, а другой JSON"
+core.metadata.bpmn_resource:
+  en: "BPMN resource"
+  ru: "Ресурс BPMN"
+core.metadata.business_key:
+  en: "Business key"
+  ru: "Бизнес-ключ"
+core.metadata.case_instance_id:
+  en: "Case instance ID"
+  ru: "ID экземпляра кейса"
+core.metadata.category:
+  en: "Category"
+  ru: "Категория"
+core.metadata.definition_id:
+  en: "Definition ID"
+  ru: "ID определения"
+core.metadata.definition_key:
+  en: "Definition key"
+  ru: "Ключ определения"
+core.metadata.deployment_id:
+  en: "Deployment ID"
+  ru: "ID развёртывания"
+core.metadata.description:
+  en: "Description"
+  ru: "Описание"
+core.metadata.diagram_resource:
+  en: "Diagram resource"
+  ru: "Ресурс диаграммы"
+core.metadata.ended:
+  en: "Ended"
+  ru: "Завершён"
+core.metadata.history_ttl:
+  en: "History time to live"
+  ru: "Срок хранения истории"
+core.metadata.instance_id:
+  en: "Instance ID"
+  ru: "ID экземпляра"
+core.metadata.key:
+  en: "Key"
+  ru: "Ключ"
+core.metadata.name:
+  en: "Name"
+  ru: "Название"
+core.metadata.startable_in_tasklist:
+  en: "Startable in Tasklist"
+  ru: "Доступен для запуска в списке задач"
+core.metadata.suspended:
+  en: "Suspended"
+  ru: "Приостановлен"
+core.metadata.tenant_id:
+  en: "Tenant ID"
+  ru: "ID тенанта"
+core.metadata.version:
+  en: "Version"
+  ru: "Версия"
+core.metadata.version_tag:
+  en: "Version tag"
+  ru: "Метка версии"
+core.network.connection_refused:
+  en: "Connection refused or host unreachable. Check the VPN, host and port."
+  ru: "Подключение отклонено или хост недоступен. Проверьте VPN, хост и порт."
+core.network.invalid_url:
+  en: "Invalid request URL."
+  ru: "Некорректный адрес запроса."
+core.network.io:
+  en: "Network error: %{message}"
+  ru: "Сетевая ошибка: %{message}"
+core.network.timeout:
+  en: "Request timed out. Check the VPN and that Camunda is available."
+  ru: "Время ожидания истекло. Проверьте VPN и доступность Camunda."
+core.network.tls:
+  en: "TLS error. Check the HTTPS certificate."
+  ru: "Ошибка TLS. Проверьте HTTPS-сертификат."
+core.network.unknown_host:
+  en: "Camunda host not found. Check DNS, the address and VPN."
+  ru: "Хост Camunda не найден. Проверьте DNS, адрес и VPN."
+core.search.business_key_required:
+  en: "Enter a business key or instance ID."
+  ru: "Введите бизнес-ключ или ID заявки."
+core.search.invalid_boolean:
+  en: "A boolean value must be true or false."
+  ru: "Логическое значение должно быть true или false."
+core.search.invalid_number:
+  en: "The variable value must be a valid number."
+  ru: "Значение переменной должно быть корректным числом."
+core.tester.checked_url:
+  en: "Checked URL: %{url}"
+  ru: "Проверялся адрес: %{url}"
+core.tester.connection_refused:
+  en: "Connection refused or host unreachable. Check the host, port, VPN and firewall."
+  ru: "Подключение отклонено или хост недоступен. Проверьте хост, порт, VPN и firewall."
+core.tester.http_3xx:
+  en: "Unexpected redirect HTTP %{status}. Check the REST URL and the authorization gateway."
+  ru: "Неожиданный redirect HTTP %{status}. Проверьте REST URL и gateway авторизации."
+core.tester.http_400:
+  en: "Camunda rejected the test request (HTTP 400). Check the REST URL."
+  ru: "Camunda отклонила проверочный запрос (HTTP 400). Проверьте REST URL."
+core.tester.http_401:
+  en: "Authorization required (HTTP 401). The connection has no access to Camunda REST."
+  ru: "Требуется авторизация (HTTP 401). Подключение не имеет доступа к Camunda REST."
+core.tester.http_403:
+  en: "Access denied (HTTP 403). The user or network has no access to Camunda REST."
+  ru: "Доступ запрещён (HTTP 403). У пользователя или сети нет доступа к Camunda REST."
+core.tester.http_404:
+  en: "Camunda endpoint not found (HTTP 404). Check that the REST API is available at /engine-rest."
+  ru: "Endpoint Camunda не найден (HTTP 404). Проверьте, что REST API доступен по /engine-rest."
+core.tester.http_405:
+  en: "The server does not allow GET /version (HTTP 405). Check the proxy and Camunda REST settings."
+  ru: "Сервер запрещает GET /version (HTTP 405). Проверьте proxy и настройки Camunda REST."
+core.tester.http_408:
+  en: "Camunda did not process the request in time (HTTP 408)."
+  ru: "Camunda не успела обработать запрос (HTTP 408)."
+core.tester.http_5xx:
+  en: "Camunda or the gateway returned server error HTTP %{status}."
+  ru: "Camunda или gateway вернули серверную ошибку HTTP %{status}."
+core.tester.http_other:
+  en: "Unexpected HTTP response: %{status}."
+  ru: "Неожиданный HTTP-ответ: %{status}."
+core.tester.invalid_url:
+  en: "The REST URL is invalid."
+  ru: "Указан некорректный REST URL."
+core.tester.io:
+  en: "Network error: %{message}."
+  ru: "Сетевая ошибка: %{message}."
+core.tester.other:
+  en: "Could not check the connection: %{message}."
+  ru: "Не удалось проверить подключение: %{message}."
+core.tester.request_failed:
+  en: "request failed"
+  ru: "запрос не выполнен"
+core.tester.timeout:
+  en: "Connection timed out. Check the URL, VPN and network."
+  ru: "Время ожидания подключения истекло. Проверьте URL, VPN и сеть."
+core.tester.tls:
+  en: "TLS secure connection error. Check the certificate and HTTPS setup."
+  ru: "Ошибка защищённого соединения TLS. Проверьте сертификат и настройку HTTPS."
+core.tester.tls_handshake:
+  en: "Could not establish a TLS connection. The server certificate may be invalid or untrusted."
+  ru: "Не удалось установить TLS-соединение. Сертификат сервера может быть недействительным или недоверенным."
+core.tester.unknown_host:
+  en: "Host not found (DNS error). Check the host name and VPN."
+  ru: "Хост не найден — ошибка DNS. Проверьте имя хоста и VPN."
+core.update.checksum_mismatch:
+  en: "Installer checksum does not match"
+  ru: "Контрольная сумма установщика не совпала"
+core.update.checksum_missing:
+  en: "No checksum found for %{name}"
+  ru: "Для %{name} не найдена контрольная сумма"
+core.update.checksums_failed:
+  en: "Could not fetch update checksums"
+  ru: "Не удалось получить контрольные суммы обновления"
+core.update.download_failed:
+  en: "GitHub did not serve the installer: HTTP %{status}"
+  ru: "GitHub не отдал установщик: HTTP %{status}"
+core.update.http_error:
+  en: "GitHub returned HTTP %{status}"
+  ru: "GitHub вернул HTTP %{status}"
+core.update.insecure_url:
+  en: "GitHub returned an insecure installer link"
+  ru: "GitHub вернул небезопасную ссылку на установщик"
+core.update.missing_field:
+  en: "GitHub did not return the %{key} field"
+  ru: "GitHub не вернул поле %{key}"
+core.update.no_app_in_dmg:
+  en: "the DMG contains no .app"
+  ru: "в DMG нет .app"
+core.update.no_bundle_parent:
+  en: "the bundle has no parent folder"
+  ru: "у бандла нет родительской папки"
+core.update.no_checksums:
+  en: "The release has no SHA256SUMS.txt"
+  ru: "В релизе отсутствует SHA256SUMS.txt"
+core.update.no_installer:
+  en: "No installer is published for this platform"
+  ru: "Для этой платформы установщик не опубликован"
+core.update.no_release:
+  en: "No release is published on GitHub yet"
+  ru: "В GitHub пока нет опубликованного релиза"
+core.update.not_app_bundle:
+  en: "the app is not running from a .app bundle"
+  ru: "приложение запущено не из .app"
+core.update.rate_limited:
+  en: "GitHub temporarily limited update checks"
+  ru: "GitHub временно ограничил проверку обновлений"
+core.update.replace_denied:
+  en: "no permission to replace %{path}: %{error}"
+  ru: "нет прав заменить %{path}: %{error}"
+core.update.unsupported_platform:
+  en: "Auto-update is not available on this platform"
+  ru: "Автообновление недоступно на этой платформе"
+core.variables.invalid_boolean:
+  en: "Boolean accepts only true or false."
+  ru: "Для Boolean допустимы только true или false."
+core.variables.invalid_double:
+  en: "The value must be a finite Double number."
+  ru: "Значение должно быть конечным числом Double."
+core.variables.invalid_integer:
+  en: "The value must be a %{kind} integer."
+  ru: "Значение должно быть целым числом %{kind}."
+core.variables.invalid_json:
+  en: "The value must contain valid JSON."
+  ru: "Значение должно содержать корректный JSON."
+core.variables.invalid_value_info:
+  en: "The valueInfo field must contain a valid JSON object."
+  ru: "Поле valueInfo должно содержать корректный JSON-объект."
+core.variables.unknown_type:
+  en: "Unknown"
+  ru: "Неизвестный"

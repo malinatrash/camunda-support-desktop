@@ -6,17 +6,13 @@ use crate::camunda::http::ApiError;
 pub(super) fn json_array(body: &str) -> ApiResult<Vec<Value>> {
     match serde_json::from_str::<Value>(body)? {
         Value::Array(values) => Ok(values),
-        _ => Err(ApiError::Other("Camunda вернула не список, а другой JSON".to_string())),
+        _ => Err(ApiError::Other(rust_i18n::t!("core.json.not_array").to_string())),
     }
 }
 
 pub(super) fn json_object(body: &str) -> ApiResult<Value> {
     let value: Value = serde_json::from_str(body)?;
-    if value.is_object() {
-        Ok(value)
-    } else {
-        Err(ApiError::Other("Camunda вернула не объект, а другой JSON".to_string()))
-    }
+    if value.is_object() { Ok(value) } else { Err(ApiError::Other(rust_i18n::t!("core.json.not_object").to_string())) }
 }
 
 pub(super) fn as_array(value: Option<&Value>) -> &[Value] {

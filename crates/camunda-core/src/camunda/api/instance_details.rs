@@ -211,9 +211,9 @@ mod tests {
         let node_ids: HashSet<&str> = details.diagram.nodes.iter().map(|node| node.id.as_str()).collect();
         assert_eq!(node_ids, HashSet::from(["Task_1", "Task_2", "Task_4"]));
         assert_eq!(details.bpmn_xml, bpmn_xml);
-        let tenant = details.metadata.iter().find(|field| field.label == "ID тенанта").expect("метаданные");
+        let tenant = details.metadata.iter().find(|field| field.label == "Tenant ID").expect("метаданные");
         assert_eq!(tenant.value, "b2c");
-        let case = details.metadata.iter().find(|field| field.label == "ID экземпляра кейса").expect("метаданные");
+        let case = details.metadata.iter().find(|field| field.label == "Case instance ID").expect("метаданные");
         assert_eq!(case.value, "—");
         let history_query = query(&requests_to(&server, "/engine-rest/history/activity-instance").await[0]);
         assert!(history_query.contains("processInstanceId=instance-1"), "{history_query}");

@@ -20,7 +20,7 @@ impl CamundaApi {
             Some(raw) => match serde_json::from_str::<Value>(raw) {
                 Ok(parsed @ Value::Object(_)) => parsed,
                 Ok(_) => json!({}),
-                Err(_) => return Err("Поле valueInfo должно содержать корректный JSON-объект.".to_string()),
+                Err(_) => return Err(rust_i18n::t!("core.variables.invalid_value_info").to_string()),
             },
         };
         let body = json!({ "value": value, "type": update.value_type, "valueInfo": value_info });
@@ -34,21 +34,27 @@ fn variable_json_value(update: &ProcessVariableUpdate) -> Result<Value, String> 
         "boolean" => match value.to_lowercase().as_str() {
             "true" => Ok(Value::from(true)),
             "false" => Ok(Value::from(false)),
-            _ => Err("Для Boolean допустимы только true или false.".to_string()),
+            _ => Err(rust_i18n::t!("core.variables.invalid_boolean").to_string()),
         },
-        "short" => value.parse::<i16>().map(Value::from).map_err(|_| "Значение должно быть целым числом Short.".to_string()),
-        "integer" => value.parse::<i32>().map(Value::from).map_err(|_| "Значение должно быть целым числом Integer.".to_string()),
-        "long" => value.parse::<i64>().map(Value::from).map_err(|_| "Значение должно быть целым числом Long.".to_string()),
+        "short" => {
+            value.parse::<i16>().map(Value::from).map_err(|_| rust_i18n::t!("core.variables.invalid_integer", kind = "Short").to_string())
+        }
+        "integer" => {
+            value.parse::<i32>().map(Value::from).map_err(|_| rust_i18n::t!("core.variables.invalid_integer", kind = "Integer").to_string())
+        }
+        "long" => {
+            value.parse::<i64>().map(Value::from).map_err(|_| rust_i18n::t!("core.variables.invalid_integer", kind = "Long").to_string())
+        }
         "double" => value
             .parse::<f64>()
             .ok()
             .filter(|number| number.is_finite())
             .map(Value::from)
-            .ok_or_else(|| "Значение должно быть конечным числом Double.".to_string()),
+            .ok_or_else(|| rust_i18n::t!("core.variables.invalid_double").to_string()),
         "null" => Ok(Value::Null),
         "json" => serde_json::from_str::<Value>(&update.value)
             .map(|_| Value::from(update.value.as_str()))
-            .map_err(|_| "Значение должно содержать корректный JSON.".to_string()),
+            .map_err(|_| rust_i18n::t!("core.variables.invalid_json").to_string()),
         _ => Ok(Value::from(update.value.as_str())),
     }
 }
@@ -60,7 +66,7 @@ pub(super) fn parse_variables(body: &str) -> ApiResult<Vec<ProcessVariable>> {
         .flatten()
         .map(|(name, value)| ProcessVariable {
             name: name.clone(),
-            value_type: string(value, "type").unwrap_or_else(|| "Неизвестный".to_string()),
+            value_type: string(value, "type").unwrap_or_else(|| rust_i18n::t!("core.variables.unknown_type").to_string()),
             value: match value.get("value") {
                 None | Some(Value::Null) => "null".to_string(),
                 Some(Value::String(text)) => text.clone(),
@@ -126,9 +132,9 @@ mod tests {
         let boolean_failure =
             api().update_process_variable(&connection, "instance-1", &update("Boolean", "да")).await.expect_err("Boolean");
 
-        assert!(json_failure.contains("корректный JSON"), "{json_failure}");
-        assert_eq!(long_failure, "Значение должно быть целым числом Long.");
-        assert_eq!(boolean_failure, "Для Boolean допустимы только true или false.");
+        assert!(json_failure.contains("valid JSON"), "{json_failure}");
+        assert_eq!(long_failure, "The value must be a Long integer.");
+        assert_eq!(boolean_failure, "Boolean accepts only true or false.");
         assert!(server.received_requests().await.unwrap_or_default().is_empty());
     }
 }

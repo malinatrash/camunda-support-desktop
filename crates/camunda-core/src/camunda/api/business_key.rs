@@ -16,7 +16,7 @@ impl CamundaApi {
         let rest_url = &connection.rest_url;
         let needle = query.trim();
         if needle.is_empty() {
-            return Err("Введите бизнес-ключ или ID заявки.".to_string());
+            return Err(rust_i18n::t!("core.search.business_key_required").to_string());
         }
         let like = encode(&format!("%{needle}%"));
         let runtime_url = format!("{rest_url}/process-instance?businessKeyLike={like}&maxResults={QUICK_SEARCH_LIMIT}");

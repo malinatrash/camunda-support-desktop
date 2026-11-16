@@ -16,7 +16,7 @@ pub(super) fn install_package(platform: DesktopUpdatePlatform, package: &Path) -
         },
         DesktopUpdatePlatform::Windows => Ok(Some(RestartPlan::SilentInstaller { installer: package_path })),
         DesktopUpdatePlatform::Linux => Ok(Some(RestartPlan::DebPackage { package: package_path })),
-        DesktopUpdatePlatform::Unsupported => Err("Автообновление недоступно на этой платформе".into()),
+        DesktopUpdatePlatform::Unsupported => Err(rust_i18n::t!("core.update.unsupported_platform").to_string()),
     }
 }
 
@@ -27,13 +27,13 @@ fn running_app_bundle() -> Result<PathBuf, String> {
         .ancestors()
         .find(|path| path.extension().is_some_and(|extension| extension == "app"))
         .map(Path::to_path_buf)
-        .ok_or_else(|| "приложение запущено не из .app".to_string())
+        .ok_or_else(|| rust_i18n::t!("core.update.not_app_bundle").to_string())
 }
 
 // Монтирует DMG, копирует .app рядом с текущим и атомарно подменяет его.
 fn replace_app_bundle(dmg: &Path) -> Result<PathBuf, String> {
     let app = running_app_bundle()?;
-    let parent = app.parent().ok_or("у бандла нет родительской папки")?;
+    let parent = app.parent().ok_or_else(|| rust_i18n::t!("core.update.no_bundle_parent").to_string())?;
     let mount = tempfile_dir("camunda-support-mount")?;
     run(Command::new("hdiutil").args(["attach", "-nobrowse", "-noautoopen", "-readonly", "-mountpoint"]).arg(&mount).arg(dmg))?;
     let copied = copy_bundle_from_mount(&mount, parent);
@@ -43,7 +43,8 @@ fn replace_app_bundle(dmg: &Path) -> Result<PathBuf, String> {
     let _ = run(Command::new("xattr").args(["-dr", "com.apple.quarantine"]).arg(&staged));
     let retired = parent.join(format!(".{}.old", app.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default()));
     let _ = std::fs::remove_dir_all(&retired);
-    std::fs::rename(&app, &retired).map_err(|error| format!("нет прав заменить {}: {error}", app.display()))?;
+    std::fs::rename(&app, &retired)
+        .map_err(|error| rust_i18n::t!("core.update.replace_denied", path = app.display(), error = error).to_string())?;
     if let Err(error) = std::fs::rename(&staged, &app) {
         let _ = std::fs::rename(&retired, &app);
         return Err(error.to_string());
@@ -58,7 +59,7 @@ fn copy_bundle_from_mount(mount: &Path, target_directory: &Path) -> Result<PathB
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .find(|path| path.extension().is_some_and(|extension| extension == "app"))
-        .ok_or("в DMG нет .app")?;
+        .ok_or_else(|| rust_i18n::t!("core.update.no_app_in_dmg").to_string())?;
     let staged = target_directory.join(".camunda-support-update.app");
     let _ = std::fs::remove_dir_all(&staged);
     run(Command::new("ditto").arg(&source).arg(&staged))?;

@@ -9,7 +9,7 @@ pub fn parse_bpmn(xml: &str) -> Result<BpmnDiagram, String> {
     if xml.trim().is_empty() {
         return Ok(BpmnDiagram::default());
     }
-    let document = Document::parse(xml).map_err(|error| format!("Не удалось разобрать BPMN XML: {error}"))?;
+    let document = Document::parse(xml).map_err(|error| rust_i18n::t!("core.bpmn.parse_failed", error = error).to_string())?;
     let elements: Vec<Node> = document.descendants().filter(Node::is_element).collect();
     let semantic_by_id: HashMap<&str, Node> =
         elements.iter().filter_map(|element| non_blank(element.attribute("id")).map(|id| (id, *element))).collect();

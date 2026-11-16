@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(details.instances[0].incident_count, 0);
         assert_eq!(details.definition.instances, 1);
         assert_eq!(details.definition.incidents, 0);
-        assert_eq!(details.metadata[0], ProcessMetadataField { label: "ID определения".to_string(), value: "alpha:2:abc".to_string() });
+        assert_eq!(details.metadata[0], ProcessMetadataField { label: "Definition ID".to_string(), value: "alpha:2:abc".to_string() });
         let instance_query = query(&requests_to(&server, "/engine-rest/history/process-instance").await[0]);
         assert!(instance_query.contains("startedAfter="), "{instance_query}");
         assert!(instance_query.contains("startedBefore="), "{instance_query}");

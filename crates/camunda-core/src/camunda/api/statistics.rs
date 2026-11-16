@@ -29,7 +29,8 @@ impl CamundaApi {
         let loads = definitions.iter().map(|definition| {
             let (semaphore, after, before) = (&semaphore, &after, &before);
             async move {
-                let _permit = semaphore.acquire().await.map_err(|_| ApiError::Other("семафор закрыт".to_string()))?;
+                let _permit =
+                    semaphore.acquire().await.map_err(|_| ApiError::Other(rust_i18n::t!("core.http.semaphore_closed").to_string()))?;
                 let filter = format!("processDefinitionId={}", encode(&definition.id));
                 let instances_url =
                     format!("{}/history/process-instance/count?{filter}&startedAfter={after}&startedBefore={before}", connection.rest_url);

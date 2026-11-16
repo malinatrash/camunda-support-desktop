@@ -16,6 +16,6 @@ impl From<reqwest::Error> for ApiError {
 
 impl From<serde_json::Error> for ApiError {
     fn from(error: serde_json::Error) -> Self {
-        ApiError::Other(format!("Camunda вернула некорректный JSON: {error}"))
+        ApiError::Other(rust_i18n::t!("core.json.invalid", error = error).to_string())
     }
 }
