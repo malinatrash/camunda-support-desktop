@@ -16,18 +16,19 @@ impl IncidentsView {
         let all = !delegate.rows.is_empty() && delegate.selected.len() == delegate.rows.len();
         let retry: Vec<ProcessIncident> =
             delegate.rows.iter().filter(|incident| delegate.selected.contains(&incident.id) && retryable(incident)).cloned().collect();
-        let pick_all = Checkbox::new("pick-all").label("Выбрать все").checked(all).on_click(cx.listener(|this, checked: &bool, _, cx| {
-            let checked = *checked;
-            this.table.update(cx, |table, cx| {
-                let delegate = table.delegate_mut();
-                delegate.selected =
-                    if checked { delegate.rows.iter().map(|incident| incident.id.clone()).collect() } else { HashSet::new() };
-                table.refresh(cx);
-            });
-            cx.notify();
-        }));
+        let pick_all =
+            Checkbox::new("pick-all").label(tr!("incidents.pick_all")).checked(all).on_click(cx.listener(|this, checked: &bool, _, cx| {
+                let checked = *checked;
+                this.table.update(cx, |table, cx| {
+                    let delegate = table.delegate_mut();
+                    delegate.selected =
+                        if checked { delegate.rows.iter().map(|incident| incident.id.clone()).collect() } else { HashSet::new() };
+                    table.refresh(cx);
+                });
+                cx.notify();
+            }));
         let retry_selected = Button::new("retry-selected")
-            .label(format!("Повторить выбранные ({})", retry.len()))
+            .label(tr!("incidents.retry_selected", count = retry.len()))
             .outline()
             .small()
             .disabled(retry.is_empty())
@@ -46,7 +47,7 @@ impl IncidentsView {
                     .border_b_1()
                     .border_color(cx.theme().border)
                     .child(pick_all)
-                    .child(div().flex_1().text_sm().text_color(cx.theme().muted_foreground).child("Двойной клик открывает заявку"))
+                    .child(div().flex_1().text_sm().text_color(cx.theme().muted_foreground).child(tr!("incidents.double_click")))
                     .child(retry_selected),
             )
             .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).stripe(false).bordered(false)))

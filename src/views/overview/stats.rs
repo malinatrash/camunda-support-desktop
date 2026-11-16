@@ -30,9 +30,13 @@ impl OverviewView {
         DescriptionList::vertical()
             .bordered(true)
             .columns(4)
-            .item(if live { "инцидентов за 24 ч" } else { "инцидентов" }, value(incidents, (incidents > 0).then_some(cx.theme().danger)), 1)
-            .item(if live { "в работе" } else { "стартов" }, value(instances, None), 1)
-            .item("висят дольше 4 ч", value(stuck, (stuck > 0).then_some(cx.theme().warning)), 1)
-            .item("завершено", value(dashboard.completed_instances, None), 1)
+            .item(
+                tr!(if live { "overview.stats.incidents_24h" } else { "overview.stats.incidents" }),
+                value(incidents, (incidents > 0).then_some(cx.theme().danger)),
+                1,
+            )
+            .item(tr!(if live { "overview.stats.running" } else { "overview.stats.started" }), value(instances, None), 1)
+            .item(tr!("overview.stats.stuck"), value(stuck, (stuck > 0).then_some(cx.theme().warning)), 1)
+            .item(tr!("overview.stats.completed"), value(dashboard.completed_instances, None), 1)
     }
 }

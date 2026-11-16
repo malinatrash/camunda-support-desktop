@@ -16,8 +16,8 @@ impl SearchView {
         let Some(count) = self.results else { return div().into_any_element() };
         if count == 0 {
             let title = match self.mode {
-                Mode::Key => "Заявки не найдены. Проверьте бизнес-ключ или ID.",
-                Mode::Variable => "Активных заявок с таким значением не найдено.",
+                Mode::Key => tr!("search.empty.key"),
+                Mode::Variable => tr!("search.empty.variable"),
             };
             return Empty::new().flex_1().header(EmptyHeader::new().title(EmptyTitle::new().child(title))).into_any_element();
         }
@@ -34,10 +34,10 @@ impl SearchView {
                     .gap_2()
                     .border_b_1()
                     .border_color(cx.theme().border)
-                    .child(div().font_weight(FontWeight::SEMIBOLD).child("Найденные заявки"))
+                    .child(div().font_weight(FontWeight::SEMIBOLD).child(tr!("search.results")))
                     .child(Tag::secondary().small().rounded_full().child(count.to_string()))
                     .child(div().flex_1())
-                    .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Двойной клик открывает заявку")),
+                    .child(div().text_sm().text_color(cx.theme().muted_foreground).child(tr!("search.double_click"))),
             )
             .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).stripe(false).bordered(false)))
             .into_any_element()

@@ -15,7 +15,7 @@ impl OverviewView {
     // Строки раскрытого процесса: «Все версии» и каждая версия.
     pub(super) fn render_versions(&self, group: &ProcessGroup, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let all_id = group.latest.id.clone();
-        let all_title = div().child("Все версии").into_any_element();
+        let all_title = div().child(tr!("overview.all_versions")).into_any_element();
         let all = version_row(SharedString::from(format!("{}-all", group.key)), all_title, None, group.instances, None, cx)
             .on_click(cx.listener(move |_, _, _, cx| cx.emit(Navigate::Definition { id: all_id.clone(), all_versions: true })));
         let versions = group.versions.iter().map(|version| {
@@ -24,7 +24,7 @@ impl OverviewView {
                 "{}{}{}",
                 model::short_time(version.deployment_time.as_deref()),
                 version.version_tag.as_ref().map(|tag| format!(" · {tag}")).unwrap_or_default(),
-                if version.suspended { " · пауза" } else { "" }
+                if version.suspended { tr!("overview.paused") } else { SharedString::default() }
             );
             let title = definition_card(version.id.clone(), version, div().child(format!("v{}", version.version))).into_any_element();
             version_row(SharedString::from(version.id.clone()), title, Some(meta.into()), version.instances, Some(version.incidents), cx)
@@ -40,12 +40,16 @@ pub(super) fn definition_card(id: String, definition: &ProcessDefinitionSummary,
     let list = DescriptionList::new()
         .columns(1)
         .label_width(px(110.))
-        .item("Ключ", definition.key.clone(), 1)
-        .item("Версия", format!("v{}{}", definition.version, if definition.suspended { " · пауза" } else { "" }), 1)
-        .item("Развёрнута", model::short_time(definition.deployment_time.as_deref()), 1)
-        .item("Тег", definition.version_tag.clone().unwrap_or_else(|| "—".into()), 1)
-        .item("Заявок", model::grouped(definition.instances as i64), 1)
-        .item("Инцидентов", model::grouped(definition.incidents as i64), 1);
+        .item(tr!("overview.card.key"), definition.key.clone(), 1)
+        .item(
+            tr!("overview.card.version"),
+            format!("v{}{}", definition.version, if definition.suspended { tr!("overview.paused") } else { SharedString::default() }),
+            1,
+        )
+        .item(tr!("overview.card.deployed"), model::short_time(definition.deployment_time.as_deref()), 1)
+        .item(tr!("overview.card.tag"), definition.version_tag.clone().unwrap_or_else(|| "—".into()), 1)
+        .item(tr!("overview.card.instances"), model::grouped(definition.instances as i64), 1)
+        .item(tr!("overview.card.incidents"), model::grouped(definition.incidents as i64), 1);
     HoverCard::new(SharedString::from(format!("card-{id}")))
         .w(px(360.))
         .trigger_style(StyleRefinement::default().w_full().min_w_0())

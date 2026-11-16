@@ -21,6 +21,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::model::{IncidentGroup, Navigate, ProcessGroup};
+use crate::platform::locale;
 
 const REFRESH_EVERY: Duration = Duration::from_secs(15);
 const STUCK_MILLIS: i64 = 4 * 3_600_000;
@@ -39,6 +40,7 @@ pub struct OverviewView {
     expanded_process: Option<SharedString>,
     filter: Entity<InputState>,
     load: Option<Task<()>>,
+    locale: SharedString,
     _poll: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -47,7 +49,7 @@ impl EventEmitter<Navigate> for OverviewView {}
 
 impl OverviewView {
     pub fn new(connection: CamundaConnection, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Фильтр"));
+        let filter = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("overview.filter")));
         let subscription = cx.subscribe(&filter, |this, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
                 this.regroup(cx);
@@ -75,6 +77,7 @@ impl OverviewView {
             expanded_process: None,
             filter,
             load: None,
+            locale: locale::current(),
             _poll: poll,
             _subscriptions: vec![subscription],
         }
@@ -82,7 +85,12 @@ impl OverviewView {
 }
 
 impl Render for OverviewView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let current = locale::current();
+        if current != self.locale {
+            self.locale = current;
+            self.filter.update(cx, |state, cx| state.set_placeholder(tr!("overview.filter"), window, cx));
+        }
         let content = match &self.dashboard {
             Some(dashboard) => v_flex()
                 .flex_1()

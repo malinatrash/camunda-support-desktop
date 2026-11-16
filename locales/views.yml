@@ -1,0 +1,382 @@
+_version: 2
+overview.title:
+  en: "Overview"
+  ru: "Обзор"
+overview.loading:
+  en: "loading…"
+  ru: "загружаем…"
+overview.refreshed:
+  en: "updated %{seconds} s ago"
+  ru: "обновлено %{seconds} с назад"
+overview.preset.live:
+  en: "Now"
+  ru: "Сейчас"
+overview.preset.today:
+  en: "Today"
+  ru: "Сегодня"
+overview.preset.yesterday:
+  en: "Yesterday"
+  ru: "Вчера"
+overview.filter:
+  en: "Filter"
+  ru: "Фильтр"
+overview.tab.errors:
+  en: "Errors"
+  ru: "Ошибки"
+overview.tab.waiting:
+  en: "Waiting"
+  ru: "Ожидание"
+overview.empty_live:
+  en: "No incidents in the last 24 hours"
+  ru: "За последние 24 часа инцидентов нет"
+overview.empty:
+  en: "No incidents"
+  ru: "Инцидентов нет"
+overview.group_meta:
+  en: "%{process} · %{kind} · instances %{count} · %{time}"
+  ru: "%{process} · %{kind} · заявок %{count} · %{time}"
+overview.more:
+  en: "and %{count} more"
+  ru: "и ещё %{count}"
+overview.processes:
+  en: "Processes"
+  ru: "Процессы"
+overview.column.process:
+  en: "Process"
+  ru: "Процесс"
+overview.column.running:
+  en: "running"
+  ru: "в работе"
+overview.column.started:
+  en: "started"
+  ru: "стартов"
+overview.column.incidents:
+  en: "incidents"
+  ru: "инциденты"
+overview.versions_count:
+  en: " · versions %{count}"
+  ru: " · версий %{count}"
+overview.paused:
+  en: " · suspended"
+  ru: " · пауза"
+overview.all_versions:
+  en: "All versions"
+  ru: "Все версии"
+overview.stats.incidents_24h:
+  en: "incidents in 24 h"
+  ru: "инцидентов за 24 ч"
+overview.stats.incidents:
+  en: "incidents"
+  ru: "инцидентов"
+overview.stats.running:
+  en: "running"
+  ru: "в работе"
+overview.stats.started:
+  en: "started"
+  ru: "стартов"
+overview.stats.stuck:
+  en: "stuck over 4 h"
+  ru: "висят дольше 4 ч"
+overview.stats.completed:
+  en: "completed"
+  ru: "завершено"
+overview.card.key:
+  en: "Key"
+  ru: "Ключ"
+overview.card.version:
+  en: "Version"
+  ru: "Версия"
+overview.card.deployed:
+  en: "Deployed"
+  ru: "Развёрнута"
+overview.card.tag:
+  en: "Tag"
+  ru: "Тег"
+overview.card.instances:
+  en: "Instances"
+  ru: "Заявок"
+overview.card.incidents:
+  en: "Incidents"
+  ru: "Инцидентов"
+overview.waiting.process:
+  en: "Process"
+  ru: "Процесс"
+overview.waiting.step:
+  en: "Step"
+  ru: "Шаг"
+overview.waiting.oldest:
+  en: "Oldest instance"
+  ru: "Старейшая заявка"
+overview.waiting.since:
+  en: "Waiting since"
+  ru: "Ждёт с"
+overview.waiting.average:
+  en: "Average"
+  ru: "В среднем"
+overview.waiting.meta:
+  en: "%{process} · instances %{count}"
+  ru: "%{process} · заявок %{count}"
+search.title:
+  en: "Instance search"
+  ru: "Поиск заявок"
+search.mode.key:
+  en: "Business key or ID"
+  ru: "Бизнес-ключ или ID"
+search.mode.variable:
+  en: "By variable"
+  ru: "По переменной"
+search.key.placeholder:
+  en: "Full or partial business key, or instance ID"
+  ru: "Бизнес-ключ целиком или его часть, либо ID заявки"
+search.key.label:
+  en: "Business key or instance ID"
+  ru: "Бизнес-ключ или ID заявки"
+search.key.description:
+  en: "Part of a business key or instance ID — searches running and completed instances."
+  ru: "Подстрока бизнес-ключа или ID заявки — ищем среди запущенных и завершённых."
+search.key.required:
+  en: "Enter a business key or instance ID."
+  ru: "Введите бизнес-ключ или ID заявки."
+search.find:
+  en: "Search"
+  ru: "Найти"
+search.value.placeholder:
+  en: "Exact value"
+  ru: "Точное значение"
+search.variable.subtitle:
+  en: "%{types} · occurrences: %{count}"
+  ru: "%{types} · встречается %{count} раз"
+search.type.auto:
+  en: "Auto"
+  ru: "Авто"
+search.type.string:
+  en: "String"
+  ru: "Строка"
+search.type.number:
+  en: "Number"
+  ru: "Число"
+search.type.boolean:
+  en: "Boolean"
+  ru: "Булево"
+search.step.process:
+  en: "1. Select a process"
+  ru: "1. Выберите процесс"
+search.step.loading:
+  en: "2. Reading variables of active instances…"
+  ru: "2. Читаем переменные активных заявок…"
+search.step.found:
+  en: "2. Keys found: %{keys} in %{instances} active instances%{truncated} · cached across sessions for up to 24 h."
+  ru: "2. Найдено ключей: %{keys} в %{instances} активных заявках%{truncated} · кэш между сессиями до 24 ч."
+search.step.truncated:
+  en: " (sample limited)"
+  ru: " (выборка ограничена)"
+search.step.variable:
+  en: "2. Select a variable"
+  ru: "2. Выберите переменную"
+search.process:
+  en: "Process"
+  ru: "Процесс"
+search.process.search:
+  en: "Process name or key"
+  ru: "Название или ключ процесса"
+search.variable:
+  en: "Variable"
+  ru: "Переменная"
+search.variable.search:
+  en: "Variable name"
+  ru: "Имя переменной"
+search.variable.refresh:
+  en: "Reload process variables"
+  ru: "Перечитать переменные процесса"
+search.value:
+  en: "Value"
+  ru: "Значение"
+search.value_type:
+  en: "Value type"
+  ru: "Тип значения"
+search.error.process:
+  en: "Select a process first."
+  ru: "Сначала выберите процесс."
+search.error.variable:
+  en: "Select a variable from the process list."
+  ru: "Выберите переменную из списка процесса."
+search.error.value:
+  en: "Enter the exact variable value."
+  ru: "Укажите точное значение переменной."
+search.empty.key:
+  en: "No instances found. Check the business key or ID."
+  ru: "Заявки не найдены. Проверьте бизнес-ключ или ID."
+search.empty.variable:
+  en: "No active instances with this value."
+  ru: "Активных заявок с таким значением не найдено."
+search.results:
+  en: "Found instances"
+  ru: "Найденные заявки"
+search.double_click:
+  en: "Double-click opens the instance"
+  ru: "Двойной клик открывает заявку"
+search.column.state:
+  en: "State"
+  ru: "Состояние"
+search.column.business_key:
+  en: "Business key"
+  ru: "Бизнес-ключ"
+search.column.process:
+  en: "Process"
+  ru: "Процесс"
+search.column.id:
+  en: "Instance ID"
+  ru: "ID заявки"
+search.column.start:
+  en: "Started"
+  ru: "Старт"
+search.column.version:
+  en: "Version"
+  ru: "Версия"
+incidents.title:
+  en: "Incidents"
+  ru: "Инциденты"
+incidents.preset.live:
+  en: "Now"
+  ru: "Сейчас"
+incidents.preset.today:
+  en: "Today"
+  ru: "Сегодня"
+incidents.preset.yesterday:
+  en: "Yesterday"
+  ru: "Вчера"
+incidents.reload:
+  en: "Refresh"
+  ru: "Обновить"
+incidents.query.placeholder:
+  en: "Message, instance, activity or ID"
+  ru: "Сообщение, заявка, кубик или ID"
+incidents.all_processes:
+  en: "All processes"
+  ru: "Все процессы"
+incidents.all_types:
+  en: "All types"
+  ru: "Все типы"
+incidents.definition_version:
+  en: "%{key} · version %{version}"
+  ru: "%{key} · версия %{version}"
+incidents.groups:
+  en: "Groups"
+  ru: "Группы"
+incidents.group_meta:
+  en: "%{process} · %{kind} · instances %{count} · %{time}"
+  ru: "%{process} · %{kind} · заявок %{count} · %{time}"
+incidents.retry_group:
+  en: "Retry (%{count})"
+  ru: "Повторить (%{count})"
+incidents.pick_all:
+  en: "Select all"
+  ru: "Выбрать все"
+incidents.retry_selected:
+  en: "Retry selected (%{count})"
+  ru: "Повторить выбранные (%{count})"
+incidents.double_click:
+  en: "Double-click opens the instance"
+  ru: "Двойной клик открывает заявку"
+incidents.empty:
+  en: "No incidents"
+  ru: "Инцидентов нет"
+incidents.not_found:
+  en: "Nothing found"
+  ru: "Ничего не найдено"
+incidents.change_filter:
+  en: "Change the filter."
+  ru: "Измените фильтр."
+incidents.no_message:
+  en: "Camunda returned no error message"
+  ru: "Camunda не вернула сообщение ошибки"
+incidents.field.message:
+  en: "Message"
+  ru: "Сообщение"
+incidents.field.type:
+  en: "Type"
+  ru: "Тип"
+incidents.field.activity:
+  en: "Activity"
+  ru: "Кубик"
+incidents.field.process:
+  en: "Process"
+  ru: "Процесс"
+incidents.field.instance:
+  en: "Instance"
+  ru: "Заявка"
+incidents.field.time:
+  en: "Time"
+  ru: "Время"
+incidents.retry.title:
+  en: "Retry incidents"
+  ru: "Повторить инциденты"
+incidents.retry.description.one:
+  en: "Set %{retries} retries on %{count} incident? Camunda will immediately re-run the jobs and external tasks."
+  ru: "Выставить %{retries} попытки для %{count} инцидента? Camunda сразу начнёт повторное выполнение заданий и внешних задач."
+incidents.retry.description.few:
+  ru: "Выставить %{retries} попытки для %{count} инцидентов? Camunda сразу начнёт повторное выполнение заданий и внешних задач."
+incidents.retry.description.many:
+  ru: "Выставить %{retries} попытки для %{count} инцидентов? Camunda сразу начнёт повторное выполнение заданий и внешних задач."
+incidents.retry.description.other:
+  en: "Set %{retries} retries on %{count} incidents? Camunda will immediately re-run the jobs and external tasks."
+incidents.retry.skipped:
+  en: ", skipped %{count}"
+  ru: ", пропущено %{count}"
+incidents.retry.done:
+  en: "Retry started: jobs %{jobs}, external tasks %{external}%{skipped}."
+  ru: "Повтор запущен: заданий %{jobs}, внешних задач %{external}%{skipped}."
+incidents.retry.production:
+  en: "I understand this is production"
+  ru: "Понимаю, что это прод"
+incidents.retry.cancel:
+  en: "Cancel"
+  ru: "Отмена"
+incidents.retry.run:
+  en: "Retry"
+  ru: "Повторить"
+definition.overview:
+  en: "Overview"
+  ru: "Обзор"
+definition.all_versions:
+  en: "All versions"
+  ru: "Все версии"
+definition.instances.one:
+  en: "%{count} instance"
+  ru: "%{count} заявка"
+definition.instances.few:
+  ru: "%{count} заявки"
+definition.instances.many:
+  ru: "%{count} заявок"
+definition.instances.other:
+  en: "%{count} instances"
+definition.with_incidents:
+  en: "%{count} with incidents"
+  ru: "%{count} с инцидентами"
+definition.double_click:
+  en: "Double-click a row to open the instance"
+  ru: "Двойной клик по строке открывает заявку"
+definition.empty:
+  en: "No instances"
+  ru: "Заявок нет"
+definition.column.state:
+  en: "State"
+  ru: "Состояние"
+definition.column.business_key:
+  en: "Business key"
+  ru: "Бизнес-ключ"
+definition.column.id:
+  en: "Instance ID"
+  ru: "ID заявки"
+definition.column.start:
+  en: "Created"
+  ru: "Создана"
+definition.column.version:
+  en: "Version"
+  ru: "Версия"
+definition.column.incidents:
+  en: "Incidents"
+  ru: "Инциденты"
+definition.column.tenant:
+  en: "Tenant"
+  ru: "Тенант"

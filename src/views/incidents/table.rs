@@ -11,33 +11,26 @@ use super::load::definition_label;
 use crate::model;
 use crate::platform::theme::mono;
 
+// Колонки: ключ, ключ перевода заголовка и ширина; заголовок берётся при каждом refresh таблицы.
+const COLUMNS: [(&str, &str, f32); 7] = [
+    ("pick", "", 44.),
+    ("message", "incidents.field.message", 420.),
+    ("instance", "incidents.field.instance", 300.),
+    ("type", "incidents.field.type", 160.),
+    ("activity", "incidents.field.activity", 200.),
+    ("process", "incidents.field.process", 180.),
+    ("time", "incidents.field.time", 150.),
+];
+
+#[derive(Default)]
 pub struct IncidentTable {
     pub(super) rows: Vec<ProcessIncident>,
     pub(super) selected: HashSet<String>,
-    columns: Vec<Column>,
-}
-
-impl Default for IncidentTable {
-    fn default() -> Self {
-        Self {
-            rows: Vec::new(),
-            selected: HashSet::new(),
-            columns: vec![
-                Column::new("pick", "").width(44.).resizable(false),
-                Column::new("message", "Сообщение").width(420.),
-                Column::new("instance", "Заявка").width(300.),
-                Column::new("type", "Тип").width(160.),
-                Column::new("activity", "Кубик").width(200.),
-                Column::new("process", "Процесс").width(180.),
-                Column::new("time", "Время").width(150.),
-            ],
-        }
-    }
 }
 
 impl TableDelegate for IncidentTable {
     fn columns_count(&self, _: &App) -> usize {
-        self.columns.len()
+        COLUMNS.len()
     }
 
     fn rows_count(&self, _: &App) -> usize {
@@ -45,14 +38,17 @@ impl TableDelegate for IncidentTable {
     }
 
     fn column(&self, col_ix: usize, _: &App) -> Column {
-        self.columns[col_ix].clone()
+        match COLUMNS[col_ix] {
+            (key, "", width) => Column::new(key, "").width(width).resizable(false),
+            (key, title, width) => Column::new(key, tr!(title)).width(width),
+        }
     }
 
     fn render_td(&mut self, row_ix: usize, col_ix: usize, _: &mut Window, cx: &mut Context<TableState<Self>>) -> impl IntoElement {
         let incident = &self.rows[row_ix];
         let muted = cx.theme().muted_foreground;
         let cell = div().truncate().text_sm();
-        match self.columns[col_ix].key.as_ref() {
+        match COLUMNS[col_ix].0 {
             "pick" => {
                 let id = incident.id.clone();
                 Checkbox::new(SharedString::from(format!("pick-{}", incident.id)))
@@ -69,7 +65,7 @@ impl TableDelegate for IncidentTable {
                     .into_any_element()
             }
             "message" => {
-                let message = cell.child(incident.message.clone().unwrap_or_else(|| "Camunda не вернула сообщение ошибки".into()));
+                let message = cell.child(incident.message.clone().unwrap_or_else(|| tr!("incidents.no_message").into()));
                 incident_card(format!("card-{}", incident.id), incident, message).into_any_element()
             }
             "instance" => {
@@ -86,7 +82,7 @@ impl TableDelegate for IncidentTable {
 
     fn cell_label(&self, row_ix: usize, col_ix: usize, _: &App) -> Option<SharedString> {
         let incident = self.rows.get(row_ix)?;
-        match self.columns[col_ix].key.as_ref() {
+        match COLUMNS[col_ix].0 {
             "message" => incident.message.clone().map(Into::into),
             "instance" => incident.process_instance_id.clone().map(Into::into),
             "activity" => activity(incident).map(Into::into),

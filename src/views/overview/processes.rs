@@ -17,7 +17,7 @@ impl OverviewView {
             .px_4()
             .py_2()
             .gap_2()
-            .child(div().font_weight(FontWeight::SEMIBOLD).child("Процессы"))
+            .child(div().font_weight(FontWeight::SEMIBOLD).child(tr!("overview.processes")))
             .child(Tag::secondary().small().rounded_full().child(self.processes.len().to_string()))
             .child(div().flex_1())
             .child(div().flex_1().max_w(px(220.)).child(Input::new(&self.filter).small()));
@@ -31,9 +31,13 @@ impl OverviewView {
             .text_color(cx.theme().muted_foreground)
             .border_y_1()
             .border_color(cx.theme().border)
-            .child(div().flex_1().child("Процесс"))
-            .child(div().min_w(NUMBER_WIDTH).text_right().child(if live { "в работе" } else { "стартов" }))
-            .child(div().min_w(NUMBER_WIDTH).text_right().child("инциденты"));
+            .child(div().flex_1().child(tr!("overview.column.process")))
+            .child(div().min_w(NUMBER_WIDTH).text_right().child(tr!(if live {
+                "overview.column.running"
+            } else {
+                "overview.column.started"
+            })))
+            .child(div().min_w(NUMBER_WIDTH).text_right().child(tr!("overview.column.incidents")));
         let keys: Vec<SharedString> = self.processes.iter().map(|group| group.key.clone()).collect();
         let accordion = Accordion::new("processes").h_auto().on_toggle_click(cx.listener(move |this, open: &[usize], _, cx| {
             this.expanded_process = open.first().and_then(|ix| keys.get(*ix)).cloned();
@@ -66,8 +70,14 @@ impl OverviewView {
 
 fn process_title(group: &ProcessGroup, cx: &App) -> Div {
     let latest = &group.latest;
-    let versions = if group.versions.len() > 1 { format!(" · версий {}", group.versions.len()) } else { String::new() };
-    let meta = format!("{} · v{}{versions}{}", latest.key, latest.version, if latest.suspended { " · пауза" } else { "" });
+    let versions =
+        if group.versions.len() > 1 { tr!("overview.versions_count", count = group.versions.len()).to_string() } else { String::new() };
+    let meta = format!(
+        "{} · v{}{versions}{}",
+        latest.key,
+        latest.version,
+        if latest.suspended { tr!("overview.paused") } else { SharedString::default() }
+    );
     h_flex()
         .flex_1()
         .min_w_0()
