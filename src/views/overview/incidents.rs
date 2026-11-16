@@ -32,12 +32,12 @@ impl OverviewView {
 }
 
 fn group_title(group: &IncidentGroup, cx: &App) -> Div {
-    let meta = format!(
-        "{} · {} · заявок {} · {}",
-        group.process_key,
-        model::incident_type_label(&group.incident_type),
-        group.instance_ids.len(),
-        model::short_time(group.latest.as_deref())
+    let meta = tr!(
+        "overview.group_meta",
+        process = group.process_key,
+        kind = model::incident_type_label(&group.incident_type),
+        count = group.instance_ids.len(),
+        time = model::short_time(group.latest.as_deref())
     );
     let more = group.instance_ids.len().saturating_sub(CARD_IDS);
     let card = v_flex()
@@ -51,7 +51,7 @@ fn group_title(group: &IncidentGroup, cx: &App) -> Div {
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .children(group.instance_ids.iter().take(CARD_IDS).cloned())
-                .children((more > 0).then(|| format!("и ещё {more}"))),
+                .children((more > 0).then(|| tr!("overview.more", count = more))),
         );
     let signature = HoverCard::new(SharedString::from(format!("card-{}", group.key)))
         .w(px(420.))

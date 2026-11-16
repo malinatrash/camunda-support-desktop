@@ -8,29 +8,23 @@ use gpui_kit::*;
 use crate::model;
 use crate::platform::theme::mono;
 
+// Колонки: ключ, ключ перевода заголовка и ширина; заголовок берётся при каждом refresh таблицы.
+const COLUMNS: [(&str, &str, f32); 5] = [
+    ("state", "search.column.state", 150.),
+    ("business_key", "search.column.business_key", 240.),
+    ("process", "search.column.process", 240.),
+    ("id", "search.column.id", 320.),
+    ("start", "search.column.start", 160.),
+];
+
+#[derive(Default)]
 pub struct ResultTable {
     pub(super) rows: Vec<ProcessInstanceSummary>,
-    columns: Vec<Column>,
-}
-
-impl Default for ResultTable {
-    fn default() -> Self {
-        Self {
-            rows: Vec::new(),
-            columns: vec![
-                Column::new("state", "Состояние").width(150.),
-                Column::new("business_key", "Бизнес-ключ").width(240.),
-                Column::new("process", "Процесс").width(240.),
-                Column::new("id", "ID заявки").width(320.),
-                Column::new("start", "Старт").width(160.),
-            ],
-        }
-    }
 }
 
 impl TableDelegate for ResultTable {
     fn columns_count(&self, _: &App) -> usize {
-        self.columns.len()
+        COLUMNS.len()
     }
 
     fn rows_count(&self, _: &App) -> usize {
@@ -38,13 +32,14 @@ impl TableDelegate for ResultTable {
     }
 
     fn column(&self, col_ix: usize, _: &App) -> Column {
-        self.columns[col_ix].clone()
+        let (key, title, width) = COLUMNS[col_ix];
+        Column::new(key, tr!(title)).width(width)
     }
 
     fn render_td(&mut self, row_ix: usize, col_ix: usize, _: &mut Window, cx: &mut Context<TableState<Self>>) -> impl IntoElement {
         let instance = &self.rows[row_ix];
         let muted = cx.theme().muted_foreground;
-        match self.columns[col_ix].key.as_ref() {
+        match COLUMNS[col_ix].0 {
             "state" => model::state_tag(instance.suspended, instance.ended).into_any_element(),
             "business_key" => {
                 let key =
@@ -69,7 +64,7 @@ impl TableDelegate for ResultTable {
 
     fn cell_label(&self, row_ix: usize, col_ix: usize, _: &App) -> Option<SharedString> {
         let instance = self.rows.get(row_ix)?;
-        match self.columns[col_ix].key.as_ref() {
+        match COLUMNS[col_ix].0 {
             "business_key" => instance.business_key.clone().map(Into::into),
             "id" => Some(instance.id.clone().into()),
             _ => None,
@@ -82,12 +77,12 @@ fn instance_card(cell: &str, instance: &ProcessInstanceSummary, trigger: impl In
     let details = DescriptionList::new()
         .columns(1)
         .bordered(false)
-        .item("Бизнес-ключ", instance.business_key.clone().unwrap_or_else(|| "—".into()), 1)
-        .item("ID заявки", instance.id.clone(), 1)
-        .item("Процесс", instance.definition_name.clone().unwrap_or_else(|| instance.definition_key.clone()), 1)
-        .item("Версия", instance.definition_id.clone(), 1)
-        .item("Старт", model::short_time(instance.start_time.as_deref()), 1)
-        .item("Состояние", model::state_tag(instance.suspended, instance.ended).into_any_element(), 1);
+        .item(tr!("search.column.business_key"), instance.business_key.clone().unwrap_or_else(|| "—".into()), 1)
+        .item(tr!("search.column.id"), instance.id.clone(), 1)
+        .item(tr!("search.column.process"), instance.definition_name.clone().unwrap_or_else(|| instance.definition_key.clone()), 1)
+        .item(tr!("search.column.version"), instance.definition_id.clone(), 1)
+        .item(tr!("search.column.start"), model::short_time(instance.start_time.as_deref()), 1)
+        .item(tr!("search.column.state"), model::state_tag(instance.suspended, instance.ended).into_any_element(), 1);
     HoverCard::new(ElementId::Name(format!("instance-{cell}-{}", instance.id).into()))
         .anchor(Anchor::TopLeft)
         .trigger_style(StyleRefinement::default().w_full())

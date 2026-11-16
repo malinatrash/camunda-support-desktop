@@ -1,4 +1,4 @@
-use camunda_core::models::VariableValueType;
+use camunda_core::models::{ProcessVariableCatalog, ProcessVariableDescriptor, VariableValueType};
 use gpui_kit::component::select::{SearchableVec, SelectItem};
 use gpui_kit::component::{ActiveTheme, v_flex};
 use gpui_kit::*;
@@ -23,14 +23,7 @@ impl SearchView {
             this.update_in(cx, |this, window, cx| {
                 match result {
                     Ok(catalog) => {
-                        let items: Vec<VariableItem> = catalog
-                            .variables
-                            .iter()
-                            .map(|variable| VariableItem {
-                                name: variable.name.clone().into(),
-                                subtitle: format!("{} · встречается {} раз", variable.types.join(", "), variable.occurrences).into(),
-                            })
-                            .collect();
+                        let items = variable_items(&catalog);
                         this.variable.update(cx, |state, cx| state.set_items(SearchableVec::new(items), window, cx));
                         this.catalog = Some(catalog);
                     }
@@ -50,6 +43,15 @@ impl SearchView {
         cx.global::<services::Services>().api.invalidate_process_variable_catalog(&self.connection, &key);
         self.load_catalog(Some(key.into()), window, cx);
     }
+}
+
+// Переменные каталога с подписью на текущем языке.
+pub(super) fn variable_items(catalog: &ProcessVariableCatalog) -> Vec<VariableItem> {
+    let item = |variable: &ProcessVariableDescriptor| VariableItem {
+        name: variable.name.clone().into(),
+        subtitle: tr!("search.variable.subtitle", types = variable.types.join(", "), count = variable.occurrences),
+    };
+    catalog.variables.iter().map(item).collect()
 }
 
 #[derive(Clone)]
@@ -85,13 +87,13 @@ pub struct TypeItem {
 impl TypeItem {
     pub(super) fn all() -> Vec<TypeItem> {
         [
-            ("Авто", VariableValueType::Auto),
-            ("Строка", VariableValueType::String),
-            ("Число", VariableValueType::Number),
-            ("Булево", VariableValueType::Boolean),
+            ("search.type.auto", VariableValueType::Auto),
+            ("search.type.string", VariableValueType::String),
+            ("search.type.number", VariableValueType::Number),
+            ("search.type.boolean", VariableValueType::Boolean),
         ]
         .into_iter()
-        .map(|(label, value)| TypeItem { label: label.into(), value })
+        .map(|(key, value)| TypeItem { label: tr!(key), value })
         .collect()
     }
 }

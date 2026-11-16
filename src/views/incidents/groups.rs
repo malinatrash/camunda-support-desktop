@@ -23,12 +23,12 @@ impl IncidentsView {
             let members: Vec<&ProcessIncident> = filtered.iter().filter(|incident| group_key(incident) == group.key.as_ref()).collect();
             let retry: Vec<ProcessIncident> =
                 members.iter().filter(|incident| retryable(incident)).map(|incident| (*incident).clone()).collect();
-            let meta = format!(
-                "{} · {} · заявок {} · {}",
-                group.process_key,
-                model::incident_type_label(&group.incident_type),
-                group.instance_ids.len(),
-                model::short_time(group.latest.as_deref())
+            let meta = tr!(
+                "incidents.group_meta",
+                process = group.process_key,
+                kind = model::incident_type_label(&group.incident_type),
+                count = group.instance_ids.len(),
+                time = model::short_time(group.latest.as_deref())
             );
             let title = h_flex().gap_3().min_w_0().child(Tag::danger().small().rounded_full().child(group.count.to_string())).child(
                 v_flex()
@@ -39,7 +39,7 @@ impl IncidentsView {
             let actions =
                 h_flex().gap_2().child(div().flex_1().truncate().text_xs().text_color(cx.theme().muted_foreground).child(meta)).child(
                     Button::new(SharedString::from(format!("retry-{}", group.key)))
-                        .label(format!("Повторить ({})", retry.len()))
+                        .label(tr!("incidents.retry_group", count = retry.len()))
                         .outline()
                         .xsmall()
                         .disabled(retry.is_empty())
@@ -58,7 +58,15 @@ impl IncidentsView {
             .border_1()
             .border_color(cx.theme().border)
             .rounded(cx.theme().radius)
-            .child(h_flex().px_4().py_3().border_b_1().border_color(cx.theme().border).font_weight(FontWeight::SEMIBOLD).child("Группы"))
+            .child(
+                h_flex()
+                    .px_4()
+                    .py_3()
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(tr!("incidents.groups")),
+            )
             .child(div().id("incident-groups-scroll").flex_1().min_h_0().overflow_y_scroll().child(accordion))
     }
 }

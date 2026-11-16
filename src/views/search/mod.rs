@@ -16,7 +16,8 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::model::Navigate;
-use catalog::{TypeItem, VariableItem};
+use crate::platform::locale;
+use catalog::{TypeItem, VariableItem, variable_items};
 use process::ProcessItem;
 use table::ResultTable;
 
@@ -42,6 +43,7 @@ pub struct SearchView {
     table: Entity<TableState<ResultTable>>,
     search: Option<Task<()>>,
     catalog_load: Option<Task<()>>,
+    locale: SharedString,
     _definitions_load: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -50,8 +52,8 @@ impl EventEmitter<Navigate> for SearchView {}
 
 impl SearchView {
     pub fn new(connection: CamundaConnection, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let key_query = cx.new(|cx| InputState::new(window, cx).placeholder("Бизнес-ключ целиком или его часть, либо ID заявки"));
-        let value = cx.new(|cx| InputState::new(window, cx).placeholder("Точное значение"));
+        let key_query = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("search.key.placeholder")));
+        let value = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("search.value.placeholder")));
         let process = cx.new(|cx| SelectState::new(SearchableVec::new(Vec::<ProcessItem>::new()), None, window, cx).searchable(true));
         let variable = cx.new(|cx| SelectState::new(SearchableVec::new(Vec::<VariableItem>::new()), None, window, cx).searchable(true));
         let value_type = cx.new(|cx| SelectState::new(TypeItem::all(), Some(IndexPath::default()), window, cx));
@@ -95,6 +97,7 @@ impl SearchView {
             table,
             search: None,
             catalog_load: None,
+            locale: locale::current(),
             _definitions_load: None,
             _subscriptions: subscriptions,
         };
@@ -103,8 +106,28 @@ impl SearchView {
     }
 }
 
+impl SearchView {
+    // После смены языка обновляет тексты, которые компоненты GPUI Kit держат у себя.
+    fn relabel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = locale::current();
+        if current == self.locale {
+            return;
+        }
+        self.locale = current;
+        self.key_query.update(cx, |state, cx| state.set_placeholder(tr!("search.key.placeholder"), window, cx));
+        self.value.update(cx, |state, cx| state.set_placeholder(tr!("search.value.placeholder"), window, cx));
+        self.value_type.update(cx, |state, cx| state.set_items(TypeItem::all(), window, cx));
+        if let Some(catalog) = &self.catalog {
+            let items = variable_items(catalog);
+            self.variable.update(cx, |state, cx| state.set_items(SearchableVec::new(items), window, cx));
+        }
+        self.table.update(cx, |table, cx| table.refresh(cx));
+    }
+}
+
 impl Render for SearchView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.relabel(window, cx);
         let form = match self.mode {
             Mode::Key => self.render_key_form(cx).into_any_element(),
             Mode::Variable => self.render_variable_form(cx).into_any_element(),
@@ -112,14 +135,17 @@ impl Render for SearchView {
         let mode_tabs = TabBar::new("search-mode")
             .segmented()
             .selected_index(if self.mode == Mode::Key { 0 } else { 1 })
-            .children(["Бизнес-ключ или ID", "По переменной"])
+            .children([tr!("search.mode.key"), tr!("search.mode.variable")])
             .on_click(cx.listener(|this, index: &usize, _, cx| this.select_mode(if *index == 0 { Mode::Key } else { Mode::Variable }, cx)));
         v_flex()
             .size_full()
             .p_4()
             .gap_4()
             .child(
-                h_flex().gap_4().child(div().flex_1().text_lg().font_weight(FontWeight::SEMIBOLD).child("Поиск заявок")).child(mode_tabs),
+                h_flex()
+                    .gap_4()
+                    .child(div().flex_1().text_lg().font_weight(FontWeight::SEMIBOLD).child(tr!("search.title")))
+                    .child(mode_tabs),
             )
             .child(form)
             .when_some(self.error.clone(), |this, error| this.child(Alert::error("search-error", error)))

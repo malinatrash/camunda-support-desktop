@@ -14,8 +14,8 @@ impl OverviewView {
         let tabs = TabBar::new("overview-tabs")
             .underline()
             .selected_index(self.tab)
-            .child(Tab::new().label("Ошибки").suffix(count(self.incident_groups.len())))
-            .child(Tab::new().label("Ожидание").suffix(count(dashboard.longest_waiting_activities.len())))
+            .child(Tab::new().label(tr!("overview.tab.errors")).suffix(count(self.incident_groups.len())))
+            .child(Tab::new().label(tr!("overview.tab.waiting")).suffix(count(dashboard.longest_waiting_activities.len())))
             .on_click(cx.listener(|this, index: &usize, _, cx| {
                 this.tab = *index;
                 cx.notify();
@@ -27,9 +27,9 @@ impl OverviewView {
         } else if self.incident_groups.is_empty() {
             body.child(Empty::new().header(EmptyHeader::new().title(EmptyTitle::new().child(
                 if self.preset == camunda_core::models::DashboardDatePreset::Live {
-                    "За последние 24 часа инцидентов нет"
+                    tr!("overview.empty_live")
                 } else {
-                    "Инцидентов нет"
+                    tr!("overview.empty")
                 },
             ))))
         } else {
