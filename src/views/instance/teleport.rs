@@ -6,7 +6,7 @@ use gpui_kit::component::{ActiveTheme, Disableable, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::services;
+use crate::platform::services;
 
 pub enum TeleportEvent {
     Done,

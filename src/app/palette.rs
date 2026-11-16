@@ -7,7 +7,7 @@ use gpui_kit::component::{ActiveTheme, IndexPath, h_flex, v_flex};
 use gpui_kit::*;
 
 use crate::model;
-use crate::services;
+use crate::platform::services;
 
 const DEBOUNCE: Duration = Duration::from_millis(250);
 
@@ -100,10 +100,7 @@ impl Render for CommandPalette {
             CommandGroup::new().label("Разделы").items(SECTIONS.iter().map(|(_, label, keys)| {
                 let (label, keys) = (*label, *keys);
                 CommandItem::new().label(label).child(move |_, _| {
-                    h_flex()
-                        .w_full()
-                        .child(div().flex_1().child(label))
-                        .child(Kbd::new(Keystroke::parse(keys).expect("сочетание")))
+                    h_flex().w_full().child(div().flex_1().child(label)).child(Kbd::new(Keystroke::parse(keys).expect("сочетание")))
                 })
             }))
         } else {
@@ -123,7 +120,7 @@ impl Render for CommandPalette {
                                     div()
                                         .truncate()
                                         .text_xs()
-                                        .font_family(crate::theme::mono(cx))
+                                        .font_family(crate::platform::theme::mono(cx))
                                         .text_color(cx.theme().muted_foreground)
                                         .child(format!("{process} · {}", instance.id)),
                                 ),

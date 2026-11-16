@@ -1,3 +1,5 @@
+mod markers;
+
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -7,8 +9,6 @@ use camunda_core::models::{BpmnDiagram, BpmnNode};
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::{ActiveTheme, IconName, Sizable, h_flex};
 use gpui_kit::*;
-
-use crate::markers;
 
 const MIN_ZOOM: f32 = 0.05;
 const MAX_ZOOM: f32 = 4.0;

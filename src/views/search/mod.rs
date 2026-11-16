@@ -11,10 +11,10 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::model;
-use crate::services;
 use crate::model::Navigate;
-use gpui_kit::component::tag::Tag;
+use crate::platform::services;
 use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
+use gpui_kit::component::tag::Tag;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
@@ -37,9 +37,13 @@ impl SelectItem for ProcessItem {
     }
 
     fn render(&self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        v_flex()
-            .child(self.title.clone())
-            .child(div().text_xs().font_family(crate::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(self.subtitle.clone()))
+        v_flex().child(self.title.clone()).child(
+            div()
+                .text_xs()
+                .font_family(crate::platform::theme::mono(cx))
+                .text_color(cx.theme().muted_foreground)
+                .child(self.subtitle.clone()),
+        )
     }
 
     fn value(&self) -> &SharedString {
@@ -67,7 +71,7 @@ impl SelectItem for VariableItem {
 
     fn render(&self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         v_flex()
-            .child(div().font_family(crate::theme::mono(cx)).child(self.name.clone()))
+            .child(div().font_family(crate::platform::theme::mono(cx)).child(self.name.clone()))
             .child(div().text_xs().text_color(cx.theme().muted_foreground).child(self.subtitle.clone()))
     }
 
@@ -436,17 +440,21 @@ impl Render for SearchView {
                     Mode::Variable => "Активных заявок с таким значением не найдено.",
                 })
                 .into_any_element(),
-            Some(count) => GroupBox::new().outline().title(
-                h_flex()
-                    .w_full()
-                    .gap_2()
-                    .child(div().font_weight(FontWeight::SEMIBOLD).child("Найденные заявки"))
-                    .child(Tag::secondary().small().rounded_full().child((count).to_string()))
-                    .child(div().flex_1())
-                    .child(hint("Двойной клик открывает заявку", cx))).content_style(crate::theme::panel())
-            .flex_1()
-            .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).large().stripe(false).bordered(false)))
-            .into_any_element(),
+            Some(count) => GroupBox::new()
+                .outline()
+                .title(
+                    h_flex()
+                        .w_full()
+                        .gap_2()
+                        .child(div().font_weight(FontWeight::SEMIBOLD).child("Найденные заявки"))
+                        .child(Tag::secondary().small().rounded_full().child((count).to_string()))
+                        .child(div().flex_1())
+                        .child(hint("Двойной клик открывает заявку", cx)),
+                )
+                .content_style(crate::platform::theme::panel())
+                .flex_1()
+                .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).large().stripe(false).bordered(false)))
+                .into_any_element(),
             None => div().into_any_element(),
         };
         let mode_index = if self.mode == Mode::Key { 0 } else { 1 };
@@ -519,15 +527,15 @@ impl TableDelegate for ResultTable {
                     div()
                         .truncate()
                         .text_xs()
-                        .font_family(crate::theme::mono(cx))
+                        .font_family(crate::platform::theme::mono(cx))
                         .text_color(cx.theme().muted_foreground)
                         .child(instance.definition_id.clone()),
                 )
                 .into_any_element(),
-            "id" => div().truncate().text_sm().font_family(crate::theme::mono(cx)).child(instance.id.clone()).into_any_element(),
+            "id" => div().truncate().text_sm().font_family(crate::platform::theme::mono(cx)).child(instance.id.clone()).into_any_element(),
             _ => div()
                 .text_sm()
-                .font_family(crate::theme::mono(cx))
+                .font_family(crate::platform::theme::mono(cx))
                 .text_color(cx.theme().muted_foreground)
                 .child(model::short_time(instance.start_time.as_deref()))
                 .into_any_element(),

@@ -2,21 +2,10 @@
 
 mod app;
 mod bpmn;
-mod definition;
-mod incidents;
-mod instance;
-mod markers;
 mod model;
-mod operations;
-mod overview;
-mod palette;
-mod search;
-mod services;
-mod settings;
-mod teleport;
-mod theme;
+mod platform;
 mod updates;
-mod variables;
+mod views;
 
 use camunda_core::migration;
 use camunda_core::models::AppThemeMode;
@@ -25,7 +14,7 @@ use gpui_kit::component::TitleBar;
 use gpui_kit::*;
 
 use app::{AppView, OpenIncidents, OpenOverview, OpenSearch, OpenSettings, TogglePalette};
-use services::Services;
+use platform::services::Services;
 
 actions!(camunda_support, [Quit]);
 
@@ -73,7 +62,7 @@ fn main() {
         };
         gpui_kit::open_window(options, cx, |window, cx| {
             window.set_window_title("Поддержка Camunda");
-            theme::apply(dark, window, cx);
+            platform::theme::apply(dark, window, cx);
             cx.new(|cx| AppView::new(received, window, cx))
         })
         .expect("окно не открылось");

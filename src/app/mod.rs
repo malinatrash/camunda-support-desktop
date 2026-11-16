@@ -1,3 +1,5 @@
+mod palette;
+
 use camunda_core::deep_link;
 use camunda_core::models::{CamundaConnection, DeepLinkEvent, Environment};
 use futures::StreamExt as _;
@@ -10,18 +12,17 @@ use gpui_kit::component::{ActiveTheme, IconName, Sizable, TitleBar, WindowExt as
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::definition::DefinitionView;
-use crate::incidents::IncidentsView;
-use crate::instance::InstanceView;
-use crate::overview::OverviewView;
-use crate::palette::{CommandPalette, PaletteEvent, Section};
-use crate::search::SearchView;
-use crate::services::Services;
-use crate::settings::{SettingsEvent, SettingsView};
 use crate::model::Navigate;
+use crate::platform::services::Services;
+use crate::views::definition::DefinitionView;
+use crate::views::incidents::IncidentsView;
+use crate::views::instance::InstanceView;
+use crate::views::overview::OverviewView;
+use crate::views::search::SearchView;
+use crate::views::settings::{SettingsEvent, SettingsView};
+use palette::{CommandPalette, PaletteEvent, Section};
 
 actions!(camunda_support, [TogglePalette, OpenOverview, OpenSearch, OpenIncidents, OpenSettings,]);
-
 
 enum Page {
     Definition(Entity<DefinitionView>),
@@ -323,7 +324,13 @@ impl Render for AppView {
                                 .small()
                                 .w(px(260.))
                                 .icon(IconName::Search)
-                                .child(h_flex().flex_1().justify_between().child("Найти заявку").child(Kbd::new(Keystroke::parse("cmd-k").expect("сочетание"))))
+                                .child(
+                                    h_flex()
+                                        .flex_1()
+                                        .justify_between()
+                                        .child("Найти заявку")
+                                        .child(Kbd::new(Keystroke::parse("cmd-k").expect("сочетание"))),
+                                )
                                 .on_click(cx.listener(|this, _, window, cx| this.toggle_palette(window, cx))),
                         )
                         .child(
@@ -332,7 +339,7 @@ impl Render for AppView {
                                 .small()
                                 .icon(if cx.theme().is_dark() { gpui_kit::assets::IconName::Sun } else { gpui_kit::assets::IconName::Moon })
                                 .tooltip(if cx.theme().is_dark() { "Светлая тема" } else { "Тёмная тема" })
-                                .on_click(|_, window, cx| crate::theme::toggle(window, cx)),
+                                .on_click(|_, window, cx| crate::platform::theme::toggle(window, cx)),
                         )
                         .child(self.nav_button(Section::Settings, "Настройки", cx)),
                 ),

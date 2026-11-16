@@ -13,7 +13,7 @@ use gpui_kit::*;
 pub use notice::announce;
 pub use status::Status;
 
-use crate::services;
+use crate::platform::services;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 const FIRST_CHECK_AFTER: Duration = Duration::from_secs(3);
@@ -87,7 +87,8 @@ impl Updater {
             }
         };
         let target = update.clone();
-        let install = services::request(cx, move |_| async move { Ok(AppUpdateService::new(VERSION).download_and_install(&target, &report).await) });
+        let install =
+            services::request(cx, move |_| async move { Ok(AppUpdateService::new(VERSION).download_and_install(&target, &report).await) });
         self.status = Status::Downloading(update.version);
         self.work = Some(cx.spawn(async move |this, cx| {
             let mut install = std::pin::pin!(install);

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use camunda_core::models::{ProcessDefinitionSummary, ProcessIncident};
-use gpui_kit::SharedString;
-use gpui_kit::component::tag::Tag;
-use gpui_kit::component::Sizable;
 use gpui_kit::ParentElement;
+use gpui_kit::SharedString;
+use gpui_kit::component::Sizable;
+use gpui_kit::component::tag::Tag;
 
 #[derive(Clone)]
 pub enum Navigate {

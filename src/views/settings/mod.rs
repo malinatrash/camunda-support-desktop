@@ -4,15 +4,15 @@ use camunda_core::camunda::{connection_tester, http};
 use camunda_core::connection;
 use camunda_core::models::{CamundaConnection, ConnectionDraft, Environment};
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
-use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
+use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::switch::Switch;
 use gpui_kit::component::tag::Tag;
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::services::{self, Services};
+use crate::platform::services::{self, Services};
 use crate::updates::{Status, Updater, VERSION};
 
 const ENVIRONMENTS: [(Environment, &str); 4] = [
@@ -167,7 +167,10 @@ impl SettingsView {
                     .primary()
                     .on_click(cx.listener(|this, _, window, cx| this.open_form(window, cx))),
             );
-        GroupBox::new().outline().title(head).content_style(crate::theme::panel())
+        GroupBox::new()
+            .outline()
+            .title(head)
+            .content_style(crate::platform::theme::panel())
             .flex_none()
             .children(self.connections.iter().map(|connection| {
                 let id = connection.id.clone();
@@ -195,7 +198,7 @@ impl SettingsView {
                                 div()
                                     .truncate()
                                     .text_xs()
-                                    .font_family(crate::theme::mono(cx))
+                                    .font_family(crate::platform::theme::mono(cx))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(connection.rest_url.clone()),
                             ),
@@ -237,7 +240,7 @@ impl SettingsView {
             Switch::new("dark-theme")
                 .label("Тёмная тема")
                 .checked(cx.theme().is_dark())
-                .on_click(|_, window, cx| crate::theme::toggle(window, cx)),
+                .on_click(|_, window, cx| crate::platform::theme::toggle(window, cx)),
         )
     }
 
@@ -265,7 +268,12 @@ impl SettingsView {
                         .min_w_0()
                         .gap_0p5()
                         .child(div().font_weight(FontWeight::MEDIUM).child(format!("Версия {VERSION}")))
-                        .child(div().text_sm().text_color(if failed { cx.theme().danger } else { cx.theme().muted_foreground }).child(description)),
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(if failed { cx.theme().danger } else { cx.theme().muted_foreground })
+                                .child(description),
+                        ),
                 )
                 .children(action),
         )
@@ -297,7 +305,7 @@ impl SettingsView {
                 "Адрес Cockpit",
                 div()
                     .text_sm()
-                    .font_family(crate::theme::mono(cx))
+                    .font_family(crate::platform::theme::mono(cx))
                     .text_color(cx.theme().muted_foreground)
                     .child(if derived.is_empty() { "—".to_string() } else { derived })
                     .into_any_element(),

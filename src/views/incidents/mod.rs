@@ -12,10 +12,10 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::model;
-use crate::services;
 use crate::model::Navigate;
-use gpui_kit::component::tag::Tag;
+use crate::platform::services;
 use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
+use gpui_kit::component::tag::Tag;
 
 const RETRIES: i32 = 3;
 
@@ -437,7 +437,14 @@ impl IncidentsView {
                             .small()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .child(div().w(px(44.)).flex_none().flex().justify_end().child(Tag::danger().small().rounded_full().child(summary.count.to_string())))
+                    .child(
+                        div()
+                            .w(px(44.))
+                            .flex_none()
+                            .flex()
+                            .justify_end()
+                            .child(Tag::danger().small().rounded_full().child(summary.count.to_string())),
+                    )
                     .child(
                         v_flex()
                             .flex_1()
@@ -479,7 +486,7 @@ impl IncidentsView {
                                     div()
                                         .w(px(150.))
                                         .flex_none()
-                                        .font_family(crate::theme::mono(cx))
+                                        .font_family(crate::platform::theme::mono(cx))
                                         .text_xs()
                                         .text_color(cx.theme().muted_foreground)
                                         .child(model::short_time(incident.timestamp.as_deref())),
@@ -487,7 +494,7 @@ impl IncidentsView {
                                 .child(
                                     div()
                                         .id(SharedString::from(format!("open-{}", incident.id)))
-                                        .font_family(crate::theme::mono(cx))
+                                        .font_family(crate::platform::theme::mono(cx))
                                         .text_color(cx.theme().link)
                                         .cursor_pointer()
                                         .hover(|style| style.underline())
@@ -512,8 +519,9 @@ impl IncidentsView {
     fn render_list(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let delegate = self.table.read(cx).delegate();
         let all = !delegate.rows.is_empty() && delegate.selected.len() == delegate.rows.len();
-        GroupBox::new().outline().title(
-            Checkbox::new("pick-all").label("Выбрать все").checked(all).on_click(cx.listener(move |this, checked: &bool, _, cx| {
+        GroupBox::new()
+            .outline()
+            .title(Checkbox::new("pick-all").label("Выбрать все").checked(all).on_click(cx.listener(move |this, checked: &bool, _, cx| {
                 let checked = *checked;
                 this.table.update(cx, |table, cx| {
                     let delegate = table.delegate_mut();
@@ -522,9 +530,10 @@ impl IncidentsView {
                     table.refresh(cx);
                 });
                 cx.notify();
-            }))).content_style(crate::theme::panel())
-        .flex_1()
-        .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).large().stripe(false).bordered(false)))
+            })))
+            .content_style(crate::platform::theme::panel())
+            .flex_1()
+            .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).large().stripe(false).bordered(false)))
     }
 
     fn render_confirm(&self, incidents: &[ProcessIncident], cx: &mut Context<Self>) -> impl IntoElement {
@@ -685,7 +694,7 @@ impl TableDelegate for IncidentTable {
             "activity" => div()
                 .truncate()
                 .text_sm()
-                .font_family(crate::theme::mono(cx))
+                .font_family(crate::platform::theme::mono(cx))
                 .child(incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_else(|| "—".into()))
                 .into_any_element(),
             "process" => div()
@@ -695,7 +704,7 @@ impl TableDelegate for IncidentTable {
                 .into_any_element(),
             _ => div()
                 .text_sm()
-                .font_family(crate::theme::mono(cx))
+                .font_family(crate::platform::theme::mono(cx))
                 .text_color(cx.theme().muted_foreground)
                 .child(model::short_time(incident.timestamp.as_deref()))
                 .into_any_element(),

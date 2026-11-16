@@ -2,7 +2,7 @@ use camunda_core::models::AppThemeMode;
 use gpui_kit::component::{ActiveTheme, Theme, ThemeMode};
 use gpui_kit::*;
 
-use crate::services::Services;
+use crate::platform::services::Services;
 
 // Стандартные темы GPUI Kit: Default Dark по умолчанию, Default Light по выбору.
 pub fn apply(dark: bool, window: &mut Window, cx: &mut App) {

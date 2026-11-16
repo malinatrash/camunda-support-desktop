@@ -7,11 +7,11 @@ use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::model::{self, IncidentGroup, ProcessGroup};
-use crate::services;
 use crate::model::Navigate;
-use gpui_kit::component::tag::Tag;
+use crate::model::{self, IncidentGroup, ProcessGroup};
+use crate::platform::services;
 use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
+use gpui_kit::component::tag::Tag;
 
 const REFRESH_EVERY: Duration = Duration::from_secs(15);
 const STUCK_MILLIS: i64 = 4 * 3_600_000;
@@ -221,7 +221,12 @@ impl OverviewView {
                     .border_color(cx.theme().border)
                     .hover(|style| style.bg(cx.theme().table_hover))
                     .cursor_pointer()
-                    .child(div().w(px(110.)).flex_none().child(tone.small().rounded_full().child(model::format_duration(item.maximum_waiting_millis))))
+                    .child(
+                        div()
+                            .w(px(110.))
+                            .flex_none()
+                            .child(tone.small().rounded_full().child(model::format_duration(item.maximum_waiting_millis))),
+                    )
                     .child(
                         v_flex()
                             .min_w_0()
@@ -240,7 +245,7 @@ impl OverviewView {
                     .on_click(cx.listener(move |_, _, _, cx| cx.emit(Navigate::Instance(id.clone()))))
             })),
         };
-        GroupBox::new().outline().title(head).content_style(crate::theme::panel()).flex_1().child(body)
+        GroupBox::new().outline().title(head).content_style(crate::platform::theme::panel()).flex_1().child(body)
     }
 
     fn tab_button(&self, tab: Tab, label: &'static str, count: usize, cx: &mut Context<Self>) -> impl IntoElement {
@@ -285,7 +290,14 @@ impl OverviewView {
                     .gap_3()
                     .cursor_pointer()
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .child(div().w(px(44.)).flex_none().flex().justify_end().child(Tag::danger().small().rounded_full().child(group.count.to_string())))
+                    .child(
+                        div()
+                            .w(px(44.))
+                            .flex_none()
+                            .flex()
+                            .justify_end()
+                            .child(Tag::danger().small().rounded_full().child(group.count.to_string())),
+                    )
                     .child(
                         v_flex()
                             .min_w_0()
@@ -337,7 +349,7 @@ impl OverviewView {
             .child(div().flex_1().pl(px(28.)).child("Процесс"))
             .child(div().w(px(80.)).text_right().child(if live { "в работе" } else { "стартов" }))
             .child(div().w(px(80.)).text_right().child("инциденты"));
-        GroupBox::new().outline().title(head).content_style(crate::theme::panel()).w(px(460.)).flex_none().child(columns).child(
+        GroupBox::new().outline().title(head).content_style(crate::platform::theme::panel()).w(px(460.)).flex_none().child(columns).child(
             div().id("processes").flex_1().overflow_y_scroll().children(self.processes.iter().map(|group| self.render_process(group, cx))),
         )
     }
@@ -365,14 +377,21 @@ impl OverviewView {
                             .small()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .child(v_flex().flex_1().min_w_0().child(div().truncate().child(model::display_name(latest).to_string())).child(
-                        div().truncate().text_xs().font_family(crate::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(format!(
-                            "{} · v{}{versions}{}",
-                            latest.key,
-                            latest.version,
-                            if latest.suspended { " · пауза" } else { "" }
-                        )),
-                    ))
+                    .child(
+                        v_flex().flex_1().min_w_0().child(div().truncate().child(model::display_name(latest).to_string())).child(
+                            div()
+                                .truncate()
+                                .text_xs()
+                                .font_family(crate::platform::theme::mono(cx))
+                                .text_color(cx.theme().muted_foreground)
+                                .child(format!(
+                                    "{} · v{}{versions}{}",
+                                    latest.key,
+                                    latest.version,
+                                    if latest.suspended { " · пауза" } else { "" }
+                                )),
+                        ),
+                    )
                     .child(div().w(px(80.)).text_right().child(model::grouped(group.instances as i64)))
                     .child(div().w(px(80.)).flex().justify_end().child(incidents_cell(group.incidents, cx)))
                     .on_click(cx.listener(move |this, _, _, cx| {

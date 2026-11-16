@@ -1,3 +1,7 @@
+mod operations;
+mod teleport;
+mod variables;
+
 use std::time::Duration;
 
 use camunda_core::deep_link;
@@ -10,13 +14,13 @@ use gpui_kit::*;
 
 use crate::bpmn::{BpmnView, Highlights, SelectNode};
 use crate::model;
-use crate::operations::{self, Operation};
-use crate::services;
-use crate::teleport::{TeleportEvent, TeleportView};
 use crate::model::Navigate;
-use gpui_kit::component::tag::Tag;
+use crate::platform::services;
 use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
-use crate::variables::{VariablesChanged, VariablesView};
+use gpui_kit::component::tag::Tag;
+use operations::Operation;
+use teleport::{TeleportEvent, TeleportView};
+use variables::{VariablesChanged, VariablesView};
 
 const TABS: [&str; 5] = ["Схема", "Хронология", "Диагностика", "Переменные", "Метаданные"];
 const REFRESH_EVERY: Duration = Duration::from_secs(30);
@@ -304,102 +308,118 @@ impl InstanceView {
                     let history = details.activity_history.iter().find(|item| item.activity_id == node.id);
                     let target = node.id.clone();
                     let teleportable = details.diagram.teleport_targets().any(|candidate| candidate.id == node.id);
-                    GroupBox::new().outline().title(
-                        div().font_weight(FontWeight::SEMIBOLD).truncate().child(node.name.clone().unwrap_or_else(|| node.id.clone()))).content_style(crate::theme::panel())
-                    .flex_none()
-                    .child(
-                        v_flex()
-                            .p_4()
-                            .gap_2()
-                            .text_sm()
-                            .child(div().text_color(cx.theme().muted_foreground).child(format!("{} · {}", node.node_type, node.id)))
-                            .children(history.map(|item| {
-                                format!(
-                                    "выполнено {} · активно {} · отменено {}",
-                                    item.completed_count, item.active_count, item.canceled_count
-                                )
-                            }))
-                            .children(node.topic.clone().map(|topic| format!("топик: {topic}")))
-                            .when(teleportable, |this| {
-                                this.child(
-                                    Button::new("teleport-here")
-                                        .label("Телепортировать сюда")
-                                        .primary()
-                                        .small()
-                                        .disabled(!can_teleport)
-                                        .on_click(
-                                            cx.listener(move |this, _, window, cx| this.open_teleport(Some(target.clone()), window, cx)),
-                                        ),
-                                )
-                            }),
-                    )
+                    GroupBox::new()
+                        .outline()
+                        .title(
+                            div().font_weight(FontWeight::SEMIBOLD).truncate().child(node.name.clone().unwrap_or_else(|| node.id.clone())),
+                        )
+                        .content_style(crate::platform::theme::panel())
+                        .flex_none()
+                        .child(
+                            v_flex()
+                                .p_4()
+                                .gap_2()
+                                .text_sm()
+                                .child(div().text_color(cx.theme().muted_foreground).child(format!("{} · {}", node.node_type, node.id)))
+                                .children(history.map(|item| {
+                                    format!(
+                                        "выполнено {} · активно {} · отменено {}",
+                                        item.completed_count, item.active_count, item.canceled_count
+                                    )
+                                }))
+                                .children(node.topic.clone().map(|topic| format!("топик: {topic}")))
+                                .when(teleportable, |this| {
+                                    this.child(
+                                        Button::new("teleport-here")
+                                            .label("Телепортировать сюда")
+                                            .primary()
+                                            .small()
+                                            .disabled(!can_teleport)
+                                            .on_click(
+                                                cx.listener(move |this, _, window, cx| {
+                                                    this.open_teleport(Some(target.clone()), window, cx)
+                                                }),
+                                            ),
+                                    )
+                                }),
+                        )
                 }
-                None => {
-                    GroupBox::new().outline().title(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме")).content_style(crate::theme::panel()).flex_none()
-                }
+                None => GroupBox::new()
+                    .outline()
+                    .title(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме"))
+                    .content_style(crate::platform::theme::panel())
+                    .flex_none(),
             })
             .child(
-                GroupBox::new().outline().title(
-                    h_flex()
-                        .w_full()
-                        .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Текущее состояние"))
-                        .child(Tag::secondary().small().rounded_full().child((details.active_activities.len()).to_string()))).content_style(crate::theme::panel())
-                .flex_none()
-                .child(v_flex().children(details.active_activities.iter().map(|activity| {
-                    v_flex()
-                        .px_4()
-                        .py_3()
-                        .gap_1p5()
-                        .border_b_1()
-                        .border_color(cx.theme().border)
-                        .child(
-                            div()
-                                .text_sm()
-                                .font_weight(FontWeight::MEDIUM)
-                                .child(activity.activity_name.clone().unwrap_or_else(|| activity.activity_id.clone())),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_1p5()
-                                .flex_wrap()
-                                .child(Tag::info().small().rounded_full().child("активен"))
-                                .when(!activity.incident_ids.is_empty(), |this| this.child(Tag::danger().small().rounded_full().child("инцидент")))
-                                .child(div().text_xs().text_color(cx.theme().muted_foreground).child(activity.activity_type.clone())),
-                        )
-                }))),
+                GroupBox::new()
+                    .outline()
+                    .title(
+                        h_flex()
+                            .w_full()
+                            .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Текущее состояние"))
+                            .child(Tag::secondary().small().rounded_full().child((details.active_activities.len()).to_string())),
+                    )
+                    .content_style(crate::platform::theme::panel())
+                    .flex_none()
+                    .child(v_flex().children(details.active_activities.iter().map(|activity| {
+                        v_flex()
+                            .px_4()
+                            .py_3()
+                            .gap_1p5()
+                            .border_b_1()
+                            .border_color(cx.theme().border)
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(activity.activity_name.clone().unwrap_or_else(|| activity.activity_id.clone())),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_1p5()
+                                    .flex_wrap()
+                                    .child(Tag::info().small().rounded_full().child("активен"))
+                                    .when(!activity.incident_ids.is_empty(), |this| {
+                                        this.child(Tag::danger().small().rounded_full().child("инцидент"))
+                                    })
+                                    .child(div().text_xs().text_color(cx.theme().muted_foreground).child(activity.activity_type.clone())),
+                            )
+                    }))),
             )
             .child(
-                GroupBox::new().outline().title(
-                    h_flex()
-                        .w_full()
-                        .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Инциденты"))
-                        .child(Tag::secondary().small().rounded_full().child((details.incidents.len()).to_string()))).content_style(crate::theme::panel())
-                .flex_none()
-                .child(v_flex().p_3().gap_2().children(details.incidents.iter().map(|incident| {
-                    v_flex()
-                        .p_3()
-                        .gap_1()
-                        .rounded_md()
-                        .bg(cx.theme().danger.opacity(0.08))
-                        .border_l_2()
-                        .border_color(cx.theme().danger)
-                        .child(
-                            div()
-                                .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(cx.theme().danger)
-                                .child(incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_default()),
-                        )
-                        .child(div().text_sm().child(incident.message.clone().unwrap_or_else(|| "Без сообщения".into())))
-                        .child(div().text_xs().text_color(cx.theme().muted_foreground).child(format!(
-                            "{} · {}",
-                            model::incident_type_label(&incident.incident_type),
-                            model::short_time(incident.timestamp.as_deref())
-                        )))
-                })))
-                .when(details.incidents.is_empty(), |this| {
-                    this.child(div().p_4().text_sm().text_color(cx.theme().muted_foreground).child("Инцидентов нет"))
-                }),
+                GroupBox::new()
+                    .outline()
+                    .title(
+                        h_flex()
+                            .w_full()
+                            .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Инциденты"))
+                            .child(Tag::secondary().small().rounded_full().child((details.incidents.len()).to_string())),
+                    )
+                    .content_style(crate::platform::theme::panel())
+                    .flex_none()
+                    .child(v_flex().p_3().gap_2().children(details.incidents.iter().map(|incident| {
+                        v_flex()
+                            .p_3()
+                            .gap_1()
+                            .rounded_md()
+                            .bg(cx.theme().danger.opacity(0.08))
+                            .border_l_2()
+                            .border_color(cx.theme().danger)
+                            .child(
+                                div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(cx.theme().danger).child(
+                                    incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_default(),
+                                ),
+                            )
+                            .child(div().text_sm().child(incident.message.clone().unwrap_or_else(|| "Без сообщения".into())))
+                            .child(div().text_xs().text_color(cx.theme().muted_foreground).child(format!(
+                                "{} · {}",
+                                model::incident_type_label(&incident.incident_type),
+                                model::short_time(incident.timestamp.as_deref())
+                            )))
+                    })))
+                    .when(details.incidents.is_empty(), |this| {
+                        this.child(div().p_4().text_sm().text_color(cx.theme().muted_foreground).child("Инцидентов нет"))
+                    }),
             )
     }
 
@@ -425,8 +445,8 @@ impl InstanceView {
             .child(div().w(px(150.)).child("Тип"))
             .child(div().w(px(130.)).text_right().child("Длительность"))
             .child(div().w(px(110.)).text_right().child("Статус"));
-        GroupBox::new().outline().title(head).content_style(crate::theme::panel()).flex_1().child(columns).child(div().id("timeline").flex_1().overflow_y_scroll().children(
-            details.activity_timeline.iter().map(|entry| {
+        GroupBox::new().outline().title(head).content_style(crate::platform::theme::panel()).flex_1().child(columns).child(
+            div().id("timeline").flex_1().overflow_y_scroll().children(details.activity_timeline.iter().map(|entry| {
                 let status = if entry.canceled {
                     Tag::warning().small().rounded_full().child("отменён")
                 } else if entry.end_time.is_none() {
@@ -445,7 +465,7 @@ impl InstanceView {
                         div()
                             .w(px(150.))
                             .flex_none()
-                            .font_family(crate::theme::mono(cx))
+                            .font_family(crate::platform::theme::mono(cx))
                             .text_xs()
                             .child(model::short_time(entry.start_time.as_deref())),
                     )
@@ -472,13 +492,17 @@ impl InstanceView {
                             .child(entry.duration_millis.map(format_millis).unwrap_or_else(|| "—".into())),
                     )
                     .child(div().w(px(110.)).flex_none().flex().justify_end().child(status))
-            }),
-        ))
+            })),
+        )
     }
 
     fn render_metadata(&self, details: &ProcessInstanceDetails, cx: &App) -> impl IntoElement {
-        GroupBox::new().outline().title(div().font_weight(FontWeight::SEMIBOLD).child("Метаданные заявки")).content_style(crate::theme::panel()).flex_1().child(
-            div().id("metadata").flex_1().overflow_y_scroll().children(details.metadata.iter().map(|field| {
+        GroupBox::new()
+            .outline()
+            .title(div().font_weight(FontWeight::SEMIBOLD).child("Метаданные заявки"))
+            .content_style(crate::platform::theme::panel())
+            .flex_1()
+            .child(div().id("metadata").flex_1().overflow_y_scroll().children(details.metadata.iter().map(|field| {
                 h_flex()
                     .px_4()
                     .py_2p5()
@@ -487,9 +511,8 @@ impl InstanceView {
                     .border_color(cx.theme().border)
                     .text_sm()
                     .child(div().w(px(240.)).flex_none().text_color(cx.theme().muted_foreground).child(field.label.clone()))
-                    .child(div().flex_1().min_w_0().font_family(crate::theme::mono(cx)).child(field.value.clone()))
-            })),
-        )
+                    .child(div().flex_1().min_w_0().font_family(crate::platform::theme::mono(cx)).child(field.value.clone()))
+            })))
     }
 }
 
@@ -543,17 +566,21 @@ impl Render for InstanceView {
                                     }))
                             })
                             .when_some(self.details.as_ref(), |this, details| {
-                                this.child(model::state_tag(details.instance.suspended, details.instance.ended))
-                                    .when(!details.incidents.is_empty(), |this| {
+                                this.child(model::state_tag(details.instance.suspended, details.instance.ended)).when(
+                                    !details.incidents.is_empty(),
+                                    |this| {
                                         this.child(Tag::danger().small().rounded_full().child(format!("{} инц.", details.incidents.len())))
-                                    })
+                                    },
+                                )
                             }),
                     )
-                    .child(div().text_xs().font_family(crate::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(format!(
-                        "{} · {}",
-                        self.details.as_ref().map(|details| details.instance.definition_key.clone()).unwrap_or_default(),
-                        self.instance_id
-                    ))),
+                    .child(div().text_xs().font_family(crate::platform::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(
+                        format!(
+                            "{} · {}",
+                            self.details.as_ref().map(|details| details.instance.definition_key.clone()).unwrap_or_default(),
+                            self.instance_id
+                        ),
+                    )),
             )
             .child(
                 Button::new("reload")
