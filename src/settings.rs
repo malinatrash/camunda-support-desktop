@@ -1,25 +1,20 @@
 use std::future::Future;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use camunda_core::camunda::{connection_tester, http};
 use camunda_core::connection;
-use camunda_core::models::{
-    AppThemeMode, AppUpdate, CamundaConnection, ConnectionDraft, Environment, UpdateCheckResult, UpdateDownloadProgress,
-    UpdateDownloadStage, UpdateInstallResult,
-};
-use camunda_core::updater::AppUpdateService;
+use camunda_core::models::{CamundaConnection, ConnectionDraft, Environment};
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{ActiveTheme, Disableable, Sizable, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
+use gpui_kit::component::switch::Switch;
+use gpui_kit::component::tag::Tag;
 use gpui_kit::*;
 
 use crate::services::{self, Services};
-use crate::ui;
+use crate::updates::{Status, Updater, VERSION};
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const PROGRESS_REFRESH: Duration = Duration::from_millis(150);
 const ENVIRONMENTS: [(Environment, &str); 4] = [
     (Environment::Production, "Прод"),
     (Environment::Test, "Тест"),
@@ -31,24 +26,11 @@ pub enum SettingsEvent {
     ConnectionsChanged,
 }
 
-enum UpdateState {
-    Idle,
-    Checking,
-    UpToDate,
-    Available(AppUpdate),
-    Installing(AppUpdate),
-    Opened(String),
-    Failed(String),
-}
-
 pub struct SettingsView {
     connections: Vec<CamundaConnection>,
     form: Option<ConnectionForm>,
     pending_delete: Option<String>,
-    update: UpdateState,
-    progress: Arc<Mutex<Option<UpdateDownloadProgress>>>,
-    _update_task: Option<Task<()>>,
-    _progress_ticker: Option<Task<()>>,
+    _updates: Subscription,
 }
 
 struct ConnectionForm {
@@ -78,10 +60,7 @@ impl SettingsView {
             connections: cx.global::<Services>().storage.load_connections(),
             form: None,
             pending_delete: None,
-            update: UpdateState::Idle,
-            progress: Arc::new(Mutex::new(None)),
-            _update_task: None,
-            _progress_ticker: None,
+            _updates: cx.observe(&Updater::global(cx), |_, _, cx| cx.notify()),
         }
     }
 
@@ -174,73 +153,12 @@ impl SettingsView {
         self.reload_connections(cx);
     }
 
-    fn set_theme(&mut self, dark: bool, window: &mut Window, cx: &mut Context<Self>) {
-        crate::theme::apply(dark, window, cx);
-        cx.global::<Services>().storage.save_theme(if dark { AppThemeMode::Dark } else { AppThemeMode::Light });
-        cx.notify();
-    }
-
-    fn check_update(&mut self, cx: &mut Context<Self>) {
-        let check = on_runtime(cx, async move { Ok(AppUpdateService::new(VERSION).check_for_update(VERSION).await) });
-        self.update = UpdateState::Checking;
-        self._update_task = Some(cx.spawn(async move |this, cx| {
-            let result = check.await;
-            this.update(cx, |this, cx| {
-                this.update = match result {
-                    Ok(UpdateCheckResult::UpToDate) => UpdateState::UpToDate,
-                    Ok(UpdateCheckResult::Available { update }) => UpdateState::Available(update),
-                    Ok(UpdateCheckResult::Failure { message }) | Err(message) => UpdateState::Failed(message),
-                };
-                cx.notify();
-            })
-            .ok();
-        }));
-        cx.notify();
-    }
-
-    fn install_update(&mut self, update: AppUpdate, cx: &mut Context<Self>) {
-        let progress = self.progress.clone();
-        *progress.lock().unwrap() = None;
-        let target = update.clone();
-        let install = on_runtime(cx, async move {
-            let report = move |value: UpdateDownloadProgress| *progress.lock().unwrap() = Some(value);
-            Ok(AppUpdateService::new(VERSION).download_and_open(&target, &report).await)
-        });
-        self.update = UpdateState::Installing(update);
-        self._progress_ticker = Some(cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(PROGRESS_REFRESH).await;
-                let installing = this
-                    .update(cx, |this, cx| {
-                        cx.notify();
-                        matches!(this.update, UpdateState::Installing(_))
-                    })
-                    .unwrap_or(false);
-                if !installing {
-                    break;
-                }
-            }
-        }));
-        self._update_task = Some(cx.spawn(async move |this, cx| {
-            let result = install.await;
-            this.update(cx, |this, cx| {
-                this.update = match result {
-                    Ok(UpdateInstallResult::InstallerOpened { file_name }) => UpdateState::Opened(file_name),
-                    Ok(UpdateInstallResult::Failure { message }) | Err(message) => UpdateState::Failed(message),
-                };
-                cx.notify();
-            })
-            .ok();
-        }));
-        cx.notify();
-    }
-
     fn render_connections(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let head = h_flex()
             .w_full()
             .gap_2()
             .child(div().font_weight(FontWeight::SEMIBOLD).child("Подключения"))
-            .child(ui::counter(self.connections.len(), cx))
+            .child(Tag::secondary().small().rounded_full().child((self.connections.len()).to_string()))
             .child(div().flex_1())
             .child(
                 Button::new("add-connection")
@@ -249,7 +167,7 @@ impl SettingsView {
                     .primary()
                     .on_click(cx.listener(|this, _, window, cx| this.open_form(window, cx))),
             );
-        ui::section(head, cx)
+        GroupBox::new().outline().title(head).content_style(crate::theme::panel())
             .flex_none()
             .children(self.connections.iter().map(|connection| {
                 let id = connection.id.clone();
@@ -277,7 +195,7 @@ impl SettingsView {
                                 div()
                                     .truncate()
                                     .text_xs()
-                                    .font_family(crate::theme::MONO)
+                                    .font_family(crate::theme::mono(cx))
                                     .text_color(cx.theme().muted_foreground)
                                     .child(connection.rest_url.clone()),
                             ),
@@ -315,60 +233,31 @@ impl SettingsView {
     }
 
     fn render_appearance(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let dark = cx.theme().is_dark();
-        ui::section(div().font_weight(FontWeight::SEMIBOLD).child("Вид"), cx).flex_none().child(
-            h_flex()
-                .px_4()
-                .py_3()
-                .gap_3()
-                .child(div().flex_1().child("Тема"))
-                .child(
-                    Button::new("theme-light")
-                        .label("Светлая")
-                        .small()
-                        .map(|button| if dark { button.ghost() } else { button.secondary() })
-                        .on_click(cx.listener(|this, _, window, cx| this.set_theme(false, window, cx))),
-                )
-                .child(
-                    Button::new("theme-dark")
-                        .label("Тёмная")
-                        .small()
-                        .map(|button| if dark { button.secondary() } else { button.ghost() })
-                        .on_click(cx.listener(|this, _, window, cx| this.set_theme(true, window, cx))),
-                ),
+        GroupBox::new().outline().title("Вид").child(
+            Switch::new("dark-theme")
+                .label("Тёмная тема")
+                .checked(cx.theme().is_dark())
+                .on_click(|_, window, cx| crate::theme::toggle(window, cx)),
         )
     }
 
     fn render_updates(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let muted = cx.theme().muted_foreground;
-        let (status, action): (SharedString, Option<AnyElement>) = match &self.update {
-            UpdateState::Idle => ("Нажмите «Проверить», чтобы узнать о новой версии".into(), Some(self.check_button(cx))),
-            UpdateState::Checking => ("Проверяем GitHub Releases…".into(), None),
-            UpdateState::UpToDate => ("Установлена последняя версия".into(), Some(self.check_button(cx))),
-            UpdateState::Available(update) => {
-                let target = update.clone();
-                (
-                    format!("Доступна версия {}", update.version).into(),
-                    Some(
-                        Button::new("install")
-                            .label(format!("Установить {}", update.version))
-                            .primary()
-                            .small()
-                            .disabled(update.asset.is_none())
-                            .on_click(cx.listener(move |this, _, _, cx| this.install_update(target.clone(), cx)))
-                            .into_any_element(),
-                    ),
-                )
+        let updater = Updater::global(cx);
+        let updater = updater.read(cx);
+        let status = updater.status();
+        let action = match status {
+            Status::Ready { .. } => {
+                Some(Button::new("restart").label("Перезапустить").primary().small().on_click(|_, _, cx| Updater::restart(cx)))
             }
-            UpdateState::Installing(update) => (progress_label(update, self.progress.lock().unwrap().as_ref()).into(), None),
-            UpdateState::Opened(file) => (format!("Установщик {file} открыт, следуйте его шагам").into(), None),
-            UpdateState::Failed(message) => (message.clone().into(), Some(self.check_button(cx))),
+            status if status.is_busy() => None,
+            _ => Some(Button::new("check-update").label("Проверить").small().on_click(|_, _, cx| {
+                Updater::global(cx).update(cx, |updater, cx| updater.check(cx));
+            })),
         };
-        let failed = matches!(self.update, UpdateState::Failed(_));
-        ui::section(div().font_weight(FontWeight::SEMIBOLD).child("Обновления"), cx).flex_none().child(
+        let description = status.describe(updater.progress().as_ref());
+        let failed = matches!(status, Status::Failed(_));
+        GroupBox::new().outline().title("Обновления").child(
             h_flex()
-                .px_4()
-                .py_3()
                 .gap_3()
                 .child(
                     v_flex()
@@ -376,18 +265,10 @@ impl SettingsView {
                         .min_w_0()
                         .gap_0p5()
                         .child(div().font_weight(FontWeight::MEDIUM).child(format!("Версия {VERSION}")))
-                        .child(div().text_sm().text_color(if failed { cx.theme().danger } else { muted }).child(status)),
+                        .child(div().text_sm().text_color(if failed { cx.theme().danger } else { cx.theme().muted_foreground }).child(description)),
                 )
                 .children(action),
         )
-    }
-
-    fn check_button(&self, cx: &mut Context<Self>) -> AnyElement {
-        Button::new("check-update")
-            .label("Проверить")
-            .small()
-            .on_click(cx.listener(|this, _, _, cx| this.check_update(cx)))
-            .into_any_element()
     }
 
     fn render_form(&self, form: &ConnectionForm, cx: &mut Context<Self>) -> impl IntoElement {
@@ -416,7 +297,7 @@ impl SettingsView {
                 "Адрес Cockpit",
                 div()
                     .text_sm()
-                    .font_family(crate::theme::MONO)
+                    .font_family(crate::theme::mono(cx))
                     .text_color(cx.theme().muted_foreground)
                     .child(if derived.is_empty() { "—".to_string() } else { derived })
                     .into_any_element(),
@@ -482,19 +363,6 @@ impl SettingsView {
                             .on_click(cx.listener(|this, _, _, cx| this.save_connection(cx))),
                     ),
             )
-    }
-}
-
-fn progress_label(update: &AppUpdate, progress: Option<&UpdateDownloadProgress>) -> String {
-    let Some(progress) = progress else { return format!("Готовим загрузку {}…", update.version) };
-    match progress.stage {
-        UpdateDownloadStage::Preparing => "Готовим загрузку…".to_string(),
-        UpdateDownloadStage::Downloading if progress.total_bytes > 0 => {
-            format!("Скачиваем: {:.1} из {:.1} МБ", progress.downloaded_bytes as f64 / 1_048_576., progress.total_bytes as f64 / 1_048_576.)
-        }
-        UpdateDownloadStage::Downloading => format!("Скачиваем: {:.1} МБ", progress.downloaded_bytes as f64 / 1_048_576.),
-        UpdateDownloadStage::Verifying => "Проверяем контрольную сумму…".to_string(),
-        UpdateDownloadStage::OpeningInstaller => "Открываем установщик…".to_string(),
     }
 }
 

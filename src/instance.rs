@@ -13,7 +13,9 @@ use crate::model;
 use crate::operations::{self, Operation};
 use crate::services;
 use crate::teleport::{TeleportEvent, TeleportView};
-use crate::ui::{self, Navigate, Tone};
+use crate::model::Navigate;
+use gpui_kit::component::tag::Tag;
+use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
 use crate::variables::{VariablesChanged, VariablesView};
 
 const TABS: [&str; 5] = ["Схема", "Хронология", "Диагностика", "Переменные", "Метаданные"];
@@ -262,7 +264,7 @@ impl InstanceView {
                 .occlude()
                 .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Подтвердите действие"))
                 .child(div().child(operation.question()))
-                .when(production, |this| this.child(ui::pill("Это прод", Tone::Danger, cx)))
+                .when(production, |this| this.child(Tag::danger().small().rounded_full().child("Это прод")))
                 .child(
                     h_flex()
                         .justify_end()
@@ -302,10 +304,8 @@ impl InstanceView {
                     let history = details.activity_history.iter().find(|item| item.activity_id == node.id);
                     let target = node.id.clone();
                     let teleportable = details.diagram.teleport_targets().any(|candidate| candidate.id == node.id);
-                    ui::section(
-                        div().font_weight(FontWeight::SEMIBOLD).truncate().child(node.name.clone().unwrap_or_else(|| node.id.clone())),
-                        cx,
-                    )
+                    GroupBox::new().outline().title(
+                        div().font_weight(FontWeight::SEMIBOLD).truncate().child(node.name.clone().unwrap_or_else(|| node.id.clone()))).content_style(crate::theme::panel())
                     .flex_none()
                     .child(
                         v_flex()
@@ -335,17 +335,15 @@ impl InstanceView {
                     )
                 }
                 None => {
-                    ui::section(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме"), cx).flex_none()
+                    GroupBox::new().outline().title(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме")).content_style(crate::theme::panel()).flex_none()
                 }
             })
             .child(
-                ui::section(
+                GroupBox::new().outline().title(
                     h_flex()
                         .w_full()
                         .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Текущее состояние"))
-                        .child(ui::counter(details.active_activities.len(), cx)),
-                    cx,
-                )
+                        .child(Tag::secondary().small().rounded_full().child((details.active_activities.len()).to_string()))).content_style(crate::theme::panel())
                 .flex_none()
                 .child(v_flex().children(details.active_activities.iter().map(|activity| {
                     v_flex()
@@ -364,20 +362,18 @@ impl InstanceView {
                             h_flex()
                                 .gap_1p5()
                                 .flex_wrap()
-                                .child(ui::pill("активен", Tone::Info, cx))
-                                .when(!activity.incident_ids.is_empty(), |this| this.child(ui::pill("инцидент", Tone::Danger, cx)))
+                                .child(Tag::info().small().rounded_full().child("активен"))
+                                .when(!activity.incident_ids.is_empty(), |this| this.child(Tag::danger().small().rounded_full().child("инцидент")))
                                 .child(div().text_xs().text_color(cx.theme().muted_foreground).child(activity.activity_type.clone())),
                         )
                 }))),
             )
             .child(
-                ui::section(
+                GroupBox::new().outline().title(
                     h_flex()
                         .w_full()
                         .child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child("Инциденты"))
-                        .child(ui::counter(details.incidents.len(), cx)),
-                    cx,
-                )
+                        .child(Tag::secondary().small().rounded_full().child((details.incidents.len()).to_string()))).content_style(crate::theme::panel())
                 .flex_none()
                 .child(v_flex().p_3().gap_2().children(details.incidents.iter().map(|incident| {
                     v_flex()
@@ -429,14 +425,14 @@ impl InstanceView {
             .child(div().w(px(150.)).child("Тип"))
             .child(div().w(px(130.)).text_right().child("Длительность"))
             .child(div().w(px(110.)).text_right().child("Статус"));
-        ui::section(head, cx).flex_1().child(columns).child(div().id("timeline").flex_1().overflow_y_scroll().children(
+        GroupBox::new().outline().title(head).content_style(crate::theme::panel()).flex_1().child(columns).child(div().id("timeline").flex_1().overflow_y_scroll().children(
             details.activity_timeline.iter().map(|entry| {
                 let status = if entry.canceled {
-                    ui::pill("отменён", Tone::Warning, cx)
+                    Tag::warning().small().rounded_full().child("отменён")
                 } else if entry.end_time.is_none() {
-                    ui::pill("активен", Tone::Info, cx)
+                    Tag::info().small().rounded_full().child("активен")
                 } else {
-                    ui::pill("выполнен", Tone::Success, cx)
+                    Tag::success().small().rounded_full().child("выполнен")
                 };
                 h_flex()
                     .px_4()
@@ -449,7 +445,7 @@ impl InstanceView {
                         div()
                             .w(px(150.))
                             .flex_none()
-                            .font_family(crate::theme::MONO)
+                            .font_family(crate::theme::mono(cx))
                             .text_xs()
                             .child(model::short_time(entry.start_time.as_deref())),
                     )
@@ -481,7 +477,7 @@ impl InstanceView {
     }
 
     fn render_metadata(&self, details: &ProcessInstanceDetails, cx: &App) -> impl IntoElement {
-        ui::section(div().font_weight(FontWeight::SEMIBOLD).child("Метаданные заявки"), cx).flex_1().child(
+        GroupBox::new().outline().title(div().font_weight(FontWeight::SEMIBOLD).child("Метаданные заявки")).content_style(crate::theme::panel()).flex_1().child(
             div().id("metadata").flex_1().overflow_y_scroll().children(details.metadata.iter().map(|field| {
                 h_flex()
                     .px_4()
@@ -491,7 +487,7 @@ impl InstanceView {
                     .border_color(cx.theme().border)
                     .text_sm()
                     .child(div().w(px(240.)).flex_none().text_color(cx.theme().muted_foreground).child(field.label.clone()))
-                    .child(div().flex_1().min_w_0().font_family(crate::theme::MONO).child(field.value.clone()))
+                    .child(div().flex_1().min_w_0().font_family(crate::theme::mono(cx)).child(field.value.clone()))
             })),
         )
     }
@@ -547,13 +543,13 @@ impl Render for InstanceView {
                                     }))
                             })
                             .when_some(self.details.as_ref(), |this, details| {
-                                this.child(ui::instance_state(details.instance.suspended, details.instance.ended, cx))
+                                this.child(model::state_tag(details.instance.suspended, details.instance.ended))
                                     .when(!details.incidents.is_empty(), |this| {
-                                        this.child(ui::pill(format!("{} инц.", details.incidents.len()), Tone::Danger, cx))
+                                        this.child(Tag::danger().small().rounded_full().child(format!("{} инц.", details.incidents.len())))
                                     })
                             }),
                     )
-                    .child(div().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(format!(
+                    .child(div().text_xs().font_family(crate::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(format!(
                         "{} · {}",
                         self.details.as_ref().map(|details| details.instance.definition_key.clone()).unwrap_or_default(),
                         self.instance_id

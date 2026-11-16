@@ -3,10 +3,10 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::{ActiveTheme, Disableable, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
 use gpui_kit::*;
 
 use crate::services;
-use crate::ui;
 
 const READ_ONLY_TYPES: [&str; 4] = ["object", "file", "bytes", "null"];
 
@@ -208,11 +208,11 @@ impl Render for VariablesView {
                         .w(px(260.))
                         .flex_none()
                         .child(
-                            div().truncate().font_family(crate::theme::MONO).font_weight(FontWeight::SEMIBOLD).child(variable.name.clone()),
+                            div().truncate().font_family(crate::theme::mono(cx)).font_weight(FontWeight::SEMIBOLD).child(variable.name.clone()),
                         )
                         .child(div().text_xs().text_color(cx.theme().muted_foreground).child(variable.value_type.clone())),
                 )
-                .child(div().flex_1().min_w_0().line_clamp(3).font_family(crate::theme::MONO).text_xs().child(variable.value.clone()))
+                .child(div().flex_1().min_w_0().line_clamp(3).font_family(crate::theme::mono(cx)).text_xs().child(variable.value.clone()))
                 .child(
                     h_flex()
                         .flex_none()
@@ -241,7 +241,7 @@ impl Render for VariablesView {
             .min_h_0()
             .flex()
             .flex_col()
-            .child(ui::section(head, cx).flex_1().child(div().id("variables").flex_1().overflow_y_scroll().children(rows)))
+            .child(GroupBox::new().outline().title(head).content_style(crate::theme::panel()).flex_1().child(div().id("variables").flex_1().overflow_y_scroll().children(rows)))
             .when_some(self.editing.as_ref(), |this, editing| this.child(deferred(self.render_editor(editing, cx))))
     }
 }

@@ -15,7 +15,7 @@ mod services;
 mod settings;
 mod teleport;
 mod theme;
-mod ui;
+mod updates;
 mod variables;
 
 use camunda_core::migration;
@@ -43,11 +43,11 @@ fn main() {
     });
     application.run(move |cx| {
         gpui_kit::init(cx);
-        theme::load_fonts(cx);
         let services = Services::new();
         migration::migrate_legacy_preferences(&services.storage);
-        let dark = services.storage.load_theme() == Some(AppThemeMode::Dark);
+        let dark = services.storage.load_theme() != Some(AppThemeMode::Light);
         cx.set_global(services);
+        updates::Updater::init(cx);
         cx.bind_keys([
             KeyBinding::new("cmd-q", Quit, None),
             KeyBinding::new("cmd-k", TogglePalette, None),

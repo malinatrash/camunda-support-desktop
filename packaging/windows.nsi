@@ -53,6 +53,10 @@ Section "Install"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
+
+  ; Автообновление запускает установщик с /S: после тихой установки поднимаем приложение обратно.
+  IfSilent 0 +2
+    Exec '"$INSTDIR\Camunda Support.exe"'
 SectionEnd
 
 Section "Uninstall"

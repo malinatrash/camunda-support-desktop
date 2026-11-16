@@ -5,11 +5,12 @@ use camunda_core::models::{CamundaConnection, ProcessInstanceDetails};
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::{ActiveTheme, Disableable, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
+use gpui_kit::component::tag::Tag;
 use gpui_kit::*;
 
 use crate::instance::InstanceView;
 use crate::model;
-use crate::ui;
 
 #[derive(Clone)]
 pub enum Operation {
@@ -54,7 +55,7 @@ impl Operation {
 pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut Context<InstanceView>) -> impl IntoElement {
     let row = |cx: &App| h_flex().px_4().py_3().gap_4().items_start().border_b_1().border_color(cx.theme().border);
     let empty = |text: &'static str, cx: &App| div().px_4().py_4().text_sm().text_color(cx.theme().muted_foreground).child(text);
-    let incidents = ui::section(title("Инциденты", details.incidents.len(), cx), cx)
+    let incidents = GroupBox::new().outline().title(title("Инциденты", details.incidents.len())).content_style(crate::theme::panel())
         .flex_none()
         .children(details.incidents.iter().map(|incident| {
             let meta = [
@@ -82,14 +83,14 @@ pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut
                     .child(
                         div()
                             .text_xs()
-                            .font_family(crate::theme::MONO)
+                            .font_family(crate::theme::mono(cx))
                             .text_color(cx.theme().muted_foreground)
                             .child(meta.into_iter().flatten().collect::<Vec<_>>().join(" · ")),
                     ),
             )
         }))
         .when(details.incidents.is_empty(), |this| this.child(empty("Открытых инцидентов нет", cx)));
-    let jobs = ui::section(title("Задания движка", details.jobs.len(), cx), cx)
+    let jobs = GroupBox::new().outline().title(title("Задания движка", details.jobs.len())).content_style(crate::theme::panel())
         .flex_none()
         .children(details.jobs.iter().map(|job| {
             let id = job.id.clone();
@@ -106,7 +107,7 @@ pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut
                         .child(
                             div()
                                 .text_xs()
-                                .font_family(crate::theme::MONO)
+                                .font_family(crate::theme::mono(cx))
                                 .text_color(cx.theme().muted_foreground)
                                 .child(job.failed_activity_id.clone().unwrap_or_else(|| job.id.clone())),
                         ),
@@ -121,7 +122,7 @@ pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut
                 )
         }))
         .when(details.jobs.is_empty(), |this| this.child(empty("Задания движка не найдены", cx)));
-    let tasks = ui::section(title("Внешние задачи", details.external_tasks.len(), cx), cx)
+    let tasks = GroupBox::new().outline().title(title("Внешние задачи", details.external_tasks.len())).content_style(crate::theme::panel())
         .flex_none()
         .children(details.external_tasks.iter().map(|task| {
             let (retry_id, unlock_id) = (task.id.clone(), task.id.clone());
@@ -163,8 +164,8 @@ pub fn render_diagnostics(details: &ProcessInstanceDetails, busy: bool, cx: &mut
     v_flex().id("diagnostics").flex_1().min_h_0().gap_4().overflow_y_scroll().child(incidents).child(jobs).child(tasks)
 }
 
-fn title(text: &'static str, count: usize, cx: &App) -> impl IntoElement {
-    h_flex().w_full().child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child(text)).child(ui::counter(count, cx))
+fn title(text: &'static str, count: usize) -> impl IntoElement {
+    h_flex().w_full().child(div().flex_1().font_weight(FontWeight::SEMIBOLD).child(text)).child(Tag::secondary().small().rounded_full().child((count).to_string()))
 }
 
 fn failure(message: Option<&str>, cx: &App) -> impl IntoElement {

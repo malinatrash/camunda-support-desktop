@@ -9,7 +9,8 @@ use gpui_kit::*;
 
 use crate::model;
 use crate::services;
-use crate::ui::{self, Navigate, Tone};
+use crate::model::Navigate;
+use gpui_kit::component::tag::Tag;
 
 pub struct DefinitionView {
     connection: CamundaConnection,
@@ -157,7 +158,7 @@ impl Render for DefinitionView {
                             .child(div().text_xs().text_color(cx.theme().muted_foreground).child(key)),
                     )
                     .child(div().text_sm().text_color(cx.theme().muted_foreground).child(format!("{rows} заявок")))
-                    .when(with_incidents > 0, |this| this.child(ui::pill(format!("{with_incidents} с инцидентами"), Tone::Danger, cx)))
+                    .when(with_incidents > 0, |this| this.child(Tag::danger().small().rounded_full().child(format!("{with_incidents} с инцидентами"))))
                     .child(
                         Button::new("reload")
                             .icon(IconName::RefreshCw)
@@ -224,12 +225,12 @@ impl TableDelegate for InstanceTable {
         let item = &self.rows[row_ix];
         let instance = &item.instance;
         match self.columns[col_ix].key.as_ref() {
-            "state" => ui::instance_state(instance.suspended, instance.ended, cx).into_any_element(),
+            "state" => model::state_tag(instance.suspended, instance.ended).into_any_element(),
             "business_key" => div().truncate().child(instance.business_key.clone().unwrap_or_else(|| "—".into())).into_any_element(),
-            "id" => div().truncate().text_sm().font_family(crate::theme::MONO).child(instance.id.clone()).into_any_element(),
+            "id" => div().truncate().text_sm().font_family(crate::theme::mono(cx)).child(instance.id.clone()).into_any_element(),
             "start" => div()
                 .text_sm()
-                .font_family(crate::theme::MONO)
+                .font_family(crate::theme::mono(cx))
                 .text_color(cx.theme().muted_foreground)
                 .child(model::short_time(instance.start_time.as_deref()))
                 .into_any_element(),
@@ -237,7 +238,7 @@ impl TableDelegate for InstanceTable {
                 let version = instance.definition_id.split(':').nth(1).unwrap_or("?");
                 div().text_sm().text_color(cx.theme().muted_foreground).child(format!("v{version}")).into_any_element()
             }
-            "incidents" if item.incident_count > 0 => ui::pill(item.incident_count.to_string(), Tone::Danger, cx).into_any_element(),
+            "incidents" if item.incident_count > 0 => Tag::danger().small().rounded_full().child(item.incident_count.to_string()).into_any_element(),
             "incidents" => div().text_color(cx.theme().muted_foreground).child("0").into_any_element(),
             _ => div()
                 .truncate()

@@ -12,7 +12,9 @@ use gpui_kit::*;
 
 use crate::model;
 use crate::services;
-use crate::ui::{self, Navigate};
+use crate::model::Navigate;
+use gpui_kit::component::tag::Tag;
+use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
 
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
@@ -37,7 +39,7 @@ impl SelectItem for ProcessItem {
     fn render(&self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         v_flex()
             .child(self.title.clone())
-            .child(div().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(self.subtitle.clone()))
+            .child(div().text_xs().font_family(crate::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(self.subtitle.clone()))
     }
 
     fn value(&self) -> &SharedString {
@@ -65,7 +67,7 @@ impl SelectItem for VariableItem {
 
     fn render(&self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         v_flex()
-            .child(div().font_family(crate::theme::MONO).child(self.name.clone()))
+            .child(div().font_family(crate::theme::mono(cx)).child(self.name.clone()))
             .child(div().text_xs().text_color(cx.theme().muted_foreground).child(self.subtitle.clone()))
     }
 
@@ -434,16 +436,14 @@ impl Render for SearchView {
                     Mode::Variable => "Активных заявок с таким значением не найдено.",
                 })
                 .into_any_element(),
-            Some(count) => ui::section(
+            Some(count) => GroupBox::new().outline().title(
                 h_flex()
                     .w_full()
                     .gap_2()
                     .child(div().font_weight(FontWeight::SEMIBOLD).child("Найденные заявки"))
-                    .child(ui::counter(count, cx))
+                    .child(Tag::secondary().small().rounded_full().child((count).to_string()))
                     .child(div().flex_1())
-                    .child(hint("Двойной клик открывает заявку", cx)),
-                cx,
-            )
+                    .child(hint("Двойной клик открывает заявку", cx))).content_style(crate::theme::panel())
             .flex_1()
             .child(div().flex_1().min_h_0().child(DataTable::new(&self.table).large().stripe(false).bordered(false)))
             .into_any_element(),
@@ -506,7 +506,7 @@ impl TableDelegate for ResultTable {
     fn render_td(&mut self, row_ix: usize, col_ix: usize, _: &mut Window, cx: &mut Context<TableState<Self>>) -> impl IntoElement {
         let instance = &self.rows[row_ix];
         match self.columns[col_ix].key.as_ref() {
-            "state" => ui::instance_state(instance.suspended, instance.ended, cx).into_any_element(),
+            "state" => model::state_tag(instance.suspended, instance.ended).into_any_element(),
             "business_key" => div()
                 .truncate()
                 .font_weight(FontWeight::MEDIUM)
@@ -519,15 +519,15 @@ impl TableDelegate for ResultTable {
                     div()
                         .truncate()
                         .text_xs()
-                        .font_family(crate::theme::MONO)
+                        .font_family(crate::theme::mono(cx))
                         .text_color(cx.theme().muted_foreground)
                         .child(instance.definition_id.clone()),
                 )
                 .into_any_element(),
-            "id" => div().truncate().text_sm().font_family(crate::theme::MONO).child(instance.id.clone()).into_any_element(),
+            "id" => div().truncate().text_sm().font_family(crate::theme::mono(cx)).child(instance.id.clone()).into_any_element(),
             _ => div()
                 .text_sm()
-                .font_family(crate::theme::MONO)
+                .font_family(crate::theme::mono(cx))
                 .text_color(cx.theme().muted_foreground)
                 .child(model::short_time(instance.start_time.as_deref()))
                 .into_any_element(),

@@ -500,8 +500,18 @@ pub enum UpdateCheckResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum UpdateInstallResult {
+    Installed { version: String, restart: RestartPlan },
     InstallerOpened { file_name: String },
     Failure { message: String },
+}
+
+// Как довести установку до конца при перезапуске приложения.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RestartPlan {
+    Relaunch { app: String },
+    SilentInstaller { installer: String },
+    DebPackage { package: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -509,7 +519,7 @@ pub enum UpdateDownloadStage {
     Preparing,
     Downloading,
     Verifying,
-    OpeningInstaller,
+    Installing,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

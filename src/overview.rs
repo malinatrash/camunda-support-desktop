@@ -9,7 +9,9 @@ use gpui_kit::*;
 
 use crate::model::{self, IncidentGroup, ProcessGroup};
 use crate::services;
-use crate::ui::{self, Navigate, Tone};
+use crate::model::Navigate;
+use gpui_kit::component::tag::Tag;
+use gpui_kit::component::group_box::{GroupBox, GroupBoxVariants as _};
 
 const REFRESH_EVERY: Duration = Duration::from_secs(15);
 const STUCK_MILLIS: i64 = 4 * 3_600_000;
@@ -204,11 +206,11 @@ impl OverviewView {
             Tab::Waiting => body.children(dashboard.longest_waiting_activities.iter().map(|item| {
                 let id = item.oldest_process_instance_id.clone();
                 let tone = if item.maximum_waiting_millis >= 24 * 3_600_000 {
-                    Tone::Danger
+                    Tag::danger()
                 } else if item.maximum_waiting_millis >= STUCK_MILLIS {
-                    Tone::Warning
+                    Tag::warning()
                 } else {
-                    Tone::Neutral
+                    Tag::secondary()
                 };
                 h_flex()
                     .id(SharedString::from(format!("wait-{}-{}", item.process_definition_id, item.activity_id)))
@@ -219,7 +221,7 @@ impl OverviewView {
                     .border_color(cx.theme().border)
                     .hover(|style| style.bg(cx.theme().table_hover))
                     .cursor_pointer()
-                    .child(div().w(px(110.)).flex_none().child(ui::pill(model::format_duration(item.maximum_waiting_millis), tone, cx)))
+                    .child(div().w(px(110.)).flex_none().child(tone.small().rounded_full().child(model::format_duration(item.maximum_waiting_millis))))
                     .child(
                         v_flex()
                             .min_w_0()
@@ -238,7 +240,7 @@ impl OverviewView {
                     .on_click(cx.listener(move |_, _, _, cx| cx.emit(Navigate::Instance(id.clone()))))
             })),
         };
-        ui::section(head, cx).flex_1().child(body)
+        GroupBox::new().outline().title(head).content_style(crate::theme::panel()).flex_1().child(body)
     }
 
     fn tab_button(&self, tab: Tab, label: &'static str, count: usize, cx: &mut Context<Self>) -> impl IntoElement {
@@ -253,7 +255,7 @@ impl OverviewView {
             .text_color(if active { cx.theme().foreground } else { cx.theme().muted_foreground })
             .cursor_pointer()
             .child(label)
-            .child(ui::counter(count, cx))
+            .child(Tag::secondary().small().rounded_full().child((count).to_string()))
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.tab = tab;
                 cx.notify();
@@ -283,7 +285,7 @@ impl OverviewView {
                     .gap_3()
                     .cursor_pointer()
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .child(div().w(px(44.)).flex_none().flex().justify_end().child(ui::pill(group.count.to_string(), Tone::Danger, cx)))
+                    .child(div().w(px(44.)).flex_none().flex().justify_end().child(Tag::danger().small().rounded_full().child(group.count.to_string())))
                     .child(
                         v_flex()
                             .min_w_0()
@@ -319,7 +321,7 @@ impl OverviewView {
             .w_full()
             .gap_2()
             .child(div().font_weight(FontWeight::SEMIBOLD).child("Процессы"))
-            .child(ui::counter(self.processes.len(), cx))
+            .child(Tag::secondary().small().rounded_full().child((self.processes.len()).to_string()))
             .child(div().flex_1())
             .child(div().w(px(170.)).child(Input::new(&self.filter).small()));
         let columns = h_flex()
@@ -335,7 +337,7 @@ impl OverviewView {
             .child(div().flex_1().pl(px(28.)).child("Процесс"))
             .child(div().w(px(80.)).text_right().child(if live { "в работе" } else { "стартов" }))
             .child(div().w(px(80.)).text_right().child("инциденты"));
-        ui::section(head, cx).w(px(460.)).flex_none().child(columns).child(
+        GroupBox::new().outline().title(head).content_style(crate::theme::panel()).w(px(460.)).flex_none().child(columns).child(
             div().id("processes").flex_1().overflow_y_scroll().children(self.processes.iter().map(|group| self.render_process(group, cx))),
         )
     }
@@ -364,7 +366,7 @@ impl OverviewView {
                             .text_color(cx.theme().muted_foreground),
                     )
                     .child(v_flex().flex_1().min_w_0().child(div().truncate().child(model::display_name(latest).to_string())).child(
-                        div().truncate().text_xs().font_family(crate::theme::MONO).text_color(cx.theme().muted_foreground).child(format!(
+                        div().truncate().text_xs().font_family(crate::theme::mono(cx)).text_color(cx.theme().muted_foreground).child(format!(
                             "{} · v{}{versions}{}",
                             latest.key,
                             latest.version,
@@ -413,7 +415,7 @@ impl OverviewView {
 
 fn incidents_cell(count: i32, cx: &App) -> AnyElement {
     if count > 0 {
-        ui::pill(count.to_string(), Tone::Danger, cx).into_any_element()
+        Tag::danger().small().rounded_full().child(count.to_string()).into_any_element()
     } else {
         div().text_color(cx.theme().muted_foreground).child("0").into_any_element()
     }

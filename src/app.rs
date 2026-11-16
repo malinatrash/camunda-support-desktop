@@ -1,13 +1,12 @@
-use std::time::Duration;
-
 use camunda_core::deep_link;
-use camunda_core::models::{CamundaConnection, DeepLinkEvent, Environment, UpdateCheckResult};
-use camunda_core::updater::AppUpdateService;
+use camunda_core::models::{CamundaConnection, DeepLinkEvent, Environment};
 use futures::StreamExt as _;
 use futures::channel::mpsc::UnboundedReceiver;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::kbd::Kbd;
-use gpui_kit::component::{ActiveTheme, IconName, Sizable, TitleBar, h_flex, v_flex};
+use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
+use gpui_kit::component::notification::Notification;
+use gpui_kit::component::{ActiveTheme, IconName, Sizable, TitleBar, WindowExt as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -17,14 +16,12 @@ use crate::instance::InstanceView;
 use crate::overview::OverviewView;
 use crate::palette::{CommandPalette, PaletteEvent, Section};
 use crate::search::SearchView;
-use crate::services::{self, Services};
+use crate::services::Services;
 use crate::settings::{SettingsEvent, SettingsView};
-use crate::ui::Navigate;
+use crate::model::Navigate;
 
 actions!(camunda_support, [TogglePalette, OpenOverview, OpenSearch, OpenIncidents, OpenSettings,]);
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 
 enum Page {
     Definition(Entity<DefinitionView>),
@@ -40,16 +37,13 @@ pub struct AppView {
     incidents: Option<Entity<IncidentsView>>,
     settings: Option<Entity<SettingsView>>,
     pages: Vec<Page>,
-    palette: Option<Entity<CommandPalette>>,
-    switcher_open: bool,
-    notice: Option<SharedString>,
     focus: FocusHandle,
     _section_subscriptions: Vec<Subscription>,
     _page_subscriptions: Vec<Subscription>,
     _palette_subscription: Option<Subscription>,
     _settings_subscription: Option<Subscription>,
     _links: Task<()>,
-    _updates: Task<()>,
+    _updates: Subscription,
 }
 
 impl AppView {
@@ -65,25 +59,7 @@ impl AppView {
                 }
             }
         });
-        // Проверка новых релизов на GitHub при запуске и раз в шесть часов.
-        let updates = cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(Duration::from_secs(3)).await;
-            loop {
-                let Ok(check) = this.update(cx, |_, cx| {
-                    services::request(cx, |_| async { Ok::<_, String>(AppUpdateService::new(VERSION).check_for_update(VERSION).await) })
-                }) else {
-                    break;
-                };
-                if let Ok(UpdateCheckResult::Available { update }) = check.await {
-                    this.update(cx, |this, cx| {
-                        this.notice = Some(format!("Доступна версия {}. Установить: Настройки → Обновления.", update.version).into());
-                        cx.notify();
-                    })
-                    .ok();
-                }
-                cx.background_executor().timer(UPDATE_CHECK_EVERY).await;
-            }
-        });
+        let updates = crate::updates::announce(window, cx);
         let mut view = Self {
             connections,
             connection: None,
@@ -93,9 +69,6 @@ impl AppView {
             incidents: None,
             settings: None,
             pages: Vec::new(),
-            palette: None,
-            switcher_open: false,
-            notice: None,
             focus,
             _section_subscriptions: Vec::new(),
             _page_subscriptions: Vec::new(),
@@ -139,7 +112,6 @@ impl AppView {
         }
         self.pages.clear();
         self._page_subscriptions.clear();
-        self.switcher_open = false;
         cx.notify();
     }
 
@@ -171,7 +143,6 @@ impl AppView {
         self.section = section;
         self.pages.clear();
         self._page_subscriptions.clear();
-        self.palette = None;
         if section == Section::Settings && self.settings.is_none() {
             let settings = cx.new(|cx| SettingsView::new(window, cx));
             self._settings_subscription = Some(cx.subscribe_in(&settings, window, |this, _, event: &SettingsEvent, window, cx| {
@@ -205,26 +176,23 @@ impl AppView {
     }
 
     fn toggle_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.palette.take().is_some() {
-            self.focus.focus(window, cx);
-            cx.notify();
+        if window.has_active_dialog(cx) {
+            window.close_dialog(cx);
             return;
         }
         let palette = cx.new(|cx| CommandPalette::new(self.connection.clone(), window, cx));
         self._palette_subscription = Some(cx.subscribe_in(&palette, window, |this, _, event: &PaletteEvent, window, cx| {
-            this.palette = None;
+            window.close_dialog(cx);
             match event {
                 PaletteEvent::Open(id) => {
                     this.pages.clear();
                     this.open_page(Navigate::Instance(id.clone()), window, cx);
                 }
                 PaletteEvent::Go(section) => this.go(*section, window, cx),
-                PaletteEvent::Dismiss => this.focus.focus(window, cx),
             }
-            cx.notify();
+            this.focus.focus(window, cx);
         }));
-        self.palette = Some(palette);
-        cx.notify();
+        window.open_dialog(cx, move |dialog, _, _| dialog.w(px(640.)).p_0().close_button(false).child(palette.clone()));
     }
 
     // Ссылка camunda-support:// открывает заявку в подключении с тем же доменом.
@@ -233,8 +201,10 @@ impl AppView {
         match deep_link::parse_deep_link(url) {
             DeepLinkEvent::OpenProcessInstance { link } => {
                 let Some(connection) = self.connections.iter().find(|c| deep_link::matches_origin(c, &link.origin)).cloned() else {
-                    self.notice = Some(format!("Нет подключения для {}. Добавьте его в настройках.", link.origin).into());
-                    cx.notify();
+                    window.push_notification(
+                        Notification::warning(format!("Нет подключения для {}. Добавьте его в настройках.", link.origin)),
+                        cx,
+                    );
                     return;
                 };
                 if self.connection.as_ref().map(|c| &c.id) != Some(&connection.id) {
@@ -245,8 +215,7 @@ impl AppView {
                 self.open_page(Navigate::Instance(link.process_instance_id), window, cx);
             }
             DeepLinkEvent::Invalid { message } => {
-                self.notice = Some(message.into());
-                cx.notify();
+                window.push_notification(Notification::error(message), cx);
             }
         }
     }
@@ -258,86 +227,30 @@ impl AppView {
             .as_ref()
             .map(|connection| environment_color(&connection.environment, cx))
             .unwrap_or(cx.theme().muted_foreground);
-        div()
-            .relative()
-            .child(
-                h_flex()
-                    .id("connection")
-                    .gap_2()
-                    .px_2()
-                    .h(px(28.))
-                    .rounded_md()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .cursor_pointer()
-                    .hover(|style| style.bg(cx.theme().secondary))
-                    .child(div().size(px(7.)).rounded_full().bg(tone))
-                    .child(name)
-                    .child(gpui_kit::component::Icon::new(IconName::ChevronDown).xsmall().text_color(cx.theme().muted_foreground))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.switcher_open = !this.switcher_open;
-                        cx.notify();
-                    })),
-            )
-            .when(self.switcher_open, |this| {
-                this.child(deferred(
-                    v_flex()
-                        .id("connection-menu")
-                        .absolute()
-                        .top(px(32.))
-                        .left_0()
-                        .w(px(320.))
-                        .p_1()
-                        .rounded_md()
-                        .border_1()
-                        .border_color(cx.theme().border)
-                        .bg(cx.theme().popover)
-                        .shadow_lg()
-                        .occlude()
-                        .children(self.connections.iter().map(|connection| {
-                            let target = connection.clone();
-                            let active = self.connection.as_ref().is_some_and(|current| current.id == connection.id);
-                            v_flex()
-                                .id(SharedString::from(connection.id.clone()))
-                                .px_3()
-                                .py_2()
-                                .rounded_sm()
-                                .cursor_pointer()
-                                .hover(|style| style.bg(cx.theme().table_hover))
-                                .when(active, |this| this.bg(cx.theme().table_active))
-                                .child(
-                                    h_flex()
-                                        .gap_2()
-                                        .child(div().size(px(7.)).rounded_full().bg(environment_color(&connection.environment, cx)))
-                                        .child(div().font_weight(FontWeight::MEDIUM).child(connection.name.clone())),
-                                )
-                                .child(
-                                    div()
-                                        .pl(px(15.))
-                                        .truncate()
-                                        .text_xs()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(connection.rest_url.clone()),
-                                )
-                                .on_click(cx.listener(move |this, _, window, cx| this.select_connection(target.clone(), window, cx)))
-                        }))
-                        .child(div().h(px(1.)).my_1().bg(cx.theme().border))
-                        .child(
-                            div()
-                                .id("manage-connections")
-                                .px_3()
-                                .py_2()
-                                .rounded_sm()
-                                .text_sm()
-                                .text_color(cx.theme().link)
-                                .cursor_pointer()
-                                .hover(|style| style.bg(cx.theme().table_hover))
-                                .child("Управлять подключениями…")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.switcher_open = false;
-                                    this.go(Section::Settings, window, cx);
-                                })),
-                        ),
-                ))
+        let connections = self.connections.clone();
+        let current = self.connection.as_ref().map(|connection| connection.id.clone());
+        let view = cx.entity().downgrade();
+        Button::new("connection")
+            .ghost()
+            .small()
+            .dropdown_caret(true)
+            .child(h_flex().gap_2().child(div().size(px(7.)).rounded_full().bg(tone)).child(name))
+            .dropdown_menu(move |menu, _, _| {
+                let menu = connections.iter().fold(menu.min_w(px(320.)), |menu, connection| {
+                    let target = connection.clone();
+                    let view = view.clone();
+                    menu.item(
+                        PopupMenuItem::new(format!("{} · {}", connection.name, connection.rest_url))
+                            .checked(current.as_deref() == Some(connection.id.as_str()))
+                            .on_click(move |_, window, cx| {
+                                view.update(cx, |this, cx| this.select_connection(target.clone(), window, cx)).ok();
+                            }),
+                    )
+                });
+                let view = view.clone();
+                menu.separator().item(PopupMenuItem::new("Управлять подключениями…").on_click(move |_, window, cx| {
+                    view.update(cx, |this, cx| this.go(Section::Settings, window, cx)).ok();
+                }))
             })
     }
 
@@ -387,7 +300,6 @@ impl Render for AppView {
             .size_full()
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
-            .font_family(crate::theme::SANS)
             .on_action(cx.listener(|this, _: &TogglePalette, window, cx| this.toggle_palette(window, cx)))
             .on_action(cx.listener(|this, _: &OpenOverview, window, cx| this.go(Section::Overview, window, cx)))
             .on_action(cx.listener(|this, _: &OpenSearch, window, cx| this.go(Section::Search, window, cx)))
@@ -406,60 +318,25 @@ impl Render for AppView {
                         .child(self.nav_button(Section::Incidents, "Инциденты", cx))
                         .child(div().flex_1())
                         .child(
-                            h_flex()
-                                .id("palette-trigger")
+                            Button::new("palette-trigger")
+                                .outline()
+                                .small()
                                 .w(px(260.))
-                                .h(px(28.))
-                                .px_2()
-                                .gap_2()
-                                .rounded_md()
-                                .border_1()
-                                .border_color(cx.theme().input)
-                                .bg(cx.theme().background)
-                                .text_sm()
-                                .text_color(cx.theme().muted_foreground)
-                                .cursor_pointer()
-                                .child(gpui_kit::component::Icon::new(IconName::Search).xsmall())
-                                .child(div().flex_1().child("Найти заявку"))
-                                .child(Kbd::new(Keystroke::parse("cmd-k").expect("сочетание")))
+                                .icon(IconName::Search)
+                                .child(h_flex().flex_1().justify_between().child("Найти заявку").child(Kbd::new(Keystroke::parse("cmd-k").expect("сочетание"))))
                                 .on_click(cx.listener(|this, _, window, cx| this.toggle_palette(window, cx))),
+                        )
+                        .child(
+                            Button::new("theme-toggle")
+                                .ghost()
+                                .small()
+                                .icon(if cx.theme().is_dark() { gpui_kit::assets::IconName::Sun } else { gpui_kit::assets::IconName::Moon })
+                                .tooltip(if cx.theme().is_dark() { "Светлая тема" } else { "Тёмная тема" })
+                                .on_click(|_, window, cx| crate::theme::toggle(window, cx)),
                         )
                         .child(self.nav_button(Section::Settings, "Настройки", cx)),
                 ),
             )
-            .when_some(self.notice.clone(), |this, notice| {
-                this.child(
-                    h_flex()
-                        .mx_5()
-                        .mt_3()
-                        .px_4()
-                        .py_2()
-                        .gap_3()
-                        .rounded_md()
-                        .bg(cx.theme().warning.opacity(0.12))
-                        .text_color(cx.theme().warning)
-                        .child(div().flex_1().child(notice))
-                        .child(Button::new("notice-close").icon(IconName::Close).ghost().xsmall().on_click(cx.listener(
-                            |this, _, _, cx| {
-                                this.notice = None;
-                                cx.notify();
-                            },
-                        ))),
-                )
-            })
             .child(div().flex_1().min_h_0().child(content))
-            .when_some(self.palette.clone(), |this, palette| {
-                this.child(deferred(
-                    div()
-                        .id("palette-backdrop")
-                        .absolute()
-                        .inset_0()
-                        .flex()
-                        .justify_center()
-                        .pt(px(110.))
-                        .bg(black().opacity(0.35))
-                        .child(palette),
-                ))
-            })
     }
 }

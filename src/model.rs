@@ -2,6 +2,27 @@ use std::collections::HashMap;
 
 use camunda_core::models::{ProcessDefinitionSummary, ProcessIncident};
 use gpui_kit::SharedString;
+use gpui_kit::component::tag::Tag;
+use gpui_kit::component::Sizable;
+use gpui_kit::ParentElement;
+
+#[derive(Clone)]
+pub enum Navigate {
+    Definition { id: String, all_versions: bool },
+    Instance(String),
+    Back,
+}
+
+pub fn state_tag(suspended: bool, ended: bool) -> Tag {
+    let (tag, label) = if ended {
+        (Tag::secondary(), "завершена")
+    } else if suspended {
+        (Tag::warning(), "приостановлена")
+    } else {
+        (Tag::success(), "в работе")
+    };
+    tag.small().rounded_full().child(label)
+}
 
 pub struct IncidentGroup {
     pub key: SharedString,
