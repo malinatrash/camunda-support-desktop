@@ -36,13 +36,13 @@ impl SettingsView {
             window.close_dialog(cx);
             this.reload_connections(cx);
         }));
-        window.open_dialog(cx, move |dialog, _, _| dialog.title("Новое подключение").w(px(560.)).child(form.clone()));
+        window.open_dialog(cx, move |dialog, _, _| dialog.title(tr!("settings.form.title")).w(px(560.)).child(form.clone()));
     }
 }
 
 impl ConnectionForm {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let name = cx.new(|cx| InputState::new(window, cx).placeholder("Например: Залоги TEST"));
+        let name = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("settings.form.name_placeholder")));
         let rest_url = cx.new(|cx| InputState::new(window, cx).placeholder("https://camunda.example.kz/engine-rest"));
         let reset = |this: &mut Self, _: Entity<InputState>, event: &InputEvent, cx: &mut Context<Self>| {
             if matches!(event, InputEvent::Change) {
@@ -104,10 +104,10 @@ impl Render for ConnectionForm {
         let cockpit = connection::derive_cockpit_url(self.rest_url.read(cx).value().trim());
         let selected = environment::ALL.iter().position(|candidate| *candidate == self.environment).unwrap_or(0);
         v_form()
-            .child(field().label("Название").required(true).child(Input::new(&self.name)))
-            .child(field().label("Адрес Camunda REST").required(true).child(Input::new(&self.rest_url)))
+            .child(field().label(tr!("settings.form.name")).required(true).child(Input::new(&self.name)))
+            .child(field().label(tr!("settings.form.rest_url")).required(true).child(Input::new(&self.rest_url)))
             .child(
-                field().label("Адрес Cockpit").child(
+                field().label(tr!("settings.form.cockpit_url")).child(
                     div()
                         .text_sm()
                         .font_family(crate::platform::theme::mono(cx))
@@ -116,7 +116,7 @@ impl Render for ConnectionForm {
                 ),
             )
             .child(
-                field().label("Окружение").child(
+                field().label(tr!("settings.form.environment")).child(
                     TabBar::new("environment")
                         .segmented()
                         .small()
@@ -130,9 +130,7 @@ impl Render for ConnectionForm {
             )
             .when_some(self.tested.clone(), |form, tested| {
                 form.child(field().child(match tested {
-                    Ok(version) => {
-                        Alert::success("tested", format!("Подключение работает · Camunda {}", version.unwrap_or_else(|| "?".into())))
-                    }
+                    Ok(version) => Alert::success("tested", tr!("settings.form.tested", version = version.unwrap_or_else(|| "?".into()))),
                     Err(error) => Alert::error("tested", error),
                 }))
             })
@@ -142,13 +140,18 @@ impl Render for ConnectionForm {
                     .gap_2()
                     .child(
                         Button::new("test")
-                            .label("Проверить")
+                            .label(tr!("settings.form.test"))
                             .outline()
                             .loading(self.testing.is_some())
                             .on_click(cx.listener(|this, _, _, cx| this.test(cx))),
                     )
                     .child(div().flex_1())
-                    .child(Button::new("save").label("Сохранить").primary().on_click(cx.listener(|this, _, _, cx| this.save(cx)))),
+                    .child(
+                        Button::new("save")
+                            .label(tr!("settings.form.save"))
+                            .primary()
+                            .on_click(cx.listener(|this, _, _, cx| this.save(cx))),
+                    ),
             )
     }
 }

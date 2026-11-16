@@ -88,11 +88,7 @@ impl AppView {
             Some(Page::Definition(page)) => page.clone().into_any_element(),
             Some(Page::Instance(page)) => page.clone().into_any_element(),
             None => section.unwrap_or_else(|| {
-                div()
-                    .p_6()
-                    .text_color(cx.theme().muted_foreground)
-                    .child("Подключений нет. Добавьте первое в настройках.")
-                    .into_any_element()
+                div().p_6().text_color(cx.theme().muted_foreground).child(tr!("shell.no_connections")).into_any_element()
             }),
         }
     }

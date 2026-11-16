@@ -19,20 +19,20 @@ impl SettingsView {
             SettingItem::render(move |_, _, cx| connection_row(&connection, view.clone(), cx))
         });
         let empty = self.connections.is_empty().then(|| {
-            SettingItem::render(|_, _, cx| {
-                div().text_sm().text_color(cx.theme().muted_foreground).child("Подключений пока нет — добавьте первое.")
-            })
+            SettingItem::render(|_, _, cx| div().text_sm().text_color(cx.theme().muted_foreground).child(tr!("settings.connections.empty")))
         });
-        SettingPage::new("Подключения").icon(Lucide::Server).default_open(true).group(
+        SettingPage::new(tr!("settings.connections.title")).icon(Lucide::Server).default_open(true).group(
             SettingGroup::new()
-                .title("Подключения к Camunda")
-                .description("Адрес Cockpit строится из адреса REST автоматически.")
+                .title(tr!("settings.connections.group"))
+                .description(tr!("settings.connections.group_hint"))
                 .items(rows.chain(empty))
                 .footer(move |_, _| {
                     let add = add.clone();
-                    Button::new("add-connection").label("Добавить подключение").icon(Lucide::Plus).small().on_click(move |_, window, cx| {
-                        add.update(cx, |this, cx| this.open_form(window, cx)).ok();
-                    })
+                    Button::new("add-connection").label(tr!("settings.connections.add")).icon(Lucide::Plus).small().on_click(
+                        move |_, window, cx| {
+                            add.update(cx, |this, cx| this.open_form(window, cx)).ok();
+                        },
+                    )
                 }),
         )
     }
@@ -69,20 +69,25 @@ fn connection_row(connection: &CamundaConnection, view: WeakEntity<SettingsView>
                         .child(format!("{}{engine}", connection.rest_url)),
                 ),
         )
-        .child(Button::new(SharedString::from(format!("delete-{id}"))).icon(Lucide::Trash).ghost().small().tooltip("Удалить").on_click(
-            move |_, window, cx| {
-                let (id, view, name) = (id.clone(), view.clone(), name.clone());
-                window.open_alert_dialog(cx, move |alert, _, _| {
-                    let (id, view) = (id.clone(), view.clone());
-                    alert
-                        .title(format!("Удалить «{name}»?"))
-                        .description("Подключение пропадёт из списка, его можно будет добавить заново.")
-                        .show_cancel(true)
-                        .on_ok(move |_, _, cx| {
-                            view.update(cx, |this, cx| this.delete_connection(&id, cx)).ok();
-                            true
-                        })
-                });
-            },
-        ))
+        .child(
+            Button::new(SharedString::from(format!("delete-{id}")))
+                .icon(Lucide::Trash)
+                .ghost()
+                .small()
+                .tooltip(tr!("settings.connections.delete"))
+                .on_click(move |_, window, cx| {
+                    let (id, view, name) = (id.clone(), view.clone(), name.clone());
+                    window.open_alert_dialog(cx, move |alert, _, _| {
+                        let (id, view) = (id.clone(), view.clone());
+                        alert
+                            .title(tr!("settings.connections.delete_title", name = name))
+                            .description(tr!("settings.connections.delete_hint"))
+                            .show_cancel(true)
+                            .on_ok(move |_, _, cx| {
+                                view.update(cx, |this, cx| this.delete_connection(&id, cx)).ok();
+                                true
+                            })
+                    });
+                }),
+        )
 }

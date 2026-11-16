@@ -20,7 +20,7 @@ pub fn toolbar(zoom_label: String, cx: &mut Context<BpmnView>) -> impl IntoEleme
             let center = this.center_of();
             this.zoom_at(0.8, center, cx)
         })))
-        .child(Button::new("fit").label("По размеру").ghost().xsmall().on_click(cx.listener(|this, _, _, cx| {
+        .child(Button::new("fit").label(tr!("bpmn.fit")).ghost().xsmall().on_click(cx.listener(|this, _, _, cx| {
             this.transform = None;
             cx.notify();
         })))

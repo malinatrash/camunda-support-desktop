@@ -21,7 +21,7 @@ impl AppView {
         let trigger = SidebarHeader::new()
             .child(match &self.connection {
                 Some(connection) => connection_badge(connection, cx).into_any_element(),
-                None => div().text_sm().child("Нет подключения").into_any_element(),
+                None => div().text_sm().child(tr!("shell.no_connection")).into_any_element(),
             })
             .child(Icon::new(Lucide::ChevronsUpDown).small().text_color(cx.theme().muted_foreground));
         let generation = self.popover_generation;
@@ -41,7 +41,7 @@ impl AppView {
                     v_flex()
                         .gap_3()
                         .w(px(240. * columns as f32))
-                        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child("Подключения"))
+                        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(tr!("shell.connections")))
                         .child(div().grid().grid_cols(columns).gap_2().children(connections.iter().map(|connection| {
                             let active = current.as_deref() == Some(connection.id.as_str());
                             let (target, view) = (connection.clone(), view.clone());
@@ -56,7 +56,7 @@ impl AppView {
                                 .ghost()
                                 .small()
                                 .icon(Lucide::Settings)
-                                .label("Управлять подключениями")
+                                .label(tr!("shell.manage_connections"))
                                 .on_click(cx.listener(move |state, _, window, cx| {
                                     view.update(cx, |this, cx| this.go(Section::Settings, window, cx)).ok();
                                     state.dismiss(window, cx);

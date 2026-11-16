@@ -5,12 +5,12 @@ use gpui_kit::*;
 
 pub const ALL: [Environment; 4] = [Environment::Production, Environment::Test, Environment::Development, Environment::Local];
 
-pub fn label(environment: &Environment) -> &'static str {
+pub fn label(environment: &Environment) -> SharedString {
     match environment {
-        Environment::Production => "Прод",
-        Environment::Test => "Тест",
-        Environment::Development => "Разработка",
-        Environment::Local => "Локально",
+        Environment::Production => tr!("model.environment.production"),
+        Environment::Test => tr!("model.environment.test"),
+        Environment::Development => tr!("model.environment.development"),
+        Environment::Local => tr!("model.environment.local"),
     }
 }
 

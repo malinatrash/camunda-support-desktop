@@ -27,7 +27,12 @@ impl AppView {
                             .ghost()
                             .small()
                             .icon(Lucide::Search)
-                            .child(h_flex().gap_3().child("Найти заявку").child(Kbd::new(Keystroke::parse("cmd-k").expect("сочетание"))))
+                            .child(
+                                h_flex()
+                                    .gap_3()
+                                    .child(tr!("shell.find_instance"))
+                                    .child(Kbd::new(Keystroke::parse("cmd-k").expect("сочетание"))),
+                            )
                             .on_click(cx.listener(|this, _, window, cx| this.toggle_palette(window, cx))),
                     ),
             )

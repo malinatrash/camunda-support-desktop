@@ -29,7 +29,7 @@ impl AppView {
         match deep_link::parse_deep_link(url) {
             DeepLinkEvent::OpenProcessInstance { link } => {
                 let Some(connection) = self.connections.iter().find(|c| deep_link::matches_origin(c, &link.origin)).cloned() else {
-                    let message = format!("Нет подключения для {}. Добавьте его в настройках.", link.origin);
+                    let message = tr!("shell.deep_link_no_connection", origin = link.origin);
                     window.push_notification(Notification::warning(message), cx);
                     return;
                 };

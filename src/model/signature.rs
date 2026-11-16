@@ -1,6 +1,6 @@
 // Подпись сообщения без идентификаторов и чисел: первая непустая строка, до 140 символов.
 pub fn incident_signature(message: Option<&str>) -> String {
-    let Some(message) = message else { return "Без сообщения".to_string() };
+    let Some(message) = message else { return rust_i18n::t!("model.no_message").into_owned() };
     let line = message.lines().find(|line| !line.trim().is_empty()).unwrap_or(message);
     let words: Vec<String> = line
         .split_whitespace()
