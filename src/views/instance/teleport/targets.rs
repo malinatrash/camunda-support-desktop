@@ -31,7 +31,7 @@ impl TeleportView {
                 .into_any_element()
             })
             .collect();
-        picker("1 · ОТКУДА", "Активный элемент", &self.source_query, rows, cx)
+        picker("sources", tr!("instance.teleport.step_from"), tr!("instance.teleport.source_title"), &self.source_query, rows, cx)
     }
 
     pub(super) fn render_targets(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -59,11 +59,18 @@ impl TeleportView {
                 .into_any_element()
             })
             .collect();
-        picker("2 · КУДА", "Целевой кубик BPMN", &self.target_query, rows, cx)
+        picker("targets", tr!("instance.teleport.step_to"), tr!("instance.teleport.target_title"), &self.target_query, rows, cx)
     }
 }
 
-fn picker(step: &'static str, title: &'static str, query: &Entity<InputState>, rows: Vec<AnyElement>, cx: &App) -> impl IntoElement {
+fn picker(
+    id: &'static str,
+    step: SharedString,
+    title: SharedString,
+    query: &Entity<InputState>,
+    rows: Vec<AnyElement>,
+    cx: &App,
+) -> impl IntoElement {
     v_flex()
         .flex_1()
         .h_full()
@@ -77,7 +84,7 @@ fn picker(step: &'static str, title: &'static str, query: &Entity<InputState>, r
         .child(div().text_xs().font_weight(FontWeight::SEMIBOLD).text_color(cx.theme().muted_foreground).child(step))
         .child(div().font_weight(FontWeight::SEMIBOLD).child(title))
         .child(Input::new(query).small())
-        .child(v_flex().id(title).flex_1().min_h_0().gap_1().overflow_y_scroll().children(rows))
+        .child(v_flex().id(id).flex_1().min_h_0().gap_1().overflow_y_scroll().children(rows))
 }
 
 fn matches(query: &str, values: &[Option<&str>]) -> bool {

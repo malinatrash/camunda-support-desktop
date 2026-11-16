@@ -27,7 +27,6 @@ use crate::platform::services;
 use teleport::TeleportView;
 use variables::VariablesView;
 
-const TABS: [&str; 5] = ["Схема", "Хронология", "Диагностика", "Переменные", "Метаданные"];
 const REFRESH_EVERY: Duration = Duration::from_secs(30);
 
 pub struct InstanceView {
@@ -106,6 +105,16 @@ impl InstanceView {
     }
 }
 
+fn tabs() -> [SharedString; 5] {
+    [
+        tr!("instance.tab.diagram"),
+        tr!("instance.tab.timeline"),
+        tr!("instance.tab.diagnostics"),
+        tr!("instance.tab.variables"),
+        tr!("instance.tab.metadata"),
+    ]
+}
+
 impl Render for InstanceView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let body = match (&self.details, &self.diagram) {
@@ -119,7 +128,7 @@ impl Render for InstanceView {
             _ => v_flex()
                 .flex_1()
                 .gap_3()
-                .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Загружаем заявку…"))
+                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(tr!("instance.loading")))
                 .child(Skeleton::new().w_full().flex_1().rounded(cx.theme().radius))
                 .into_any_element(),
         };
@@ -128,7 +137,7 @@ impl Render for InstanceView {
             .p_4()
             .gap_4()
             .child(self.render_header(cx))
-            .child(TabBar::new("instance-tabs").underline().selected_index(self.tab).children(TABS).on_click(cx.listener(
+            .child(TabBar::new("instance-tabs").underline().selected_index(self.tab).children(tabs()).on_click(cx.listener(
                 |this, index: &usize, _, cx| {
                     this.tab = *index;
                     cx.notify();

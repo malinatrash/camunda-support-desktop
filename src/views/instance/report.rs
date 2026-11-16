@@ -6,20 +6,20 @@ impl InstanceView {
         let Some(details) = &self.details else { return String::new() };
         let instance = &details.instance;
         let state = if instance.ended {
-            "завершена"
+            tr!("instance.report.ended")
         } else if instance.suspended {
-            "приостановлена"
+            tr!("instance.report.suspended")
         } else {
-            "запущена"
+            tr!("instance.report.running")
         };
         let mut lines = vec![
-            format!("# Заявка {}", instance.business_key.as_deref().unwrap_or(&instance.id)),
-            format!("- Подключение: {} ({})", self.connection.name, self.connection.rest_url),
-            format!("- Процесс: {} · {}", instance.definition_key, instance.definition_id),
-            format!("- ID заявки: {}", instance.id),
-            format!("- Состояние: {state}"),
+            format!("# {}", tr!("instance.report.title", key = instance.business_key.as_deref().unwrap_or(&instance.id))),
+            format!("- {}: {} ({})", tr!("instance.report.connection"), self.connection.name, self.connection.rest_url),
+            format!("- {}: {} · {}", tr!("instance.report.process"), instance.definition_key, instance.definition_id),
+            format!("- {}: {}", tr!("instance.report.id"), instance.id),
+            format!("- {}: {state}", tr!("instance.report.state")),
             String::new(),
-            "## Текущие позиции".into(),
+            format!("## {}", tr!("instance.report.positions")),
         ];
         lines.extend(
             details
@@ -28,7 +28,7 @@ impl InstanceView {
                 .map(|a| format!("- {} ({})", a.activity_name.as_deref().unwrap_or(&a.activity_id), a.activity_id)),
         );
         lines.push(String::new());
-        lines.push(format!("## Инциденты ({})", details.incidents.len()));
+        lines.push(format!("## {}", tr!("instance.report.incidents", count = details.incidents.len())));
         for incident in &details.incidents {
             lines.push(format!(
                 "- {} · {} · {}",
@@ -41,7 +41,7 @@ impl InstanceView {
             }
         }
         lines.push(String::new());
-        lines.push("## Переменные".into());
+        lines.push(format!("## {}", tr!("instance.report.variables")));
         lines.extend(details.variables.iter().map(|v| {
             let value: String = v.value.chars().take(200).collect();
             format!("- {} ({}): {value}", v.name, v.value_type)

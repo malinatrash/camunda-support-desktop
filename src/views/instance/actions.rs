@@ -18,7 +18,7 @@ impl InstanceView {
                 Button::new("reload")
                     .icon(IconName::RefreshCw)
                     .ghost()
-                    .tooltip("Обновить")
+                    .tooltip(tr!("instance.actions.reload"))
                     .loading(self.load.is_some())
                     .on_click(cx.listener(|this, _, window, cx| this.reload(window, cx))),
             )
@@ -26,7 +26,7 @@ impl InstanceView {
                 Button::new("cockpit")
                     .icon(IconName::ExternalLink)
                     .ghost()
-                    .tooltip("Открыть в Cockpit")
+                    .tooltip(tr!("instance.actions.cockpit"))
                     .disabled(cockpit.is_none())
                     .on_click(move |_, _, cx| {
                         if let Some(url) = &cockpit {
@@ -38,44 +38,44 @@ impl InstanceView {
                 Button::new("copy-link")
                     .icon(IconName::Copy)
                     .ghost()
-                    .tooltip("Скопировать ссылку camunda-support://")
+                    .tooltip(tr!("instance.actions.copy_link"))
                     .disabled(link.is_none())
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if let Some(link) = link.clone() {
-                            this.copy(link, "Ссылка на заявку скопирована, по клику она откроется в приложении.", cx);
+                            this.copy(link, tr!("instance.actions.link_copied"), cx);
                         }
                     })),
             )
             .child(
                 Button::new("copy-report")
-                    .label("Отчёт")
+                    .label(tr!("instance.actions.report"))
                     .ghost()
-                    .tooltip("Скопировать отчёт в Markdown")
+                    .tooltip(tr!("instance.actions.report_hint"))
                     .disabled(self.details.is_none())
                     .on_click(cx.listener(|this, _, _, cx| {
                         let report = this.report();
-                        this.copy(report, "Отчёт по заявке скопирован в Markdown.", cx);
+                        this.copy(report, tr!("instance.actions.report_copied"), cx);
                     })),
             )
             .children(suspended.map(|suspended| {
                 Button::new("suspend")
-                    .label(if suspended { "Активировать" } else { "Приостановить" })
+                    .label(if suspended { tr!("instance.actions.activate") } else { tr!("instance.actions.suspend") })
                     .outline()
                     .disabled(self.operation.is_some())
                     .on_click(cx.listener(move |this, _, window, cx| this.ask(Operation::Suspend(!suspended), window, cx)))
             }))
             .child(
                 Button::new("teleport")
-                    .label("Телепорт")
+                    .label(tr!("instance.actions.teleport"))
                     .primary()
                     .disabled(!self.can_teleport())
                     .on_click(cx.listener(|this, _, window, cx| this.open_teleport(None, window, cx))),
             )
     }
 
-    pub(super) fn copy(&mut self, text: String, notice: &'static str, cx: &mut Context<Self>) {
+    pub(super) fn copy(&mut self, text: String, notice: SharedString, cx: &mut Context<Self>) {
         cx.write_to_clipboard(ClipboardItem::new_string(text));
-        self.notice = Some(notice.into());
+        self.notice = Some(notice);
         cx.notify();
     }
 

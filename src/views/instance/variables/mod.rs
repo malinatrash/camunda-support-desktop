@@ -7,7 +7,7 @@ use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{ActiveTheme, Sizable, WindowExt as _, h_flex};
 use gpui_kit::*;
 
-use super::panel::list_panel;
+use super::panel::{list_panel, sync_placeholder};
 use editor::{EditorEvent, VariableEditor};
 
 pub struct VariablesChanged(pub String);
@@ -32,7 +32,7 @@ impl VariablesView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let query = cx.new(|cx| InputState::new(window, cx).placeholder("Поиск по ключу, типу или значению"));
+        let query = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("instance.variables.search")));
         let subscription = cx.subscribe(&query, |_, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
                 cx.notify();
@@ -48,7 +48,7 @@ impl VariablesView {
 
     // Открывает редактор переменной в боковой панели.
     fn edit(&mut self, variable: ProcessVariable, window: &mut Window, cx: &mut Context<Self>) {
-        let title = format!("Переменная {}", variable.name);
+        let name = variable.name.clone();
         let (connection, instance_id) = (self.connection.clone(), self.instance_id.clone());
         let editor = cx.new(|cx| VariableEditor::new(connection, instance_id, variable, window, cx));
         self._editor_subscription = Some(cx.subscribe_in(&editor, window, |this, _, event: &EditorEvent, window, cx| {
@@ -59,12 +59,15 @@ impl VariablesView {
             }
         }));
         self.editor = Some(editor.clone());
-        window.open_sheet(cx, move |sheet, _, _| sheet.title(title.clone()).size(relative(0.45)).child(editor.clone()));
+        window.open_sheet(cx, move |sheet, _, _| {
+            sheet.title(tr!("instance.variables.sheet_title", name = name)).size(relative(0.45)).child(editor.clone())
+        });
     }
 }
 
 impl Render for VariablesView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        sync_placeholder(&self.query, tr!("instance.variables.search"), window, cx);
         let query = self.query.read(cx).value().trim().to_lowercase();
         let visible: Vec<&ProcessVariable> = self
             .variables
@@ -74,8 +77,12 @@ impl Render for VariablesView {
         let head = h_flex()
             .flex_1()
             .gap_3()
-            .child(div().font_weight(FontWeight::SEMIBOLD).child("Переменные Camunda"))
-            .child(div().text_sm().text_color(cx.theme().muted_foreground).child(format!("{} из {}", visible.len(), self.variables.len())))
+            .child(div().font_weight(FontWeight::SEMIBOLD).child(tr!("instance.variables.title")))
+            .child(div().text_sm().text_color(cx.theme().muted_foreground).child(tr!(
+                "instance.variables.shown",
+                visible = visible.len(),
+                total = self.variables.len()
+            )))
             .child(div().flex_1())
             .child(div().w(relative(0.35)).min_w(px(200.)).child(Input::new(&self.query).small()));
         list_panel(head, cx).child(div().id("variables").flex_1().min_h_0().overflow_y_scroll().child(self.render_list(visible, cx)))
