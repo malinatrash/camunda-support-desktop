@@ -16,7 +16,7 @@ impl InstanceView {
                 window.close_dialog(cx);
             }
             if matches!(event, TeleportEvent::Done) {
-                this.notice = Some("Телепорт выполнен, состояние заявки обновлено.".into());
+                this.notice = Some(tr!("instance.teleport.done"));
                 this.reload(window, cx);
             }
             cx.notify();
@@ -24,7 +24,7 @@ impl InstanceView {
         self.teleport = Some(teleport.clone());
         window.open_dialog(cx, move |dialog, window, _| {
             dialog
-                .title("Телепорт заявки")
+                .title(tr!("instance.teleport.title"))
                 .w(window.viewport_size().width * 0.8)
                 .max_w(px(1200.))
                 .overlay_closable(false)

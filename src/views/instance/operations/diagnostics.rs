@@ -18,15 +18,15 @@ pub(in crate::views::instance) fn render_diagnostics(
 ) -> impl IntoElement {
     let incidents = details.incidents.iter().map(|incident| {
         let meta = [
-            Some(format!("тип: {}", model::incident_type_label(&incident.incident_type))),
-            incident.timestamp.as_deref().map(|time| format!("время: {}", model::short_time(Some(time)))),
-            incident.configuration.as_ref().map(|config| format!("конфигурация: {config}")),
-            incident.annotation.as_ref().map(|note| format!("аннотация: {note}")),
-            Some(format!("id: {}", incident.id)),
+            Some(tr!("instance.diag.type", value = model::incident_type_label(&incident.incident_type))),
+            incident.timestamp.as_deref().map(|time| tr!("instance.diag.time", value = model::short_time(Some(time)))),
+            incident.configuration.as_ref().map(|config| tr!("instance.diag.config", value = config)),
+            incident.annotation.as_ref().map(|note| tr!("instance.diag.annotation", value = note)),
+            Some(SharedString::from(format!("id: {}", incident.id))),
         ];
         let activity =
             incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_else(|| incident.incident_type.clone());
-        let message = incident.message.clone().unwrap_or_else(|| "Сообщение отсутствует".into());
+        let message = incident.message.clone().unwrap_or_else(|| tr!("instance.diag.no_message").into());
         let meta = meta.into_iter().flatten().collect::<Vec<_>>().join(" · ");
         TableRow::new()
             .child(TableCell::new().col_span(2).text_color(cx.theme().danger).font_weight(FontWeight::SEMIBOLD).child(activity.clone()))
@@ -41,7 +41,7 @@ pub(in crate::views::instance) fn render_diagnostics(
         let id = job.id.clone();
         TableRow::new()
             .child(TableCell::new().col_span(2).child(text_with_meta(
-                format!("Задание · осталось попыток: {}", job.retries),
+                tr!("instance.diag.job_retries", retries = job.retries).into(),
                 job.failed_activity_id.clone().unwrap_or_else(|| job.id.clone()),
                 cx,
             )))
@@ -49,7 +49,7 @@ pub(in crate::views::instance) fn render_diagnostics(
             .child(
                 TableCell::new().text_right().child(
                     Button::new(SharedString::from(format!("job-{}", job.id)))
-                        .label("Дать 3 попытки")
+                        .label(tr!("instance.diag.retry"))
                         .outline()
                         .small()
                         .disabled(busy)
@@ -61,13 +61,18 @@ pub(in crate::views::instance) fn render_diagnostics(
         details.external_tasks.iter().map(|task| {
             let (retry_id, unlock_id) = (task.id.clone(), task.id.clone());
             let retries = task.retries.map(|value| value.to_string()).unwrap_or_else(|| "—".into());
-            let worker = format!(
-                "обработчик: {} · блокировка до: {}",
-                task.worker_id.as_deref().unwrap_or("—"),
-                model::short_time(task.lock_expiration_time.as_deref())
-            );
+            let worker = tr!(
+                "instance.diag.worker",
+                worker = task.worker_id.as_deref().unwrap_or("—"),
+                until = model::short_time(task.lock_expiration_time.as_deref())
+            )
+            .into();
             TableRow::new()
-                .child(TableCell::new().col_span(2).child(text_with_meta(format!("{} · попыток: {retries}", task.topic_name), worker, cx)))
+                .child(TableCell::new().col_span(2).child(text_with_meta(
+                    tr!("instance.diag.task_retries", topic = task.topic_name, retries = retries).into(),
+                    worker,
+                    cx,
+                )))
                 .child(TableCell::new().col_span(3).child(failure(format!("task-error-{}", task.id), task.error_message.as_deref(), cx)))
                 .child(
                     TableCell::new().col_span(2).text_right().child(
@@ -75,7 +80,7 @@ pub(in crate::views::instance) fn render_diagnostics(
                             .gap_2()
                             .child(
                                 Button::new(SharedString::from(format!("retry-{}", task.id)))
-                                    .label("Дать 3 попытки")
+                                    .label(tr!("instance.diag.retry"))
                                     .outline()
                                     .small()
                                     .disabled(busy)
@@ -85,7 +90,7 @@ pub(in crate::views::instance) fn render_diagnostics(
                             )
                             .child(
                                 Button::new(SharedString::from(format!("unlock-{}", task.id)))
-                                    .label("Разблокировать")
+                                    .label(tr!("instance.diag.unlock"))
                                     .ghost()
                                     .small()
                                     .disabled(busy || task.worker_id.is_none())
@@ -102,17 +107,35 @@ pub(in crate::views::instance) fn render_diagnostics(
         .min_h_0()
         .gap_4()
         .overflow_y_scroll()
-        .child(section("Инциденты", ["Кубик", "Сообщение"], [2, 5], incidents.collect(), "Открытых инцидентов нет"))
-        .child(section("Задания движка", ["Задание", "Ошибка", ""], [2, 4, 1], jobs.collect(), "Задания движка не найдены"))
-        .child(section("Внешние задачи", ["Топик", "Ошибка", ""], [2, 3, 2], tasks.collect(), "Внешние задачи не найдены"))
+        .child(section(
+            tr!("instance.diag.incidents"),
+            [tr!("instance.diag.col_activity"), tr!("instance.diag.col_message")],
+            [2, 5],
+            incidents.collect(),
+            tr!("instance.diag.no_incidents"),
+        ))
+        .child(section(
+            tr!("instance.diag.jobs"),
+            [tr!("instance.diag.col_job"), tr!("instance.diag.error"), SharedString::default()],
+            [2, 4, 1],
+            jobs.collect(),
+            tr!("instance.diag.no_jobs"),
+        ))
+        .child(section(
+            tr!("instance.diag.tasks"),
+            [tr!("instance.diag.col_topic"), tr!("instance.diag.error"), SharedString::default()],
+            [2, 3, 2],
+            tasks.collect(),
+            tr!("instance.diag.no_tasks"),
+        ))
 }
 
 fn section<const N: usize>(
-    title: &'static str,
-    heads: [&'static str; N],
+    title: SharedString,
+    heads: [SharedString; N],
     spans: [usize; N],
     rows: Vec<TableRow>,
-    none: &'static str,
+    none: SharedString,
 ) -> GroupBox {
     let count = rows.len();
     let header = TableRow::new().children(heads.into_iter().zip(spans).map(|(head, span)| TableHead::new().col_span(span).child(head)));
@@ -137,10 +160,10 @@ fn failure(id: String, message: Option<&str>, cx: &App) -> AnyElement {
         Some(message) => hover::text_card(
             SharedString::from(id),
             div().text_sm().line_clamp(2).text_color(cx.theme().danger).child(message.to_string()),
-            "Ошибка".into(),
+            tr!("instance.diag.error").into(),
             message.to_string(),
         )
         .into_any_element(),
-        None => div().text_sm().text_color(cx.theme().muted_foreground).child("Ошибка отсутствует").into_any_element(),
+        None => div().text_sm().text_color(cx.theme().muted_foreground).child(tr!("instance.diag.no_error")).into_any_element(),
     }
 }

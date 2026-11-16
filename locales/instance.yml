@@ -1,0 +1,412 @@
+_version: 2
+instance.tab.diagram:
+  en: Diagram
+  ru: Схема
+instance.tab.timeline:
+  en: Timeline
+  ru: Хронология
+instance.tab.diagnostics:
+  en: Diagnostics
+  ru: Диагностика
+instance.tab.variables:
+  en: Variables
+  ru: Переменные
+instance.tab.metadata:
+  en: Metadata
+  ru: Метаданные
+instance.loading:
+  en: Loading instance…
+  ru: Загружаем заявку…
+instance.actions.reload:
+  en: Refresh
+  ru: Обновить
+instance.actions.cockpit:
+  en: Open in Cockpit
+  ru: Открыть в Cockpit
+instance.actions.copy_link:
+  en: "Copy camunda-support:// link"
+  ru: "Скопировать ссылку camunda-support://"
+instance.actions.link_copied:
+  en: Instance link copied; clicking it opens the app.
+  ru: Ссылка на заявку скопирована, по клику она откроется в приложении.
+instance.actions.report:
+  en: Report
+  ru: Отчёт
+instance.actions.report_hint:
+  en: Copy report as Markdown
+  ru: Скопировать отчёт в Markdown
+instance.actions.report_copied:
+  en: Instance report copied as Markdown.
+  ru: Отчёт по заявке скопирован в Markdown.
+instance.actions.activate:
+  en: Activate
+  ru: Активировать
+instance.actions.suspend:
+  en: Suspend
+  ru: Приостановить
+instance.actions.teleport:
+  en: Teleport
+  ru: Телепорт
+instance.side.current:
+  en: Current state
+  ru: Текущее состояние
+instance.side.active:
+  en: active
+  ru: активен
+instance.side.incident:
+  en: incident
+  ru: инцидент
+instance.side.incidents:
+  en: Incidents
+  ru: Инциденты
+instance.side.no_message:
+  en: No message
+  ru: Без сообщения
+instance.side.no_incidents:
+  en: No incidents
+  ru: Инцидентов нет
+instance.side.pick_node:
+  en: Click an activity on the diagram
+  ru: Нажмите кубик на схеме
+instance.side.history:
+  en: "completed %{completed} · active %{active} · canceled %{canceled}"
+  ru: "выполнено %{completed} · активно %{active} · отменено %{canceled}"
+instance.side.topic:
+  en: "topic: %{topic}"
+  ru: "топик: %{topic}"
+instance.side.teleport_here:
+  en: Teleport here
+  ru: Телепортировать сюда
+instance.notice.variable_updated:
+  en: "Variable %{name} updated."
+  ru: "Переменная %{name} обновлена."
+instance.header.fallback:
+  en: Instance
+  ru: Заявка
+instance.header.key_copied:
+  en: Business key copied.
+  ru: Бизнес-ключ скопирован.
+instance.header.incidents_short:
+  en: "%{count} inc."
+  ru: "%{count} инц."
+instance.field.id:
+  en: Instance ID
+  ru: ID заявки
+instance.field.business_key:
+  en: Business key
+  ru: Бизнес-ключ
+instance.field.process:
+  en: Process
+  ru: Процесс
+instance.field.definition:
+  en: Definition
+  ru: Определение
+instance.field.start:
+  en: Start
+  ru: Старт
+instance.field.end:
+  en: End
+  ru: Окончание
+instance.field.tenant:
+  en: Tenant
+  ru: Тенант
+instance.metadata.title:
+  en: Instance metadata
+  ru: Метаданные заявки
+instance.diag.type:
+  en: "type: %{value}"
+  ru: "тип: %{value}"
+instance.diag.time:
+  en: "time: %{value}"
+  ru: "время: %{value}"
+instance.diag.config:
+  en: "configuration: %{value}"
+  ru: "конфигурация: %{value}"
+instance.diag.annotation:
+  en: "annotation: %{value}"
+  ru: "аннотация: %{value}"
+instance.diag.no_message:
+  en: No message
+  ru: Сообщение отсутствует
+instance.diag.job_retries:
+  en: "Job · retries left: %{retries}"
+  ru: "Задание · осталось попыток: %{retries}"
+instance.diag.retry:
+  en: Set 3 retries
+  ru: Дать 3 попытки
+instance.diag.worker:
+  en: "worker: %{worker} · locked until: %{until}"
+  ru: "обработчик: %{worker} · блокировка до: %{until}"
+instance.diag.task_retries:
+  en: "%{topic} · retries: %{retries}"
+  ru: "%{topic} · попыток: %{retries}"
+instance.diag.unlock:
+  en: Unlock
+  ru: Разблокировать
+instance.diag.incidents:
+  en: Incidents
+  ru: Инциденты
+instance.diag.jobs:
+  en: Engine jobs
+  ru: Задания движка
+instance.diag.tasks:
+  en: External tasks
+  ru: Внешние задачи
+instance.diag.col_activity:
+  en: Activity
+  ru: Кубик
+instance.diag.col_message:
+  en: Message
+  ru: Сообщение
+instance.diag.col_job:
+  en: Job
+  ru: Задание
+instance.diag.col_topic:
+  en: Topic
+  ru: Топик
+instance.diag.error:
+  en: Error
+  ru: Ошибка
+instance.diag.no_error:
+  en: No error
+  ru: Ошибка отсутствует
+instance.diag.no_incidents:
+  en: No open incidents
+  ru: Открытых инцидентов нет
+instance.diag.no_jobs:
+  en: No engine jobs found
+  ru: Задания движка не найдены
+instance.diag.no_tasks:
+  en: No external tasks found
+  ru: Внешние задачи не найдены
+instance.op.confirm_title:
+  en: Confirm action
+  ru: Подтвердите действие
+instance.op.production:
+  en: This is production
+  ru: Это прод
+instance.op.run:
+  en: Run
+  ru: Выполнить
+instance.op.cancel:
+  en: Cancel
+  ru: Отмена
+instance.op.job_retry_question:
+  en: "Set 3 retries for engine job %{id}?"
+  ru: "Установить 3 попытки для задания движка %{id}?"
+instance.op.external_retry_question:
+  en: "Set 3 retries for external task %{id}?"
+  ru: "Установить 3 попытки для внешней задачи %{id}?"
+instance.op.external_unlock_question:
+  en: "Unlock external task %{id}? Another worker can fetch it right away."
+  ru: "Снять блокировку с внешней задачи %{id}? Другой обработчик сможет забрать её сразу."
+instance.op.suspend_question:
+  en: Suspend the process instance?
+  ru: Приостановить экземпляр процесса?
+instance.op.activate_question:
+  en: Activate the process instance?
+  ru: Активировать экземпляр процесса?
+instance.op.job_retry_done:
+  en: Engine job now has 3 retries.
+  ru: Для задания движка установлено 3 попытки.
+instance.op.external_retry_done:
+  en: External task now has 3 retries.
+  ru: Для внешней задачи установлено 3 попытки.
+instance.op.external_unlock_done:
+  en: External task unlocked.
+  ru: Внешняя задача разблокирована.
+instance.op.suspend_done:
+  en: Instance suspended.
+  ru: Заявка приостановлена.
+instance.op.activate_done:
+  en: Instance activated.
+  ru: Заявка активирована.
+instance.report.title:
+  en: "Instance %{key}"
+  ru: "Заявка %{key}"
+instance.report.connection:
+  en: Connection
+  ru: Подключение
+instance.report.process:
+  en: Process
+  ru: Процесс
+instance.report.id:
+  en: Instance ID
+  ru: ID заявки
+instance.report.state:
+  en: State
+  ru: Состояние
+instance.report.ended:
+  en: completed
+  ru: завершена
+instance.report.suspended:
+  en: suspended
+  ru: приостановлена
+instance.report.running:
+  en: running
+  ru: запущена
+instance.report.positions:
+  en: Current positions
+  ru: Текущие позиции
+instance.report.incidents:
+  en: "Incidents (%{count})"
+  ru: "Инциденты (%{count})"
+instance.report.variables:
+  en: Variables
+  ru: Переменные
+instance.teleport.done:
+  en: Teleport completed, instance state refreshed.
+  ru: Телепорт выполнен, состояние заявки обновлено.
+instance.teleport.title:
+  en: Instance teleport
+  ru: Телепорт заявки
+instance.teleport.intro:
+  en: Pick an active instance and the activity before which execution will continue.
+  ru: Выберите активный экземпляр и кубик, перед которым продолжится выполнение.
+instance.teleport.annotation:
+  en: Comment for Camunda history
+  ru: Комментарий для истории Camunda
+instance.teleport.confirm_production:
+  en: I understand this is production and teleport the instance deliberately
+  ru: Понимаю, что это прод, и телепортирую заявку осознанно
+instance.teleport.cancel:
+  en: Cancel
+  ru: Отмена
+instance.teleport.execute:
+  en: Teleport
+  ru: Телепортировать
+instance.teleport.source_placeholder:
+  en: Search by name or ID
+  ru: Поиск по названию или ID
+instance.teleport.target_placeholder:
+  en: Activity name, ID or topic
+  ru: Название, ID или topic кубика
+instance.teleport.annotation_placeholder:
+  en: "e.g. WPL-800, resend to HAOS"
+  ru: "Например: WPL-800, повтор отправки в HAOS"
+instance.teleport.step_from:
+  en: 1 · FROM
+  ru: 1 · ОТКУДА
+instance.teleport.source_title:
+  en: Active element
+  ru: Активный элемент
+instance.teleport.step_to:
+  en: 2 · TO
+  ru: 2 · КУДА
+instance.teleport.target_title:
+  en: Target BPMN activity
+  ru: Целевой кубик BPMN
+instance.timeline.title:
+  en: Activity timeline
+  ru: Хронология прохождения
+instance.timeline.events.one:
+  en: "%{count} event · History API"
+  ru: "%{count} событие · History API"
+instance.timeline.events.few:
+  ru: "%{count} события · History API"
+instance.timeline.events.many:
+  ru: "%{count} событий · History API"
+instance.timeline.events.other:
+  en: "%{count} events · History API"
+instance.timeline.col_start:
+  en: Start
+  ru: Начало
+instance.timeline.col_activity:
+  en: Activity
+  ru: Кубик
+instance.timeline.col_type:
+  en: Type
+  ru: Тип
+instance.timeline.col_duration:
+  en: Duration
+  ru: Длительность
+instance.timeline.col_status:
+  en: Status
+  ru: Статус
+instance.timeline.canceled:
+  en: canceled
+  ru: отменён
+instance.timeline.active:
+  en: active
+  ru: активен
+instance.timeline.completed:
+  en: completed
+  ru: выполнен
+instance.timeline.end:
+  en: End
+  ru: Окончание
+instance.timeline.instance_id:
+  en: Activity instance ID
+  ru: ID экземпляра
+instance.timeline.empty:
+  en: No events
+  ru: Событий нет
+instance.timeline.millis:
+  en: "%{value} ms"
+  ru: "%{value} мс"
+instance.timeline.seconds:
+  en: "%{value} s"
+  ru: "%{value} с"
+instance.variables.title:
+  en: Camunda variables
+  ru: Переменные Camunda
+instance.variables.shown:
+  en: "%{visible} of %{total}"
+  ru: "%{visible} из %{total}"
+instance.variables.search:
+  en: Search by key, type or value
+  ru: Поиск по ключу, типу или значению
+instance.variables.sheet_title:
+  en: "Variable %{name}"
+  ru: "Переменная %{name}"
+instance.variables.empty:
+  en: No variables found
+  ru: Переменные не найдены
+instance.variables.copy:
+  en: Copy
+  ru: Копировать
+instance.variables.edit:
+  en: Edit
+  ru: Изменить
+instance.variables.read_only:
+  en: Read-only
+  ru: Только чтение
+instance.variables.col_key:
+  en: Key
+  ru: Ключ
+instance.variables.col_value:
+  en: Value
+  ru: Значение
+instance.variables.cancel:
+  en: Cancel
+  ru: Отмена
+instance.variables.save:
+  en: Save
+  ru: Сохранить
+instance.variables.hint_boolean:
+  en: Enter true or false.
+  ru: Введите true или false.
+instance.variables.hint_integer:
+  en: Enter an integer without spaces or separators.
+  ru: Введите целое число без пробелов и разделителей.
+instance.variables.hint_double:
+  en: Enter a number; use a dot for the decimal part.
+  ru: Введите число, дробная часть отделяется точкой.
+instance.variables.hint_date:
+  en: "The Date type is kept; use the Camunda date format with a time zone."
+  ru: "Сохранится тип Date; используйте формат даты Camunda с часовым поясом."
+instance.variables.hint_json:
+  en: Enter complete valid JSON. It is stored as a Camunda string JSON value.
+  ru: Введите полный корректный JSON. Он сохранится строковым JSON-значением Camunda.
+instance.variables.hint_other:
+  en: "The variable type stays %{kind}."
+  ru: "Тип переменной останется %{kind}."
+instance.variables.error_boolean:
+  en: Only true or false are allowed.
+  ru: Допустимы только true или false.
+instance.variables.error_range:
+  en: "The value is out of %{kind} range or is not an integer."
+  ru: "Значение выходит за диапазон %{kind} или не является целым числом."
+instance.variables.error_double:
+  en: Enter a finite number in Double format.
+  ru: Введите конечное число в формате Double.

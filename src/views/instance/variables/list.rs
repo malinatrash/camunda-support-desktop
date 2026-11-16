@@ -14,7 +14,7 @@ impl VariablesView {
     // Таблица переменных с копированием значения и правкой изменяемых типов.
     pub(super) fn render_list(&self, visible: Vec<&ProcessVariable>, cx: &mut Context<Self>) -> AnyElement {
         if visible.is_empty() {
-            return empty("Переменные не найдены").into_any_element();
+            return empty(tr!("instance.variables.empty")).into_any_element();
         }
         let mono = crate::platform::theme::mono(cx);
         let rows = visible.into_iter().map(|variable| {
@@ -44,14 +44,14 @@ impl VariablesView {
                             .gap_1()
                             .child(
                                 Button::new(SharedString::from(format!("copy-{}", variable.name)))
-                                    .label("Копировать")
+                                    .label(tr!("instance.variables.copy"))
                                     .ghost()
                                     .small()
                                     .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(copy_value.clone()))),
                             )
                             .child(
                                 Button::new(SharedString::from(format!("edit-{}", variable.name)))
-                                    .label(if can_edit { "Изменить" } else { "Только чтение" })
+                                    .label(if can_edit { tr!("instance.variables.edit") } else { tr!("instance.variables.read_only") })
                                     .outline()
                                     .small()
                                     .disabled(!can_edit)
@@ -61,8 +61,8 @@ impl VariablesView {
                 )
         });
         let header = TableRow::new()
-            .child(TableHead::new().col_span(2).child("Ключ"))
-            .child(TableHead::new().col_span(5).child("Значение"))
+            .child(TableHead::new().col_span(2).child(tr!("instance.variables.col_key")))
+            .child(TableHead::new().col_span(5).child(tr!("instance.variables.col_value")))
             .child(TableHead::new().col_span(2).child(""));
         Table::new().child(TableHeader::new().child(header)).child(TableBody::new().children(rows)).into_any_element()
     }

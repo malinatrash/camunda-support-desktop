@@ -32,11 +32,11 @@ impl InstanceView {
             let (view, operation) = (view.clone(), operation.clone());
             alert
                 .confirm()
-                .title("Подтвердите действие")
+                .title(tr!("instance.op.confirm_title"))
                 .description(operation.question())
-                .when(production, |alert| alert.child(Tag::danger().small().rounded_full().child("Это прод")))
-                .ok_text("Выполнить")
-                .cancel_text("Отмена")
+                .when(production, |alert| alert.child(Tag::danger().small().rounded_full().child(tr!("instance.op.production"))))
+                .ok_text(tr!("instance.op.run"))
+                .cancel_text(tr!("instance.op.cancel"))
                 .ok_variant(if production { ButtonVariant::Danger } else { ButtonVariant::Primary })
                 .on_ok(move |_, window, cx| {
                     view.update(cx, |this, cx| this.run_operation(operation.clone(), window, cx)).ok();
@@ -56,7 +56,7 @@ impl InstanceView {
                 this.operation = None;
                 match result {
                     Ok(()) => {
-                        this.notice = Some(success.into());
+                        this.notice = Some(success);
                         this.reload(window, cx);
                     }
                     Err(error) => this.error = Some(error),
@@ -70,23 +70,23 @@ impl InstanceView {
 }
 
 impl Operation {
-    fn question(&self) -> String {
+    fn question(&self) -> SharedString {
         match self {
-            Self::JobRetry(id) => format!("Установить 3 попытки для задания движка {id}?"),
-            Self::ExternalRetry(id) => format!("Установить 3 попытки для внешней задачи {id}?"),
-            Self::ExternalUnlock(id) => format!("Снять блокировку с внешней задачи {id}? Другой обработчик сможет забрать её сразу."),
-            Self::Suspend(true) => "Приостановить экземпляр процесса?".into(),
-            Self::Suspend(false) => "Активировать экземпляр процесса?".into(),
+            Self::JobRetry(id) => tr!("instance.op.job_retry_question", id = id),
+            Self::ExternalRetry(id) => tr!("instance.op.external_retry_question", id = id),
+            Self::ExternalUnlock(id) => tr!("instance.op.external_unlock_question", id = id),
+            Self::Suspend(true) => tr!("instance.op.suspend_question"),
+            Self::Suspend(false) => tr!("instance.op.activate_question"),
         }
     }
 
-    fn success(&self) -> &'static str {
+    fn success(&self) -> SharedString {
         match self {
-            Self::JobRetry(_) => "Для задания движка установлено 3 попытки.",
-            Self::ExternalRetry(_) => "Для внешней задачи установлено 3 попытки.",
-            Self::ExternalUnlock(_) => "Внешняя задача разблокирована.",
-            Self::Suspend(true) => "Заявка приостановлена.",
-            Self::Suspend(false) => "Заявка активирована.",
+            Self::JobRetry(_) => tr!("instance.op.job_retry_done"),
+            Self::ExternalRetry(_) => tr!("instance.op.external_retry_done"),
+            Self::ExternalUnlock(_) => tr!("instance.op.external_unlock_done"),
+            Self::Suspend(true) => tr!("instance.op.suspend_done"),
+            Self::Suspend(false) => tr!("instance.op.activate_done"),
         }
     }
 
