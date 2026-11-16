@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_loan-application" targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="loan-application" name="Loan application" isExecutable="true" camunda:historyTimeToLive="30">
+    <bpmn:startEvent id="Start" name="Application received" />
+    <bpmn:serviceTask id="Score" name="Credit scoring" camunda:type="external" camunda:topic="credit-score" />
+    <bpmn:exclusiveGateway id="Risk" name="Risk level?" />
+    <bpmn:userTask id="Underwriter" name="Underwriter decision" />
+    <bpmn:exclusiveGateway id="Join" name="" />
+    <bpmn:serviceTask id="Disburse" name="Disburse funds" camunda:expression="${disburse ? payments.send(execution) : true}" camunda:asyncBefore="true" />
+    <bpmn:endEvent id="End" name="Loan issued" />
+    <bpmn:sequenceFlow id="Flow_0" sourceRef="Start" targetRef="Score"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Score" targetRef="Risk"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Risk" targetRef="Join"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${amount &lt;= 5000}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Risk" targetRef="Underwriter"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${amount &gt; 5000}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Underwriter" targetRef="Join"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Join" targetRef="Disburse"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Disburse" targetRef="End"></bpmn:sequenceFlow>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_loan-application">
+    <bpmndi:BPMNPlane id="Plane_loan-application" bpmnElement="loan-application">
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start"><dc:Bounds x="100" y="122" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Score_di" bpmnElement="Score"><dc:Bounds x="180" y="100" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Risk_di" bpmnElement="Risk"><dc:Bounds x="340" y="115" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Underwriter_di" bpmnElement="Underwriter"><dc:Bounds x="440" y="240" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Join_di" bpmnElement="Join"><dc:Bounds x="600" y="115" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Disburse_di" bpmnElement="Disburse"><dc:Bounds x="700" y="100" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_di" bpmnElement="End"><dc:Bounds x="860" y="122" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0_di" bpmnElement="Flow_0"><di:waypoint x="136" y="140" /><di:waypoint x="180" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="290" y="140" /><di:waypoint x="340" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="390" y="140" /><di:waypoint x="600" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="365" y="165" /><di:waypoint x="365" y="280" /><di:waypoint x="440" y="280" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="550" y="280" /><di:waypoint x="625" y="280" /><di:waypoint x="625" y="165" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="650" y="140" /><di:waypoint x="700" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6"><di:waypoint x="810" y="140" /><di:waypoint x="860" y="140" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

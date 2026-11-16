@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_customer-onboarding" targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="customer-onboarding" name="Customer onboarding" isExecutable="true" camunda:historyTimeToLive="30">
+    <bpmn:startEvent id="Start" name="Sign-up submitted" />
+    <bpmn:userTask id="Documents" name="Collect documents" />
+    <bpmn:serviceTask id="Kyc" name="KYC check" camunda:type="external" camunda:topic="kyc-check" />
+    <bpmn:userTask id="Review" name="Manual review" />
+    <bpmn:serviceTask id="Account" name="Create account" camunda:expression="${true}" />
+    <bpmn:endEvent id="End" name="Customer active" />
+    <bpmn:sequenceFlow id="Flow_0" sourceRef="Start" targetRef="Documents"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Documents" targetRef="Kyc"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Kyc" targetRef="Review"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Review" targetRef="Account"></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Account" targetRef="End"></bpmn:sequenceFlow>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_customer-onboarding">
+    <bpmndi:BPMNPlane id="Plane_customer-onboarding" bpmnElement="customer-onboarding">
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start"><dc:Bounds x="100" y="122" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Documents_di" bpmnElement="Documents"><dc:Bounds x="180" y="100" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Kyc_di" bpmnElement="Kyc"><dc:Bounds x="340" y="100" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Review_di" bpmnElement="Review"><dc:Bounds x="500" y="100" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Account_di" bpmnElement="Account"><dc:Bounds x="660" y="100" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_di" bpmnElement="End"><dc:Bounds x="820" y="122" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0_di" bpmnElement="Flow_0"><di:waypoint x="136" y="140" /><di:waypoint x="180" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="290" y="140" /><di:waypoint x="340" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="450" y="140" /><di:waypoint x="500" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="610" y="140" /><di:waypoint x="660" y="140" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="770" y="140" /><di:waypoint x="820" y="140" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

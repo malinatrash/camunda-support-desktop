@@ -6,6 +6,8 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 camunda-core.workspace = true
@@ -29,6 +31,8 @@ edition = "2024"
 rust-version = "1.95"
 authors = ["malinatrash"]
 publish = false
+license = "MIT"
+repository = "https://github.com/malinatrash/camunda-support-desktop"
 
 [workspace.dependencies]
 camunda-core = { path = "crates/camunda-core" }
