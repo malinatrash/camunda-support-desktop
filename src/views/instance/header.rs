@@ -38,10 +38,10 @@ impl InstanceView {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .cursor_pointer()
                                     .hover(|style| style.underline())
-                                    .child(key.unwrap_or_else(|| "Заявка".into()))
+                                    .child(key.map(SharedString::from).unwrap_or_else(|| tr!("instance.header.fallback")))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         if let Some(key) = copy_key.clone() {
-                                            this.copy(key, "Бизнес-ключ скопирован.", cx);
+                                            this.copy(key, tr!("instance.header.key_copied"), cx);
                                         }
                                     })),
                                 self.instance_fields(),
@@ -50,7 +50,12 @@ impl InstanceView {
                                 this.child(model::state_tag(details.instance.suspended, details.instance.ended)).when(
                                     !details.incidents.is_empty(),
                                     |this| {
-                                        this.child(Tag::danger().small().rounded_full().child(format!("{} инц.", details.incidents.len())))
+                                        this.child(
+                                            Tag::danger()
+                                                .small()
+                                                .rounded_full()
+                                                .child(tr!("instance.header.incidents_short", count = details.incidents.len())),
+                                        )
                                     },
                                 )
                             }),
@@ -69,19 +74,19 @@ impl InstanceView {
             .child(self.render_actions(cx))
     }
 
-    fn instance_fields(&self) -> Vec<(&'static str, String)> {
+    fn instance_fields(&self) -> Vec<(SharedString, String)> {
         let Some(instance) = self.details.as_ref().map(|details| &details.instance) else {
-            return vec![("ID заявки", self.instance_id.clone())];
+            return vec![(tr!("instance.field.id"), self.instance_id.clone())];
         };
         let optional = |value: &Option<String>| value.clone().unwrap_or_else(|| "—".into());
         vec![
-            ("ID заявки", instance.id.clone()),
-            ("Бизнес-ключ", optional(&instance.business_key)),
-            ("Процесс", instance.definition_name.clone().unwrap_or_else(|| instance.definition_key.clone())),
-            ("Определение", instance.definition_id.clone()),
-            ("Старт", model::short_time(instance.start_time.as_deref())),
-            ("Окончание", model::short_time(instance.end_time.as_deref())),
-            ("Тенант", optional(&instance.tenant_id)),
+            (tr!("instance.field.id"), instance.id.clone()),
+            (tr!("instance.field.business_key"), optional(&instance.business_key)),
+            (tr!("instance.field.process"), instance.definition_name.clone().unwrap_or_else(|| instance.definition_key.clone())),
+            (tr!("instance.field.definition"), instance.definition_id.clone()),
+            (tr!("instance.field.start"), model::short_time(instance.start_time.as_deref())),
+            (tr!("instance.field.end"), model::short_time(instance.end_time.as_deref())),
+            (tr!("instance.field.tenant"), optional(&instance.tenant_id)),
         ]
     }
 }

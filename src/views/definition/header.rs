@@ -7,6 +7,7 @@ use gpui_kit::*;
 
 use super::DefinitionView;
 use crate::model::{self, Navigate};
+use crate::platform::locale::plural_key;
 
 impl DefinitionView {
     // Путь «Обзор / процесс / версия», название и действия.
@@ -16,24 +17,28 @@ impl DefinitionView {
             self.details.as_ref().map(|details| model::display_name(&details.definition).to_string()).unwrap_or_else(|| key.clone());
         let version = match &self.version_id {
             Some(id) => format!("v{}", id.split(':').nth(1).unwrap_or("?")),
-            None => "Все версии".to_string(),
+            None => tr!("definition.all_versions").to_string(),
         };
         let instances = self.details.as_ref().map(|details| details.instances.as_slice()).unwrap_or_default();
         let with_incidents = instances.iter().filter(|item| item.incident_count > 0).count();
         let path = Breadcrumb::new()
             .min_w_0()
             .overflow_hidden()
-            .child(BreadcrumbItem::new("Обзор").on_click(cx.listener(|_, _, _, cx| cx.emit(Navigate::Back))))
+            .child(BreadcrumbItem::new(tr!("definition.overview")).on_click(cx.listener(|_, _, _, cx| cx.emit(Navigate::Back))))
             .child(title.clone())
             .child(version);
         let actions = Toolbar::new("definition-actions")
             .p_0()
             .gap_2()
-            .content(div().text_sm().text_color(cx.theme().muted_foreground).child(format!("{} заявок", instances.len())))
-            .contents(
-                (with_incidents > 0)
-                    .then(|| Tag::danger().small().rounded_full().child(format!("{with_incidents} с инцидентами")).into_any_element()),
+            .content(
+                div()
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(tr!(plural_key("definition.instances", instances.len()), count = instances.len())),
             )
+            .contents((with_incidents > 0).then(|| {
+                Tag::danger().small().rounded_full().child(tr!("definition.with_incidents", count = with_incidents)).into_any_element()
+            }))
             .child(
                 Button::new("reload")
                     .icon(IconName::RefreshCw)

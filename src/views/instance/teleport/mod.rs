@@ -7,6 +7,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::*;
 
 use crate::platform::services;
+use crate::views::instance::panel::sync_placeholder;
 
 pub enum TeleportEvent {
     Done,
@@ -45,9 +46,9 @@ impl TeleportView {
             let chosen = targets.remove(index);
             targets.insert(0, chosen);
         }
-        let source_query = cx.new(|cx| InputState::new(window, cx).placeholder("Поиск по названию или ID"));
-        let target_query = cx.new(|cx| InputState::new(window, cx).placeholder("Название, ID или topic кубика"));
-        let annotation = cx.new(|cx| InputState::new(window, cx).placeholder("Например: WPL-800, повтор отправки в HAOS"));
+        let source_query = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("instance.teleport.source_placeholder")));
+        let target_query = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("instance.teleport.target_placeholder")));
+        let annotation = cx.new(|cx| InputState::new(window, cx).placeholder(tr!("instance.teleport.annotation_placeholder")));
         let notify = |_: &mut Self, _: Entity<InputState>, event: &InputEvent, cx: &mut Context<Self>| {
             if matches!(event, InputEvent::Change) {
                 cx.notify();
@@ -70,6 +71,13 @@ impl TeleportView {
             run: None,
             _subscriptions: subscriptions,
         }
+    }
+
+    // Подсказки полей переводятся заново, чтобы смена языка применялась сразу.
+    fn sync_placeholders(&self, window: &mut Window, cx: &mut Context<Self>) {
+        sync_placeholder(&self.source_query, tr!("instance.teleport.source_placeholder"), window, cx);
+        sync_placeholder(&self.target_query, tr!("instance.teleport.target_placeholder"), window, cx);
+        sync_placeholder(&self.annotation, tr!("instance.teleport.annotation_placeholder"), window, cx);
     }
 
     fn execute(&mut self, cx: &mut Context<Self>) {

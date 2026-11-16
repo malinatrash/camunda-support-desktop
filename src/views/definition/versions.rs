@@ -17,7 +17,7 @@ impl DefinitionView {
             .segmented()
             .small()
             .when_some(selected, |this, ix| this.selected_index(ix))
-            .child("Все версии")
+            .child(tr!("definition.all_versions"))
             .children(labels)
             .on_click(cx.listener(|this, index: &usize, _, cx| {
                 this.version_id = index.checked_sub(1).and_then(|ix| this.versions.get(ix)).map(|version| version.id.clone());

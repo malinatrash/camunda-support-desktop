@@ -46,14 +46,18 @@ impl AppUpdateService {
 
 fn github_error(status: u16) -> String {
     match status {
-        403 | 429 => "GitHub временно ограничил проверку обновлений".into(),
-        404 => "В GitHub пока нет опубликованного релиза".into(),
-        other => format!("GitHub вернул HTTP {other}"),
+        403 | 429 => rust_i18n::t!("core.update.rate_limited").to_string(),
+        404 => rust_i18n::t!("core.update.no_release").to_string(),
+        other => rust_i18n::t!("core.update.http_error", status = other).to_string(),
     }
 }
 
 fn required_string(value: &serde_json::Value, key: &str) -> Result<String, String> {
-    value[key].as_str().filter(|text| !text.trim().is_empty()).map(str::to_string).ok_or_else(|| format!("GitHub не вернул поле {key}"))
+    value[key]
+        .as_str()
+        .filter(|text| !text.trim().is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| rust_i18n::t!("core.update.missing_field", key = key).to_string())
 }
 
 fn json_i64(value: &serde_json::Value) -> i64 {
@@ -71,9 +75,9 @@ mod tests {
 
     #[test]
     fn maps_github_statuses_to_messages() {
-        assert_eq!(github_error(403), "GitHub временно ограничил проверку обновлений");
-        assert_eq!(github_error(404), "В GitHub пока нет опубликованного релиза");
-        assert_eq!(github_error(500), "GitHub вернул HTTP 500");
+        assert_eq!(github_error(403), "GitHub temporarily limited update checks");
+        assert_eq!(github_error(404), "No release is published on GitHub yet");
+        assert_eq!(github_error(500), "GitHub returned HTTP 500");
         assert_eq!(safe_file_name("v9.0.0/beta x"), "v9.0.0_beta_x");
     }
 
@@ -99,9 +103,7 @@ mod tests {
         assert_eq!(service("/latest").check_for_update("1.0.0").await, UpdateCheckResult::UpToDate);
         assert_eq!(
             service("/limited").check_for_update("1.0.0").await,
-            UpdateCheckResult::Failure {
-                message: "GitHub временно ограничил проверку обновлений".into()
-            }
+            UpdateCheckResult::Failure { message: "GitHub temporarily limited update checks".into() }
         );
         let insecure = AppUpdate {
             version: "9.0.0".into(),
@@ -126,9 +128,7 @@ mod tests {
         );
         assert_eq!(
             https_only.download_and_install(&insecure, &|_| {}).await,
-            UpdateInstallResult::Failure {
-                message: "GitHub вернул небезопасную ссылку на установщик".into()
-            }
+            UpdateInstallResult::Failure { message: "GitHub returned an insecure installer link".into() }
         );
     }
 }

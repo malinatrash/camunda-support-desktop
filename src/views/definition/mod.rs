@@ -13,6 +13,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::model::Navigate;
+use crate::platform::locale;
 use crate::platform::services;
 use table::InstanceTable;
 
@@ -25,6 +26,7 @@ pub struct DefinitionView {
     error: Option<String>,
     table: Entity<TableState<InstanceTable>>,
     load: Option<Task<()>>,
+    locale: SharedString,
     _versions_load: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -70,6 +72,7 @@ impl DefinitionView {
             error: None,
             table,
             load: None,
+            locale: locale::current(),
             _versions_load: versions_load,
             _subscriptions: vec![subscription],
         };
@@ -80,6 +83,11 @@ impl DefinitionView {
 
 impl Render for DefinitionView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let current = locale::current();
+        if current != self.locale {
+            self.locale = current;
+            self.table.update(cx, |table, cx| table.refresh(cx));
+        }
         v_flex()
             .size_full()
             .min_w_0()
@@ -98,6 +106,6 @@ impl Render for DefinitionView {
                     .overflow_hidden()
                     .child(DataTable::new(&self.table).large().stripe(false).bordered(false)),
             )
-            .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Двойной клик по строке открывает заявку"))
+            .child(div().text_xs().text_color(cx.theme().muted_foreground).child(tr!("definition.double_click")))
     }
 }

@@ -39,7 +39,7 @@ pub fn dashboard_range(filter: &DashboardDateFilter) -> Result<CamundaDateRange,
 pub fn camunda_date_range(filter: &DashboardDateFilter) -> Result<CamundaDateRange, String> {
     let today = Local::now().date_naive();
     let (start_date, end_date) = match filter.preset {
-        DashboardDatePreset::Live => return Err("Для текущей статистики диапазон дат не используется".to_string()),
+        DashboardDatePreset::Live => return Err(rust_i18n::t!("core.dates.live_has_no_range").to_string()),
         DashboardDatePreset::Today => (today, today),
         DashboardDatePreset::Yesterday => {
             let yesterday = today.pred_opt().unwrap_or(today);
@@ -49,13 +49,13 @@ pub fn camunda_date_range(filter: &DashboardDateFilter) -> Result<CamundaDateRan
             let start = parse_date(&filter.from_date)?;
             let end = parse_date(&filter.to_date)?;
             if start > end {
-                return Err("Начальная дата не может быть позже конечной.".to_string());
+                return Err(rust_i18n::t!("core.dates.start_after_end").to_string());
             }
             (start, end)
         }
     };
     let start = local_midnight(start_date);
-    let end = local_midnight(end_date.succ_opt().ok_or_else(|| "Введите дату в формате ГГГГ-ММ-ДД.".to_string())?);
+    let end = local_midnight(end_date.succ_opt().ok_or_else(|| rust_i18n::t!("core.dates.invalid_format").to_string())?);
     Ok(CamundaDateRange {
         after: format_camunda_date_time(&(start - Duration::milliseconds(1))),
         before: format_camunda_date_time(&end),
@@ -65,7 +65,7 @@ pub fn camunda_date_range(filter: &DashboardDateFilter) -> Result<CamundaDateRan
 }
 
 pub fn parse_date(value: &str) -> Result<NaiveDate, String> {
-    NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d").map_err(|_| "Введите дату в формате ГГГГ-ММ-ДД.".to_string())
+    NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d").map_err(|_| rust_i18n::t!("core.dates.invalid_format").to_string())
 }
 
 pub fn is_inside(value: Option<&str>, start: DateTime<Utc>, end: DateTime<Utc>) -> bool {
@@ -133,13 +133,13 @@ mod tests {
             from_date: "15.07.2026".to_string(),
             to_date: "2026-07-16".to_string(),
         };
-        assert_eq!(camunda_date_range(&bad), Err("Введите дату в формате ГГГГ-ММ-ДД.".to_string()));
+        assert_eq!(camunda_date_range(&bad), Err("Enter a date in YYYY-MM-DD format.".to_string()));
         let reversed = DashboardDateFilter {
             preset: DashboardDatePreset::Custom,
             from_date: "2026-07-17".to_string(),
             to_date: "2026-07-16".to_string(),
         };
-        assert_eq!(camunda_date_range(&reversed), Err("Начальная дата не может быть позже конечной.".to_string()));
+        assert_eq!(camunda_date_range(&reversed), Err("The start date cannot be after the end date.".to_string()));
         assert!(camunda_date_range(&DashboardDateFilter::default()).is_err());
     }
 

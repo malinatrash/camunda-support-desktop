@@ -14,40 +14,40 @@ use crate::platform::services;
 impl SearchView {
     pub(super) fn render_variable_form(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let process_selected = self.selected_process(cx).is_some();
-        let step: String = if !process_selected {
-            "1. Выберите процесс".into()
+        let step = if !process_selected {
+            tr!("search.step.process")
         } else if self.catalog_load.is_some() {
-            "2. Читаем переменные активных заявок…".into()
+            tr!("search.step.loading")
         } else if let Some(catalog) = &self.catalog {
-            format!(
-                "2. Найдено ключей: {} в {} активных заявках{} · кэш между сессиями до 24 ч.",
-                catalog.variables.len(),
-                catalog.inspected_instance_count,
-                if catalog.instances_truncated { " (выборка ограничена)" } else { "" }
+            tr!(
+                "search.step.found",
+                keys = catalog.variables.len(),
+                instances = catalog.inspected_instance_count,
+                truncated = if catalog.instances_truncated { tr!("search.step.truncated") } else { SharedString::default() }
             )
         } else {
-            "2. Выберите переменную".into()
+            tr!("search.step.variable")
         };
         let process = Select::new(&self.process)
-            .placeholder("Процесс")
-            .search_placeholder("Название или ключ процесса")
+            .placeholder(tr!("search.process"))
+            .search_placeholder(tr!("search.process.search"))
             .menu_width(px(420.))
-            .accessibility_label("Процесс");
+            .accessibility_label(tr!("search.process"));
         let variable = Select::new(&self.variable)
-            .placeholder("Переменная")
-            .search_placeholder("Имя переменной")
+            .placeholder(tr!("search.variable"))
+            .search_placeholder(tr!("search.variable.search"))
             .menu_width(px(380.))
-            .accessibility_label("Переменная")
+            .accessibility_label(tr!("search.variable"))
             .disabled(!process_selected || self.catalog_load.is_some());
         let refresh = Button::new("refresh-catalog")
             .icon(IconName::RefreshCw)
             .ghost()
-            .tooltip("Перечитать переменные процесса")
+            .tooltip(tr!("search.variable.refresh"))
             .loading(self.catalog_load.is_some())
             .disabled(!process_selected)
             .on_click(cx.listener(|this, _, window, cx| this.refresh_catalog(window, cx)));
         let find = Button::new("search-variable")
-            .label("Найти")
+            .label(tr!("search.find"))
             .primary()
             .loading(self.search.is_some())
             .on_click(cx.listener(|this, _, _, cx| this.search_by_variable(cx)));
@@ -56,12 +56,18 @@ impl SearchView {
             .child(
                 v_form()
                     .columns(4)
-                    .child(field().label("Процесс").child(process))
+                    .child(field().label(tr!("search.process")).child(process))
                     .child(
-                        field().label("Переменная").child(h_flex().gap_1().child(div().flex_1().min_w_0().child(variable)).child(refresh)),
+                        field()
+                            .label(tr!("search.variable"))
+                            .child(h_flex().gap_1().child(div().flex_1().min_w_0().child(variable)).child(refresh)),
                     )
-                    .child(field().label("Значение").child(Input::new(&self.value)))
-                    .child(field().label("Тип значения").child(Select::new(&self.value_type).accessibility_label("Тип значения")))
+                    .child(field().label(tr!("search.value")).child(Input::new(&self.value)))
+                    .child(
+                        field()
+                            .label(tr!("search.value_type"))
+                            .child(Select::new(&self.value_type).accessibility_label(tr!("search.value_type"))),
+                    )
                     .footer(
                         h_flex()
                             .w_full()
@@ -77,18 +83,18 @@ impl SearchView {
 
     pub(super) fn search_by_variable(&mut self, cx: &mut Context<Self>) {
         let Some(key) = self.selected_process(cx) else {
-            self.error = Some("Сначала выберите процесс.".into());
+            self.error = Some(tr!("search.error.process").into());
             cx.notify();
             return;
         };
         let Some(name) = self.variable.read(cx).selected_value().map(|name| name.to_string()) else {
-            self.error = Some("Выберите переменную из списка процесса.".into());
+            self.error = Some(tr!("search.error.variable").into());
             cx.notify();
             return;
         };
         let value = self.value.read(cx).value().to_string();
         if value.trim().is_empty() {
-            self.error = Some("Укажите точное значение переменной.".into());
+            self.error = Some(tr!("search.error.value").into());
             cx.notify();
             return;
         }

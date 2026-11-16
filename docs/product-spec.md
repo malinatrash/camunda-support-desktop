@@ -1,198 +1,215 @@
-# Продуктовая спецификация
+# Product specification
 
-## 1. Общее описание
+## 1. Overview
 
-**Camunda Support Desktop** — внутреннее desktop-приложение для специалистов поддержки, работающих с Camunda 7. Оно заменяет ручное редактирование curl-команд управляемым интерфейсом: найти заявку, понять причину зависания и выполнить разрешённую операцию восстановления.
+**Camunda Support** is a native desktop console for engineers who operate Camunda 7. It replaces hand-edited curl commands with a guided interface: find a case, understand why a process is stuck, and run an allowed recovery operation.
 
-Это не универсальный REST-клиент и не редактор BPMN. Приложение предоставляет ограниченный каталог support-операций и постоянно показывает окружение, заявку, process instance и ожидаемый результат действия.
+It is not a generic REST client and not a BPMN editor. The app exposes a limited catalog of support operations and always shows the environment, the business key, the process instance and the expected result of an action.
 
-### Цели
+### Goals
 
-1. Сократить путь от application ID до причины зависания процесса.
-2. Уменьшить риск операции не в том окружении или не над той заявкой.
-3. Показывать incidents, jobs, external tasks, variables и версии процесса в одном месте.
-4. Заменить ручную сборку modification JSON пошаговым телепортом.
-5. Хранить локальную историю действий, даже если Camunda operation history неполна.
+1. Shorten the path from a business key to the reason a process is stuck.
+2. Reduce the risk of running an operation in the wrong environment or on the wrong instance.
+3. Show incidents, jobs, external tasks, variables and process versions in one place.
+4. Replace hand-written modification JSON with a step-by-step teleport (token move).
+5. Keep a local history of actions, even when Camunda operation history is incomplete.
 
-### Не входит в продукт
+### Out of scope
 
-- редактирование и deployment BPMN;
-- выполнение произвольных Camunda REST-запросов;
-- массовые prod-операции в первых релизах;
-- замена Camunda Cockpit для платформенного администрирования;
-- отдельный backend, proxy или серверная база данных.
+- editing and deploying BPMN;
+- arbitrary Camunda REST requests;
+- bulk production operations in early releases;
+- replacing Camunda Cockpit for platform administration;
+- a separate backend, proxy or server-side database.
 
-## 2. Пользователи
+## 2. Users
 
 ### Support viewer
 
-Настраивает доступные connections, ищет заявки, просматривает incidents, variables, history и открывает процесс в Cockpit.
+Configures connections, searches for instances, and inspects incidents, variables and history. Can open a process in Cockpit.
 
 ### Support operator
 
-Дополнительно может повторять jobs/external tasks, приостанавливать и возобновлять процесс, коррелировать разрешённые messages и выполнять пошаговый телепорт.
+Can also retry jobs and external tasks, suspend and activate a process, correlate allowed messages and run a step-by-step teleport.
 
-В client-only версии реальные права определяются credentials Camunda. Локальные роли приложения служат защитой интерфейса, но не являются полноценной границей безопасности.
+In the client-only version, real permissions are defined by the Camunda credentials. Local app roles protect the interface but are not a full security boundary.
 
-## 3. Иерархия экранов
+## 3. Screen hierarchy
 
 ```text
-Приложение
-├── Выбор connection
-│   ├── B2C PROD
-│   ├── B2C Loan Test
-│   └── CF Share EDS
+App
+├── Connection picker
+│   ├── Production
+│   ├── Staging
+│   └── Local
 │
-├── Обзор
-│   ├── Состояние подключения
-│   ├── Последние версии процессов
-│   ├── Текущие instances и incidents
-│   ├── Статистика за сегодня / вчера / период
-│   └── Список и карточечные превью
+├── Overview
+│   ├── Connection state
+│   ├── Latest process versions
+│   ├── Current instances and incidents
+│   ├── Statistics for today / yesterday / period
+│   └── List and card previews
 │
-├── Процессы
-│   ├── Поиск по application ID / business key
+├── Processes
+│   ├── Search by business key / ID / variable
 │   ├── Process definitions
-│   │   └── Версии
-│   │       ├── Активные заявки
-│   │       └── Заявки с incidents
+│   │   └── Versions
+│   │       ├── Active instances
+│   │       └── Instances with incidents
 │   └── Process instance
-│       ├── Общая информация
-│       ├── Текущие activities
+│       ├── General info
+│       ├── Current activities
 │       ├── Incidents
 │       ├── External tasks
 │       ├── Jobs
 │       ├── Variables
 │       ├── History
-│       ├── BPMN-диаграмма
-│       └── История операций
+│       ├── BPMN diagram
+│       └── Operation history
 │
 ├── Incidents
-│   ├── Все открытые incidents
-│   ├── Группировка по процессу и версии
-│   └── Карточка incident
+│   ├── All open incidents
+│   ├── Grouping by process and version
+│   └── Incident card
 │
 ├── Connections
-│   ├── Добавление и изменение
-│   ├── Проверка подключения
-│   ├── Автоматическая ссылка Cockpit
-│   └── Авторизация
+│   ├── Add and edit
+│   ├── Connection check
+│   ├── Automatic Cockpit link
+│   └── Authorization
 │
-└── Настройки
-    ├── Оформление
-    ├── Локальный аудит
-    ├── Маскирование данных
-    └── Диагностика приложения
+└── Settings
+    ├── Appearance
+    ├── Language
+    ├── Local audit
+    ├── Data masking
+    └── App diagnostics
 ```
 
-## 4. Основные пользовательские сценарии
+## 4. Main user scenarios
 
-### Разобраться с зависшей заявкой
+### Investigate a stuck instance
 
-1. Выбрать connection в sidebar.
-2. Найти заявку по application ID или business key.
-3. Если найдено несколько процессов — выбрать нужный instance.
-4. Посмотреть activity tree, incident и полные error details.
-5. На том же экране проверить variables и историю прохождения.
-6. При необходимости нажать отдельную кнопку и открыть этот же instance в Camunda Cockpit; обычная навигация остаётся внутри приложения.
+1. Pick a connection in the sidebar.
+2. Find the instance by business key, ID or variable value.
+3. If several processes match, pick the right instance.
+4. Review the activity tree, the incident and the full error details.
+5. On the same screen, check variables and the execution history.
+6. If needed, use a separate button to open the same instance in Camunda Cockpit. Regular navigation stays inside the app.
 
-### Повторить упавшую операцию
+### Retry a failed operation
 
-1. Открыть incident.
-2. Приложение определяет, относится ли ошибка к external task или engine job.
-3. Показывает ошибку, retries и lock state.
-4. Формирует preview операции.
-5. Для production требует причину или номер инцидента.
-6. Повторно читает состояние entity и выполняет действие, только если оно не изменилось.
+1. Open an incident.
+2. The app detects whether the failure belongs to an external task or an engine job.
+3. It shows the error, retries and lock state.
+4. It builds a preview of the operation.
+5. For production, it requires a reason or ticket number.
+6. It re-reads the entity state and runs the action only if the state has not changed.
 
-### Телепортировать token
+### Teleport a token
 
-1. Открыть process instance и выбрать **Телепорт**.
-2. Выбрать конкретный активный `activityInstanceId`, а не только BPMN activity ID.
-3. Выбрать целевую activity из deployed BPMN.
-4. Указать `startBeforeActivity`, `startAfterActivity` или конкретный sequence flow.
-5. Явно задать поведение listeners и I/O mappings.
-6. Посмотреть source, target, затрагиваемый scope и REST payload.
-7. Повторно получить activity tree и проверить, что состояние не устарело.
-8. Выполнить modification и сразу показать новое состояние процесса.
+1. Open a process instance and choose **Teleport**.
+2. Pick a specific active `activityInstanceId`, not only a BPMN activity ID.
+3. Pick the target activity from the deployed BPMN.
+4. Choose `startBeforeActivity`, `startAfterActivity` or a specific sequence flow.
+5. Set listener and I/O mapping behavior explicitly.
+6. Review the source, the target, the affected scope and the REST payload.
+7. Re-fetch the activity tree and make sure the state is not stale.
+8. Run the modification and show the new process state right away.
 
-## 5. Дизайн-концепт
+### Share a link
 
-### Характер
+Every instance has a `camunda-support://` deep link. Opening it in the app switches to the right connection and shows the instance. A Markdown report of the instance can be copied for tickets and chats.
 
-Спокойный, плотный и операционный интерфейс. Приложение должно ощущаться как профессиональная control-room консоль, а не как типовая админка или клиентское банковское приложение.
+## 5. Design concept
 
-### Компоновка
+### Character
 
-- одна верхняя панель: переключатель подключения, разделы «Обзор · Поиск · Инциденты», поиск ⌘K и настройки;
-- основной canvas рассчитан на широкое desktop-окно;
-- карточка заявки делится на вкладки «Схема», «Хронология», «Диагностика», «Переменные», «Метаданные»;
-- BPMN занимает основную область, текущее состояние — компактную правую колонку;
-- клик по кубику на схеме открывает телепорт в него;
-- опасные действия получают отдельный понятный сценарий подтверждения;
-- телепорт показывает два очерченных списка «Откуда» и «Куда» с поиском.
+A calm, dense, operational interface. The app should feel like a professional control-room console, not a typical admin panel.
 
-### Визуальный язык
+### Layout
 
-Внешний вид — стандартные темы и компоненты GPUI Kit (подробнее в docs/design-system.md). Цвета по смыслу:
+- a single top bar: connection switcher, sections (Overview, Search, Incidents), the command palette (Cmd+K) and settings;
+- the main canvas is designed for a wide desktop window;
+- the instance view is split into tabs: Diagram, Timeline, Diagnostics, Variables, Metadata;
+- the BPMN diagram takes the main area, the current state sits in a compact right column;
+- clicking an element on the diagram starts a teleport to it;
+- dangerous actions get their own clear confirmation flow;
+- teleport shows two outlined lists, "From" and "To", both searchable.
 
-- зелёный — исправное состояние и пройденный шаг;
-- янтарный — предупреждения и retryable failures;
-- красный — production, инциденты и опасное подтверждение;
-- технические ID и числовые значения показываются моноширинным шрифтом.
+### Language
 
-### Идентификация окружения
+The UI is English by default. Russian is available in Settings. All user-facing strings go through the locale layer, so adding a language does not touch feature code.
 
-Окружение всегда обозначается и цветом, и текстом:
+### Visual language
 
-| Окружение | Цвет | Метка |
+The look is built from the standard themes and components of GPUI Kit (see [design-system.md](design-system.md)). Colors carry meaning:
+
+- green: healthy state and completed steps;
+- amber: warnings and retryable failures;
+- red: production, incidents and dangerous confirmation;
+- technical IDs and numbers use a monospace font.
+
+### Environment identification
+
+The environment is always marked by both color and text:
+
+| Environment | Color | Label |
 |---|---:|---|
-| Production | Красный | `PRODUCTION` |
-| Test | Янтарный | `TEST` |
-| Development | Синий | `DEV` |
-| Local | Нейтральный | `LOCAL` |
+| Production | Red | `PRODUCTION` |
+| Test | Amber | `TEST` |
+| Development | Blue | `DEV` |
+| Local | Neutral | `LOCAL` |
 
-### Принципы взаимодействия
+### Interaction principles
 
-- application ID, process instance ID и environment видны во время любой операции;
-- опасные действия не прячутся за непонятными icon-only кнопками;
-- empty state объясняет следующий полезный шаг;
-- у ID и error details есть copy action;
-- production-операция требует review, причины и явного подтверждения;
-- target телепорта выбирается по бизнес-названию, технический ID показывается рядом.
+- the business key, the process instance ID and the environment are visible during any operation;
+- dangerous actions are never hidden behind unclear icon-only buttons;
+- an empty state explains the next useful step;
+- IDs and error details have a copy action;
+- a production operation requires review, a reason and explicit confirmation;
+- a teleport target is picked by its business name, with the technical ID shown next to it.
 
-## 6. Основные сущности
+## 6. Main entities
 
 ```text
 CamundaConnection
-├── название и environment
-├── REST URL и автоматически созданный Cockpit URL
-├── ссылка на credentials
-└── стратегия поиска application
+├── name and environment
+├── REST URL and an automatically derived Cockpit URL
+├── credentials reference
+└── instance lookup strategy
 
 ProcessInstance
-├── processInstanceId и businessKey
-├── definition ID/key/version/versionTag
-├── состояние и activity tree
-├── variables и incidents
+├── processInstanceId and businessKey
+├── definition ID / key / version / versionTag
+├── state and activity tree
+├── variables and incidents
 ├── external tasks
 └── jobs
 
 SupportOperation
-├── connection и process instance
-├── тип операции
-├── состояние до и после
-├── request и response
-├── operator и причина
-└── время и результат
+├── connection and process instance
+├── operation type
+├── state before and after
+├── request and response
+├── operator and reason
+└── time and result
 ```
 
-## 7. Границы безопасности
+Example connection:
 
-- UI вызывает только типизированные команды, универсального HTTP executor нет;
-- URL connection валидируется, environment всегда виден;
-- secrets не сохраняются в connection record и audit logs;
-- чувствительные variables маскируются по правилам;
-- preview и выполнение — разные команды;
-- перед выполнением повторно проверяется состояние Camunda;
-- удаление deployment, произвольный REST и массовые prod-изменения запрещены.
+```text
+name:      Orders (production)
+REST URL:  https://camunda.example.com/engine-rest
+Cockpit:   https://camunda.example.com/camunda/app/cockpit
+```
+
+## 7. Security boundaries
+
+- the UI calls only typed commands, there is no generic HTTP executor;
+- connection URLs are validated and the environment is always visible;
+- secrets are not stored in connection records or audit logs;
+- sensitive variables are masked by rule;
+- preview and execution are separate commands;
+- Camunda state is re-checked before execution;
+- deleting deployments, arbitrary REST calls and bulk production changes are forbidden.

@@ -27,10 +27,10 @@ pub enum PaletteEvent {
 }
 
 const SECTIONS: [(Section, &str, &str); 4] = [
-    (Section::Overview, "Обзор", "cmd-1"),
-    (Section::Search, "Поиск", "cmd-2"),
-    (Section::Incidents, "Инциденты", "cmd-3"),
-    (Section::Settings, "Настройки", "cmd-,"),
+    (Section::Overview, "sidebar.overview", "cmd-1"),
+    (Section::Search, "sidebar.search", "cmd-2"),
+    (Section::Incidents, "sidebar.incidents", "cmd-3"),
+    (Section::Settings, "sidebar.settings", "cmd-,"),
 ];
 
 pub struct CommandPalette {
@@ -99,14 +99,14 @@ impl CommandPalette {
 impl Render for CommandPalette {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let group = if self.query.is_empty() {
-            CommandGroup::new().label("Разделы").items(SECTIONS.iter().map(|(_, label, keys)| {
-                let (label, keys) = (*label, *keys);
-                CommandItem::new().label(label).child(move |_, _| {
-                    h_flex().w_full().child(div().flex_1().child(label)).child(Kbd::new(Keystroke::parse(keys).expect("сочетание")))
+            CommandGroup::new().label(tr!("palette.sections")).items(SECTIONS.iter().map(|(_, key, keys)| {
+                let (label, keys) = (tr!(*key), *keys);
+                CommandItem::new().label(label.clone()).child(move |_, _| {
+                    h_flex().w_full().child(div().flex_1().child(label.clone())).child(Kbd::new(Keystroke::parse(keys).expect("сочетание")))
                 })
             }))
         } else {
-            CommandGroup::new().label("Заявки").items(self.results.iter().map(|instance| {
+            CommandGroup::new().label(tr!("palette.instances")).items(self.results.iter().map(|instance| {
                 let instance = instance.clone();
                 CommandItem::new().label(instance.business_key.clone().unwrap_or_default()).child(move |_, cx| {
                     let process = instance.definition_name.clone().unwrap_or_else(|| instance.definition_key.clone());
@@ -117,7 +117,9 @@ impl Render for CommandPalette {
                             v_flex()
                                 .flex_1()
                                 .min_w_0()
-                                .child(div().truncate().child(instance.business_key.clone().unwrap_or_else(|| "Без бизнес-ключа".into())))
+                                .child(div().truncate().child(
+                                    instance.business_key.clone().map(SharedString::from).unwrap_or_else(|| tr!("palette.no_business_key")),
+                                ))
                                 .child(
                                     div()
                                         .truncate()
@@ -132,16 +134,16 @@ impl Render for CommandPalette {
             }))
         };
         let empty: SharedString = if self.connection.is_none() {
-            "Нет подключения: добавьте его в настройках".into()
+            tr!("palette.no_connection")
         } else if let Some(error) = &self.error {
             error.clone().into()
         } else {
-            "Ничего не найдено".into()
+            tr!("palette.nothing_found")
         };
         let query_view = cx.entity().downgrade();
         let confirm_view = query_view.clone();
         Command::new(&self.state)
-            .placeholder("Бизнес-ключ или ID заявки")
+            .placeholder(tr!("palette.placeholder"))
             .filterable(false)
             .max_h(px(420.))
             .group(group)

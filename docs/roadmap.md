@@ -1,47 +1,48 @@
-# Дорожная карта
+# Roadmap
 
-Актуальное состояние: 5 ноября 2026 года, версия 2.3.
+Status as of 5 November 2026, version 2.3.
 
-## Сделано
+## Done
 
-- Нативный интерфейс на Rust (GPUI + GPUI Kit) для macOS, Windows и Ubuntu; ядро `camunda-core` без UI.
-- Подключения: проверка `/engine-rest` и `/version`, Cockpit URL из домена REST, перенос настроек 1.x.
-- Обзор: инциденты, заявки в работе и зависшие, группы ошибок, долгое ожидание; процессы по ключу с версиями по дате деплоя; периоды «Сейчас», «Сегодня», «Вчера».
-- Процесс: все версии или одна, виртуализированная таблица заявок.
-- Поиск по бизнес-ключу, ID и переменным с каталогом ключей на 24 часа.
-- Инциденты: группы и список, фильтры, массовый повтор с подтверждением для прода.
-- Заявка: нативная схема BPMN с подсветкой и зумом, хронология, диагностика (retries заданий и внешних задач, unlock), переменные с правкой и проверкой типа, приостановка и активация, отчёт в Markdown, ссылка `camunda-support://`.
-- Телепорт: клик по кубику на схеме, выбор точного activity instance, поиск цели по названию, ID, типу и topic, причина и отдельное подтверждение для прода.
-- Палитра ⌘K, горячие клавиши разделов.
-- Обновления с GitHub Releases со сверкой SHA-256; DMG, NSIS и deb собираются в CI по тегу.
+- Native Rust interface (GPUI + GPUI Kit) for macOS, Windows and Ubuntu. The `camunda-core` crate has no UI dependencies.
+- English UI by default, Russian available in Settings.
+- Connections: `/engine-rest` and `/version` check, Cockpit URL derived from the REST domain, import of 1.x settings.
+- Overview: incidents, instances in progress and stuck ones, error groups, long waits. Processes by key with versions ordered by deploy date. Periods: Now, Today, Yesterday.
+- Process view: all versions or a single one, virtualized instance table.
+- Search by business key, ID and variables, with a variable key catalog cached for 24 hours.
+- Incidents: groups and list, filters, bulk retry with confirmation for production.
+- Instance: native BPMN diagram with token state highlighting and zoom, timeline, diagnostics (job and external task retries, unlock), variables with editing and type validation, suspend and activate, Markdown report, `camunda-support://` deep link.
+- Teleport: click an element on the diagram, pick the exact activity instance, find the target by name, ID, type and topic, reason and separate confirmation for production.
+- Command palette (Cmd+K) and section hotkeys.
+- Auto-update from GitHub Releases with SHA-256 verification. DMG, NSIS and deb packages are built in CI on a tag.
 
-## Дальше
+## Next
 
-### Расследование
+### Investigation
 
-- Drilldown во вложенные и вызванные подпроцессы на схеме.
-- Полные stacktraces заданий и error details внешних задач.
-- Local variables по activity и execution scope.
-- Связанные parent/child process instances.
-- Закрепление и недавние заявки, вкладки заявок между подключениями.
+- Drilldown into embedded and called subprocesses on the diagram.
+- Full job stacktraces and external task error details.
+- Local variables per activity and execution scope.
+- Linked parent and child process instances.
+- Pinned and recent instances, instance tabs across connections.
 
-### Безопасность и распространение
+### Security and distribution
 
-- Basic и Bearer авторизация подключений, secrets в Keychain и Credential Manager.
-- Маскирование чувствительных переменных (ИИН, OTP, токены, документы).
-- Подписанные пакеты: Developer ID и нотаризация macOS, сертификат Windows.
-- Один экземпляр приложения на Windows и Linux, чтобы ссылка открывалась в уже запущенном окне.
+- Basic and Bearer authorization for connections, secrets in Keychain and Credential Manager.
+- Masking of sensitive variables (personal IDs, OTP codes, tokens, documents).
+- Signed packages: Developer ID and notarization on macOS, a certificate on Windows.
+- Single app instance on Windows and Linux, so a deep link opens in the running window.
 
-### Восстановление
+### Recovery
 
-- Обязательная причина для каждой изменяющей операции и локальный audit.
-- Настраиваемое число retries вместо фиксированных трёх.
-- `startAfterActivity`, `startTransition` и переменные в инструкциях телепорта.
-- Сравнение activity tree до и после операции.
+- A mandatory reason for every mutating operation and a local audit log.
+- Configurable retry count instead of a fixed three.
+- `startAfterActivity`, `startTransition` and variables in teleport instructions.
+- Activity tree comparison before and after an operation.
 
-## После
+## Later
 
-- Restart завершённых и отменённых instances.
-- Migration между process definitions.
-- Утверждённые организацией сценарии восстановления.
-- Аналитика частых инцидентов и read-only отчёты.
+- Restart of completed and canceled instances.
+- Migration between process definitions.
+- Recovery playbooks approved by the organization.
+- Analytics of frequent incidents and read-only reports.

@@ -16,9 +16,7 @@ impl AppUpdateService {
         on_progress: &(dyn Fn(UpdateDownloadProgress) + Send + Sync),
     ) -> UpdateInstallResult {
         let Some(asset) = &update.asset else {
-            return UpdateInstallResult::Failure {
-                message: "Для этой платформы установщик не опубликован".into()
-            };
+            return UpdateInstallResult::Failure { message: rust_i18n::t!("core.update.no_installer").to_string() };
         };
         match self.download_and_install_asset(update, asset, on_progress).await {
             Ok(Some(restart)) => UpdateInstallResult::Installed { version: update.version.clone(), restart },
@@ -35,7 +33,7 @@ impl AppUpdateService {
     ) -> Result<Option<RestartPlan>, String> {
         let local_api = self.api_url.starts_with("http://localhost") || self.api_url.starts_with("http://127.0.0.1");
         if !asset.download_url.starts_with("https://") && !local_api {
-            return Err("GitHub вернул небезопасную ссылку на установщик".into());
+            return Err(rust_i18n::t!("core.update.insecure_url").to_string());
         }
         let release_directory = self.updates_directory.join(safe_file_name(&update.tag));
         tokio::fs::create_dir_all(&release_directory).await.map_err(|error| error.to_string())?;
@@ -66,7 +64,7 @@ impl AppUpdateService {
             let _ = tokio::fs::remove_file(&partial).await;
             let response = self.download_request(&asset.download_url).send().await.map_err(|error| error.to_string())?;
             if !response.status().is_success() {
-                return Err(format!("GitHub не отдал установщик: HTTP {}", response.status().as_u16()));
+                return Err(rust_i18n::t!("core.update.download_failed", status = response.status().as_u16()).to_string());
             }
             let total_bytes =
                 response.content_length().map(|length| length as i64).filter(|length| *length > 0).unwrap_or(asset.size_bytes);
@@ -104,7 +102,7 @@ impl AppUpdateService {
             let actual_digest = hex(&digest.finalize());
             progress(UpdateDownloadStage::Verifying, total_bytes, total_bytes, 0);
             if actual_digest != expected_digest {
-                return Err("Контрольная сумма установщика не совпала".into());
+                return Err(rust_i18n::t!("core.update.checksum_mismatch").to_string());
             }
             tokio::fs::rename(&partial, &target).await.map_err(|error| error.to_string())?;
         }

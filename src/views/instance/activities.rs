@@ -24,7 +24,7 @@ impl InstanceView {
             .child(
                 GroupBox::new()
                     .outline()
-                    .title(counted("Текущее состояние", details.active_activities.len()))
+                    .title(counted(tr!("instance.side.current"), details.active_activities.len()))
                     .content_style(crate::platform::theme::panel())
                     .flex_none()
                     .children(details.active_activities.iter().map(|activity| {
@@ -44,9 +44,9 @@ impl InstanceView {
                                 h_flex()
                                     .gap_1p5()
                                     .flex_wrap()
-                                    .child(Tag::secondary().small().rounded_full().child("активен"))
+                                    .child(Tag::secondary().small().rounded_full().child(tr!("instance.side.active")))
                                     .when(!activity.incident_ids.is_empty(), |this| {
-                                        this.child(Tag::danger().small().rounded_full().child("инцидент"))
+                                        this.child(Tag::danger().small().rounded_full().child(tr!("instance.side.incident")))
                                     })
                                     .child(div().text_xs().text_color(cx.theme().muted_foreground).child(activity.activity_type.clone())),
                             )
@@ -55,12 +55,12 @@ impl InstanceView {
             .child(
                 GroupBox::new()
                     .outline()
-                    .title(counted("Инциденты", details.incidents.len()))
+                    .title(counted(tr!("instance.side.incidents"), details.incidents.len()))
                     .content_style(crate::platform::theme::panel().p_3().gap_2())
                     .flex_none()
                     .children(details.incidents.iter().map(|incident| {
                         let activity = incident.failed_activity_id.clone().or_else(|| incident.activity_id.clone()).unwrap_or_default();
-                        let message = incident.message.clone().unwrap_or_else(|| "Без сообщения".into());
+                        let message = incident.message.clone().unwrap_or_else(|| tr!("instance.side.no_message").into());
                         let meta = format!(
                             "{} · {}",
                             model::incident_type_label(&incident.incident_type),
@@ -75,7 +75,7 @@ impl InstanceView {
                             format!("{message}\n\n{meta}"),
                         )
                     }))
-                    .when(details.incidents.is_empty(), |this| this.child(empty("Инцидентов нет"))),
+                    .when(details.incidents.is_empty(), |this| this.child(empty(tr!("instance.side.no_incidents")))),
             )
     }
 
@@ -83,7 +83,7 @@ impl InstanceView {
         let Some(node) = self.selected_node.as_deref().and_then(|id| details.diagram.node(id)) else {
             return GroupBox::new()
                 .outline()
-                .title(div().text_sm().text_color(cx.theme().muted_foreground).child("Нажмите кубик на схеме"))
+                .title(div().text_sm().text_color(cx.theme().muted_foreground).child(tr!("instance.side.pick_node")))
                 .content_style(crate::platform::theme::panel())
                 .flex_none();
         };
@@ -98,13 +98,13 @@ impl InstanceView {
             .text_sm()
             .child(div().text_color(cx.theme().muted_foreground).child(format!("{} · {}", node.node_type, node.id)))
             .children(history.map(|item| {
-                format!("выполнено {} · активно {} · отменено {}", item.completed_count, item.active_count, item.canceled_count)
+                tr!("instance.side.history", completed = item.completed_count, active = item.active_count, canceled = item.canceled_count)
             }))
-            .children(node.topic.clone().map(|topic| format!("топик: {topic}")))
+            .children(node.topic.clone().map(|topic| tr!("instance.side.topic", topic = topic)))
             .when(teleportable, |this| {
                 this.child(
                     Button::new("teleport-here")
-                        .label("Телепортировать сюда")
+                        .label(tr!("instance.side.teleport_here"))
                         .primary()
                         .small()
                         .disabled(!self.can_teleport())

@@ -15,6 +15,6 @@ pub(super) fn render(details: &ProcessInstanceDetails, cx: &App) -> impl IntoEle
         .min_h_0()
         .gap_3()
         .overflow_y_scroll()
-        .child(div().font_weight(FontWeight::SEMIBOLD).child("Метаданные заявки"))
+        .child(div().font_weight(FontWeight::SEMIBOLD).child(tr!("instance.metadata.title")))
         .child(DescriptionList::new().columns(1).label_width(relative(0.3)).children(items))
 }

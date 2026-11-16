@@ -17,26 +17,22 @@ impl Render for TeleportView {
             && self.target.is_some()
             && !self.annotation.read(cx).value().trim().is_empty()
             && (!production || self.confirmed);
+        self.sync_placeholders(window, cx);
         v_flex()
             .h(window.viewport_size().height * 0.65)
             .gap_4()
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child("Выберите активный экземпляр и кубик, перед которым продолжится выполнение."),
-            )
+            .child(div().text_sm().text_color(cx.theme().muted_foreground).child(tr!("instance.teleport.intro")))
             .child(h_flex().flex_1().min_h_0().gap_4().child(self.render_sources(cx)).child(self.render_targets(cx)))
             .child(
                 v_flex()
                     .gap_1p5()
-                    .child(div().text_sm().font_weight(FontWeight::MEDIUM).child("Комментарий для истории Camunda"))
+                    .child(div().text_sm().font_weight(FontWeight::MEDIUM).child(tr!("instance.teleport.annotation")))
                     .child(Input::new(&self.annotation)),
             )
             .when(production, |this| {
                 this.child(
                     Checkbox::new("confirm-production")
-                        .label("Понимаю, что это прод, и телепортирую заявку осознанно")
+                        .label(tr!("instance.teleport.confirm_production"))
                         .checked(self.confirmed)
                         .on_click(cx.listener(|this, checked: &bool, _, cx| {
                             this.confirmed = *checked;
@@ -50,11 +46,14 @@ impl Render for TeleportView {
                     .justify_end()
                     .gap_2()
                     .child(
-                        Button::new("cancel").label("Отмена").ghost().on_click(cx.listener(|_, _, _, cx| cx.emit(TeleportEvent::Cancel))),
+                        Button::new("cancel")
+                            .label(tr!("instance.teleport.cancel"))
+                            .ghost()
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(TeleportEvent::Cancel))),
                     )
                     .child(
                         Button::new("execute")
-                            .label("Телепортировать")
+                            .label(tr!("instance.teleport.execute"))
                             .map(|button| if production { button.danger() } else { button.primary() })
                             .loading(self.run.is_some())
                             .disabled(!can_execute)

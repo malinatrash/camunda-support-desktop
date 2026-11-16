@@ -33,11 +33,11 @@ impl OverviewView {
                 DescriptionList::new()
                     .columns(1)
                     .label_width(px(130.))
-                    .item("Процесс", item.process_definition_id.clone(), 1)
-                    .item("Шаг", item.activity_id.clone(), 1)
-                    .item("Старейшая заявка", item.oldest_process_instance_id.clone(), 1)
-                    .item("Ждёт с", model::short_time(item.oldest_started_at.as_deref()), 1)
-                    .item("В среднем", model::format_duration(item.average_waiting_millis), 1),
+                    .item(tr!("overview.waiting.process"), item.process_definition_id.clone(), 1)
+                    .item(tr!("overview.waiting.step"), item.activity_id.clone(), 1)
+                    .item(tr!("overview.waiting.oldest"), item.oldest_process_instance_id.clone(), 1)
+                    .item(tr!("overview.waiting.since"), model::short_time(item.oldest_started_at.as_deref()), 1)
+                    .item(tr!("overview.waiting.average"), model::format_duration(item.average_waiting_millis), 1),
             );
         h_flex()
             .id(SharedString::from(row_id))
@@ -54,13 +54,13 @@ impl OverviewView {
                     .flex_none()
                     .child(tone.small().rounded_full().child(model::format_duration(item.maximum_waiting_millis))),
             )
-            .child(v_flex().flex_1().min_w_0().child(name).child(
-                div().truncate().text_sm().text_color(cx.theme().muted_foreground).child(format!(
-                    "{} · заявок {}",
-                    item.process_definition_id.split(':').next().unwrap_or_default(),
-                    item.instance_count
-                )),
-            ))
+            .child(v_flex().flex_1().min_w_0().child(name).child(div().truncate().text_sm().text_color(cx.theme().muted_foreground).child(
+                tr!(
+                    "overview.waiting.meta",
+                    process = item.process_definition_id.split(':').next().unwrap_or_default(),
+                    count = item.instance_count
+                ),
+            )))
             .on_click(cx.listener(move |_, _, _, cx| cx.emit(Navigate::Instance(id.clone()))))
     }
 }

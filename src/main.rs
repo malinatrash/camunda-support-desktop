@@ -1,5 +1,14 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+rust_i18n::i18n!("locales", fallback = "en");
+
+// Перевод из locales/*.yml как SharedString: принимают все компоненты GPUI Kit.
+macro_rules! tr {
+    ($($arg:tt)*) => {
+        gpui_kit::SharedString::from(rust_i18n::t!($($arg)*).into_owned())
+    };
+}
+
 mod app;
 mod bpmn;
 mod model;
@@ -33,6 +42,7 @@ fn main() {
         let services = Services::new();
         migration::migrate_legacy_preferences(&services.storage);
         let dark = services.storage.load_theme() != Some(AppThemeMode::Light);
+        platform::locale::apply(&services.storage.load_language().unwrap_or_default());
         cx.set_global(services);
         updates::Updater::init(cx);
         app::bind_keys(cx);
@@ -55,11 +65,11 @@ fn main() {
             ..TitleBar::window_options()
         };
         gpui_kit::open_window(options, cx, |window, cx| {
-            window.set_window_title("Поддержка Camunda");
+            window.set_window_title("Camunda Support");
             platform::theme::apply(dark, window, cx);
             cx.new(|cx| AppView::new(received, window, cx))
         })
-        .expect("окно не открылось");
+        .expect("window failed to open");
         cx.activate(true);
         drop(links);
     });

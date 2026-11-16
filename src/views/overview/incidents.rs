@@ -6,6 +6,7 @@ use gpui_kit::*;
 
 use super::OverviewView;
 use crate::model::{self, IncidentGroup, Navigate};
+use crate::platform::motion;
 
 const CARD_IDS: usize = 10;
 
@@ -17,13 +18,13 @@ impl OverviewView {
             this.expanded_group = open.first().and_then(|ix| keys.get(*ix)).cloned();
             cx.notify();
         }));
-        self.incident_groups.iter().fold(accordion, |accordion, group| {
+        self.incident_groups.iter().enumerate().fold(accordion, |accordion, (index, group)| {
             let open = self.expanded_group.as_ref() == Some(&group.key);
             let links: Vec<_> = group.instance_ids.iter().take(50).map(|id| instance_link(group, id, cx)).collect();
             accordion.item(|item| {
                 item.open(open)
                     .hover(|style| style.bg(cx.theme().table_hover))
-                    .title(group_title(group, cx))
+                    .title(motion::stagger(SharedString::from(format!("group-{}", group.key)), index, group_title(group, cx)))
                     .content_style(StyleRefinement::default().pl(px(72.)))
                     .children(links)
             })
@@ -32,12 +33,12 @@ impl OverviewView {
 }
 
 fn group_title(group: &IncidentGroup, cx: &App) -> Div {
-    let meta = format!(
-        "{} · {} · заявок {} · {}",
-        group.process_key,
-        model::incident_type_label(&group.incident_type),
-        group.instance_ids.len(),
-        model::short_time(group.latest.as_deref())
+    let meta = tr!(
+        "overview.group_meta",
+        process = group.process_key,
+        kind = model::incident_type_label(&group.incident_type),
+        count = group.instance_ids.len(),
+        time = model::short_time(group.latest.as_deref())
     );
     let more = group.instance_ids.len().saturating_sub(CARD_IDS);
     let card = v_flex()
@@ -51,7 +52,7 @@ fn group_title(group: &IncidentGroup, cx: &App) -> Div {
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .children(group.instance_ids.iter().take(CARD_IDS).cloned())
-                .children((more > 0).then(|| format!("и ещё {more}"))),
+                .children((more > 0).then(|| tr!("overview.more", count = more))),
         );
     let signature = HoverCard::new(SharedString::from(format!("card-{}", group.key)))
         .w(px(420.))

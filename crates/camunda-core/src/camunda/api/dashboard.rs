@@ -171,8 +171,8 @@ mod tests {
 
         let message = api().load_dashboard(&connection(&server), &DashboardDateFilter::default()).await.expect_err("ошибка");
 
-        assert!(message.contains("Доступ запрещён (HTTP 403)"), "{message}");
-        assert!(message.contains("\nЗапрос: http://"), "{message}");
+        assert!(message.contains("Access denied (HTTP 403)"), "{message}");
+        assert!(message.contains("\nRequest: http://"), "{message}");
         assert!(message.contains("/engine-rest/process-definition?sortBy=deployTime"), "{message}");
     }
 }

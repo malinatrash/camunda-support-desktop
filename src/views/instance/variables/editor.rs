@@ -91,13 +91,13 @@ impl Render for VariableEditor {
                     .gap_2()
                     .child(
                         Button::new("variable-cancel")
-                            .label("Отмена")
+                            .label(tr!("instance.variables.cancel"))
                             .ghost()
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(EditorEvent::Cancel))),
                     )
                     .child(
                         Button::new("variable-save")
-                            .label("Сохранить")
+                            .label(tr!("instance.variables.save"))
                             .primary()
                             .loading(self.save.is_some())
                             .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),

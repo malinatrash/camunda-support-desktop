@@ -1,96 +1,96 @@
-# Дизайн-система Camunda Support Desktop
+# Design system
 
-## Реализация
+## Implementation
 
-Интерфейс нативный: Rust, GPUI и только компоненты GPUI Kit (`src/`), своих компонентов нет. Темы стандартные: Default Dark по умолчанию и Default Light, переключаются в боковой панели и в настройках; на macOS окно размыто, боковая панель полупрозрачная. Шрифты системные, моноширинный из темы.
+The interface is native: Rust, [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui) and only [GPUI Kit](https://gpui-kit.com) components. The app has no custom widget library. Themes are the stock Default Dark (default) and Default Light. On macOS the window is blurred and the sidebar is translucent. Fonts are system fonts, monospace comes from the theme.
 
-Композиция как в примерах GPUI Kit: слева Sidebar с переключателем подключения (Popover с сеткой карточек), разделами и темой, справа тулбар с ⌘K и экран. Вёрстка резиновая: панели делят ширину через Resizable, текст обрезается, прокрутка внутри панелей. Высокоуровневые компоненты: DataTable/Table, Accordion, DescriptionList, HoverCard, Dialog/AlertDialog/Sheet, Alert, Empty, Skeleton, Tag, TabBar, Toolbar, Breadcrumb, Command, Settings, Form. Акцентов синего нет: нейтральные теги, красный и жёлтый только по смыслу. Попапы появляются с анимацией.
+The layout follows the GPUI Kit examples:
 
-## Типографика
+- **Sidebar** with the connection switcher (a Popover with a grid of connection cards), sections with an incident counter, and the theme toggle. It collapses with ⌃⌘S.
+- **Toolbar** with breadcrumbs (section › process › instance) and the ⌘K command palette.
+- **Status bar** with a pulsing live indicator, engine host, environment, Camunda version, the language switch, the theme toggle and the app version.
+- **Screens** are fluid: panels split width with Resizable, text truncates, scrolling happens inside panels.
 
-Базовый размер 14 px. Размеры текста — шкала GPUI (`text_xs` … `text_lg`), крупные числа обзора 26 px:
+High-level components in use: Sidebar, StatusBar, Breadcrumb, Command, Dialog, AlertDialog, Sheet, Popover, HoverCard, Table, Accordion, DescriptionList, Settings, Form, TabBar, Toolbar, Tag, Alert, Empty, Skeleton, AreaChart, BarChart.
 
-| Токен | Значение | Где |
+## Motion
+
+All motion lives in `src/platform/motion.rs` and is short, eased with `ease_out_quint`:
+
+| Helper | Where | What it does |
 |---|---|---|
-| `--text-xs` | база − 3 | подписи, мелкие метаданные |
-| `--text-sm` | база − 2 | вторичный текст, мета-строки |
-| `--text-md` | база − 1 | плотные списки, поля ввода |
-| `--text-base` | база | основной текст |
-| `--text-lg` | база + 2 | акценты в списках |
-| `--text-xl` | база + 4 | заголовки экранов |
-| `--text-2xl` / `--text-3xl` | база + 8 / + 12 | крупные числа обзора |
+| `enter` | popovers, instance tabs | fades in and slides 6 px into place, 160 ms |
+| `page` | every navigation | the new screen rises and fades in, 260 ms |
+| `stagger` | list rows, metric cards | rows appear one after another, capped at 12 |
+| `count_up` | overview metrics | numbers count up from zero when they change |
+| `pulse` | status bar | the live connection dot breathes |
 
+Charts use the GPUI Kit `appear` animation. Skeletons cover every first load.
 
+## Main principle
 
-## Главный принцип
+On every screen it must be clear:
 
-На каждом экране сначала должно быть понятно:
+1. which connection the user is in;
+2. which process or instance they are working with;
+3. what just happened;
+4. which action is safe to take next.
 
-1. в каком подключении находится пользователь;
-2. с каким процессом или заявкой он работает;
-3. что сейчас произошло;
-4. какое действие безопасно выполнить дальше.
+Technical IDs are secondary to business names but always visible and copyable.
 
-Технические ID всегда вторичны относительно бизнес-названия, но остаются видимыми и копируемыми.
-
-## Иерархия приложения
+## Structure
 
 ```text
-Верхняя панель: подключение ▾ · Обзор · Поиск · Инциденты · ⌘K · ⚙
-├── Обзор (⌘1)          — счётчики, ошибки/ожидание, процессы по версиям
-│   └── Процесс          — все версии или одна, период, заявки
-│       └── Заявка       — схема, хронология, диагностика, переменные, метаданные
-├── Поиск (⌘2)          — бизнес-ключ/ID или переменная
-├── Инциденты (⌘3)      — группы и список, массовый повтор
-└── Настройки (⌘,)      — подключения, вид (тема, шрифт), обновления
+Sidebar: connection ▾ · Overview · Search · Incidents · Settings
+├── Overview (⌘1)       metric cards, errors and waiting, processes by version
+│   └── Process          all versions or one, period, instances
+│       └── Instance     diagram, timeline, diagnostics, variables, metadata
+├── Search (⌘2)         business key, ID or process variable
+├── Incidents (⌘3)      groups, list, chart by process, bulk retry
+└── Settings (⌘,)       connections, appearance (theme, language), updates
 ```
 
-В «Обзоре» процесс — одна строка с суммой по всем версиям. Клик раскрывает версии со своими счётчиками и датой деплоя, сначала недавние; из раскрытого списка открывается экран процесса на «Все версии» или на конкретной версии. Версия у каждой заявки видна в таблице. Переходы по строкам происходят внутри приложения, внешний Cockpit — только кнопкой `↗`.
+On the Overview a process is a single row with totals across versions. Expanding it shows each version with its own counters and deploy date, newest first. Navigation stays inside the app; Cockpit opens only from the `↗` button.
 
-## Плотность
+## Instance screen
 
-| Элемент | Значение |
-|---|---:|
-| Верхняя панель | 46 px |
-| Отступы рабочей области | 24 × 20 px |
-| Промежуток между секциями | 20–32 px |
-| Высота строки списка | 40 px |
-| Радиус элементов | 4 px, бейджи круглые |
+- The header shows state, business key and the main actions.
+- The BPMN diagram gets most of the width.
+- Next to the diagram: only active activities and incidents.
+- Jobs, external tasks and full errors live in the Diagnostics tab.
+- Variables have their own search and inline editing.
+- Metadata does not compete for space with operational data.
 
-## Карточка заявки
+## Teleport
 
-- Заголовок содержит состояние, бизнес-ключ и основные действия.
-- BPMN получает основную ширину экрана.
-- Справа от BPMN показываются только активные элементы и инциденты.
-- Jobs, external tasks и подробные ошибки находятся во вкладке «Диагностика».
-- Переменные имеют отдельный поиск.
-- Метаданные не конкурируют за место с рабочими данными.
+Teleport (moving a token) is a separate step-by-step flow:
 
-## Телепорт
+1. pick the exact active `activityInstanceId`;
+2. find the target activity by name, BPMN ID, type or `camunda:topic`;
+3. check the "From → To" direction;
+4. give a reason;
+5. confirm production operations explicitly.
 
-Телепорт — отдельный пошаговый сценарий:
+Clicking an activity on the diagram opens teleport with that activity as the target.
 
-1. выбрать точный активный `activityInstanceId`;
-2. найти целевой кубик по названию, BPMN ID, типу или `camunda:topic`;
-3. проверить направление «Откуда → Куда»;
-4. указать причину;
-5. отдельно подтвердить production-операцию.
+## Date semantics
 
-Оба списка постоянно видимы и имеют рамку. Dropdown без поиска для BPMN-процессов запрещён. Клик по кубику на схеме сразу открывает телепорт с этим кубиком в качестве цели.
+- **Now**: current runtime instances and incidents from the last 24 hours.
+- **Today**, **Yesterday**: historic instances started inside the range and incidents created inside it.
+- The selected period carries over from the overview to the process screen.
+- A finished historic instance is clearly marked and offers no runtime operations.
 
-## Семантика дат
+## Color
 
-- «Сейчас» — текущие runtime instances и открытые incidents.
-- «Сегодня», «Вчера», «Период» — historic instances, стартовавшие внутри диапазона, и incidents, созданные внутри диапазона.
-- Выбранный период передаётся с дашборда на экран процесса.
-- Завершённая историческая заявка явно обозначается и не предлагает runtime-операции.
+There is no brand accent; neutral tags carry most of the UI.
 
-## Цвета
+- Green: healthy state and completed activities.
+- Amber: suspension, warnings, stuck instances.
+- Red: incidents, production and destructive actions.
+- Gray: metadata and secondary text.
 
-- Синий — навигация, выбранный элемент, основное действие и активный кубик на схеме.
-- Зелёный — исправное состояние и пройденный кубик.
-- Янтарный — приостановка и предупреждение.
-- Красный — инцидент, production и опасное действие.
-- Серый — метаданные и вторичный текст.
+Color is never the only carrier of meaning: every state has a text label.
 
-Цвет не используется как единственный носитель смысла: каждое состояние сопровождается текстом.
+## Language
+
+English is the default. Russian is available in Settings and via the `EN`/`RU` switch in the status bar; the change applies to every screen instantly. Strings live in `locales/*.yml` (app) and `crates/camunda-core/locales/core.yml` (engine errors) in rust-i18n format.

@@ -1,6 +1,8 @@
 use gpui_kit::assets::IconName as Lucide;
 use gpui_kit::component::sidebar::{Sidebar, SidebarCollapsible, SidebarFooter, SidebarGroup, SidebarMenu, SidebarMenuItem};
+use gpui_kit::component::tag::Tag;
 use gpui_kit::component::{ActiveTheme, Sizable, TitleBar, h_flex, v_flex};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::AppView;
@@ -28,16 +30,16 @@ impl AppView {
                     )
                     .child(self.render_connection_menu(cx)),
             )
-            .child(SidebarGroup::new("Мониторинг").child(SidebarMenu::new().children([
-                self.section_item(Section::Overview, "Обзор", Lucide::LayoutDashboard, cx),
-                self.section_item(Section::Search, "Поиск", Lucide::Search, cx),
-                self.section_item(Section::Incidents, "Инциденты", Lucide::TriangleAlert, cx),
+            .child(SidebarGroup::new(tr!("sidebar.monitoring")).child(SidebarMenu::new().children([
+                self.section_item(Section::Overview, tr!("sidebar.overview"), Lucide::LayoutDashboard, cx),
+                self.section_item(Section::Search, tr!("sidebar.search"), Lucide::Search, cx),
+                self.section_item(Section::Incidents, tr!("sidebar.incidents"), Lucide::TriangleAlert, cx),
             ])))
             .child(
-                SidebarGroup::new("Приложение").child(
+                SidebarGroup::new(tr!("sidebar.application")).child(
                     SidebarMenu::new().children([
-                        self.section_item(Section::Settings, "Настройки", Lucide::Settings, cx),
-                        SidebarMenuItem::new(if dark { "Светлая тема" } else { "Тёмная тема" })
+                        self.section_item(Section::Settings, tr!("sidebar.settings"), Lucide::Settings, cx),
+                        SidebarMenuItem::new(if dark { tr!("sidebar.light_theme") } else { tr!("sidebar.dark_theme") })
                             .icon(if dark { Lucide::Sun } else { Lucide::Moon })
                             .on_click(|_, window, cx| theme::toggle(window, cx)),
                     ]),
@@ -48,15 +50,24 @@ impl AppView {
                     v_flex()
                         .text_xs()
                         .text_color(cx.theme().muted_foreground)
-                        .child("Поддержка Camunda")
-                        .child(h_flex().gap_1().child(format!("версия {VERSION}"))),
+                        .child(tr!("app.name"))
+                        .child(h_flex().gap_1().child(tr!("sidebar.version", version = VERSION))),
                 ),
             )
     }
 
-    fn section_item(&self, section: Section, label: &'static str, icon: Lucide, cx: &mut Context<Self>) -> SidebarMenuItem {
+    fn section_item(&self, section: Section, label: SharedString, icon: Lucide, cx: &mut Context<Self>) -> SidebarMenuItem {
         let view = cx.entity().downgrade();
+        let incidents = match section {
+            Section::Incidents => self.overview.as_ref().map(|overview| overview.read(cx).incident_count()).unwrap_or_default(),
+            _ => 0,
+        };
         SidebarMenuItem::new(label)
+            .when(incidents > 0, |item| {
+                item.suffix(move |_, _| {
+                    Tag::danger().xsmall().rounded_full().child(if incidents > 99 { "99+".to_string() } else { incidents.to_string() })
+                })
+            })
             .icon(gpui_kit::component::Icon::new(icon).small())
             .active(self.section == section && self.pages.is_empty())
             .on_click(move |_, window, cx| {

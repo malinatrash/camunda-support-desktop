@@ -46,15 +46,15 @@ fn parse_cockpit_link(link: &RawLink) -> DeepLinkEvent {
     DeepLinkEvent::OpenProcessInstance { link: ProcessInstanceDeepLink::new(origin, process_instance_id) }
 }
 
-fn invalid(message: &str) -> DeepLinkEvent {
-    DeepLinkEvent::Invalid { message: message.to_string() }
+fn invalid(key: &str) -> DeepLinkEvent {
+    DeepLinkEvent::Invalid { message: rust_i18n::t!(key).into_owned() }
 }
 
-const INVALID_FORMAT: &str = "Ссылка имеет некорректный формат.";
-const UNSUPPORTED_SCHEME: &str = "Приложение не поддерживает протокол этой ссылки.";
-const NOT_PROCESS_INSTANCE: &str = "Ссылка не относится к заявке Camunda.";
-const INVALID_PROCESS_INSTANCE_ID: &str = "В ссылке указан некорректный идентификатор заявки.";
-const MISSING_ORIGIN: &str = "В ссылке отсутствует корректный домен Camunda.";
+const INVALID_FORMAT: &str = "core.deep_link.invalid_format";
+const UNSUPPORTED_SCHEME: &str = "core.deep_link.unsupported_scheme";
+const NOT_PROCESS_INSTANCE: &str = "core.deep_link.not_process_instance";
+const INVALID_PROCESS_INSTANCE_ID: &str = "core.deep_link.invalid_process_instance_id";
+const MISSING_ORIGIN: &str = "core.deep_link.missing_origin";
 
 #[cfg(test)]
 mod tests {
@@ -65,6 +65,10 @@ mod tests {
             DeepLinkEvent::OpenProcessInstance { link } => link,
             DeepLinkEvent::Invalid { message } => panic!("ожидалась ссылка на заявку, получено: {message}"),
         }
+    }
+
+    fn english(key: &str) -> String {
+        rust_i18n::t!(key, locale = "en").into_owned()
     }
 
     fn invalid_message(event: DeepLinkEvent) -> String {
@@ -92,20 +96,21 @@ mod tests {
 
     #[test]
     fn rejects_application_link_without_camunda_origin() {
-        assert_eq!(invalid_message(parse_deep_link("camunda-support://process-instance/instance-42")), MISSING_ORIGIN);
+        assert_eq!(invalid_message(parse_deep_link("camunda-support://process-instance/instance-42")), english(MISSING_ORIGIN));
+        assert_eq!(english(MISSING_ORIGIN), "The link has no valid Camunda domain.");
     }
 
     #[test]
     fn reports_specific_reasons_for_invalid_links() {
-        assert_eq!(invalid_message(parse_deep_link("camunda-support://task/instance-42")), NOT_PROCESS_INSTANCE);
-        assert_eq!(invalid_message(parse_deep_link("camunda-support://process-instance/")), INVALID_PROCESS_INSTANCE_ID);
-        assert_eq!(invalid_message(parse_deep_link("ftp://camunda.example.kz/#/process-instance/1")), UNSUPPORTED_SCHEME);
-        assert_eq!(invalid_message(parse_deep_link("just text")), INVALID_FORMAT);
-        assert_eq!(invalid_message(parse_deep_link("")), INVALID_FORMAT);
+        assert_eq!(invalid_message(parse_deep_link("camunda-support://task/instance-42")), english(NOT_PROCESS_INSTANCE));
+        assert_eq!(invalid_message(parse_deep_link("camunda-support://process-instance/")), english(INVALID_PROCESS_INSTANCE_ID));
+        assert_eq!(invalid_message(parse_deep_link("ftp://camunda.example.kz/#/process-instance/1")), english(UNSUPPORTED_SCHEME));
+        assert_eq!(invalid_message(parse_deep_link("just text")), english(INVALID_FORMAT));
+        assert_eq!(invalid_message(parse_deep_link("")), english(INVALID_FORMAT));
         assert_eq!(
             invalid_message(parse_deep_link("https://camunda.example.kz/camunda/app/cockpit/default/#/process-definition/1")),
-            NOT_PROCESS_INSTANCE
+            english(NOT_PROCESS_INSTANCE)
         );
-        assert_eq!(invalid_message(parse_deep_link("https:///#/process-instance/1")), MISSING_ORIGIN);
+        assert_eq!(invalid_message(parse_deep_link("https:///#/process-instance/1")), english(MISSING_ORIGIN));
     }
 }

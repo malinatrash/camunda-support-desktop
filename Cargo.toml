@@ -6,6 +6,8 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 camunda-core.workspace = true
@@ -13,6 +15,7 @@ chrono.workspace = true
 dirs.workspace = true
 futures.workspace = true
 gpui-kit.workspace = true
+rust-i18n.workspace = true
 tokio.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
@@ -28,6 +31,8 @@ edition = "2024"
 rust-version = "1.95"
 authors = ["malinatrash"]
 publish = false
+license = "MIT"
+repository = "https://github.com/malinatrash/camunda-support-desktop"
 
 [workspace.dependencies]
 camunda-core = { path = "crates/camunda-core" }
@@ -39,6 +44,7 @@ gpui-kit = "0.10"
 log = "0.4"
 reqwest = { version = "0.12", features = ["json", "stream"] }
 roxmltree = "0.20"
+rust-i18n = "4.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

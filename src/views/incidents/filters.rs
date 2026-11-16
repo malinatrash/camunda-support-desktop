@@ -16,14 +16,17 @@ use crate::model;
 
 impl IncidentsView {
     pub(super) fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let presets =
-            [(DashboardDatePreset::Live, "Сейчас"), (DashboardDatePreset::Today, "Сегодня"), (DashboardDatePreset::Yesterday, "Вчера")];
-        h_flex().gap_4().child(div().flex_1().text_lg().font_weight(FontWeight::SEMIBOLD).child("Инциденты")).child(
+        let presets = [
+            (DashboardDatePreset::Live, "incidents.preset.live"),
+            (DashboardDatePreset::Today, "incidents.preset.today"),
+            (DashboardDatePreset::Yesterday, "incidents.preset.yesterday"),
+        ];
+        h_flex().gap_4().child(div().flex_1().text_lg().font_weight(FontWeight::SEMIBOLD).child(tr!("incidents.title"))).child(
             Toolbar::new("incidents-toolbar")
                 .small()
-                .children(presets.into_iter().map(|(preset, label)| {
-                    Button::new(label)
-                        .label(label)
+                .children(presets.into_iter().map(|(preset, key)| {
+                    Button::new(key)
+                        .label(tr!(key))
                         .map(|button| if self.preset == preset { button.secondary() } else { button.ghost() })
                         .on_click(cx.listener(move |this, _, window, cx| {
                             this.preset = preset;
@@ -34,7 +37,7 @@ impl IncidentsView {
                     Button::new("reload")
                         .icon(IconName::RefreshCw)
                         .ghost()
-                        .tooltip("Обновить")
+                        .tooltip(tr!("incidents.reload"))
                         .loading(self.load.is_some())
                         .on_click(cx.listener(|this, _, window, cx| this.reload(window, cx))),
                 ),
@@ -57,14 +60,25 @@ impl IncidentsView {
         h_flex()
             .gap_2()
             .flex_wrap()
-            .child(div().flex_1().min_w(px(220.)).child(Select::new(&self.definition).small().accessibility_label("Процесс")))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(220.))
+                    .child(Select::new(&self.definition).small().accessibility_label(tr!("incidents.field.process"))),
+            )
             .child(div().flex_1().min_w(px(220.)).child(Input::new(&self.query).small()))
-            .child(TabBar::new("incident-types").segmented().small().selected_index(selected).child("Все типы").children(labels).on_click(
-                cx.listener(move |this, index: &usize, _, cx| {
-                    this.selected_type = index.checked_sub(1).and_then(|ix| kinds.get(ix).cloned());
-                    this.sync_table(cx);
-                }),
-            ))
+            .child(
+                TabBar::new("incident-types")
+                    .segmented()
+                    .small()
+                    .selected_index(selected)
+                    .child(tr!("incidents.all_types"))
+                    .children(labels)
+                    .on_click(cx.listener(move |this, index: &usize, _, cx| {
+                        this.selected_type = index.checked_sub(1).and_then(|ix| kinds.get(ix).cloned());
+                        this.sync_table(cx);
+                    })),
+            )
     }
 
     pub(super) fn filtered(&self, cx: &App) -> Vec<ProcessIncident> {

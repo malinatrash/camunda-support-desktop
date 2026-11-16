@@ -44,8 +44,9 @@ pub(super) fn parse_definitions(body: &str) -> ApiResult<Vec<ProcessDefinitionSu
 
 pub(super) fn parse_definition(value: &Value) -> ApiResult<ProcessDefinitionSummary> {
     Ok(ProcessDefinitionSummary {
-        id: string(value, "id").ok_or_else(|| ApiError::Invalid("Camunda не вернула ID process definition".to_string()))?,
-        key: string(value, "key").ok_or_else(|| ApiError::Invalid("Camunda не вернула key process definition".to_string()))?,
+        id: string(value, "id").ok_or_else(|| ApiError::Invalid(rust_i18n::t!("core.json.missing_process_definition_id").to_string()))?,
+        key: string(value, "key")
+            .ok_or_else(|| ApiError::Invalid(rust_i18n::t!("core.json.missing_process_definition_key").to_string()))?,
         name: string(value, "name"),
         version: int(value, "version"),
         tenant_id: string(value, "tenantId"),

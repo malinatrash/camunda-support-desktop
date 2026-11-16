@@ -4,9 +4,9 @@ use gpui_kit::component::{ActiveTheme, Sizable, v_flex};
 use gpui_kit::*;
 
 // Карточка при наведении со списком «поле — значение».
-pub(super) fn fields_card(id: impl Into<ElementId>, trigger: impl IntoElement + 'static, fields: Vec<(&'static str, String)>) -> HoverCard {
+pub(super) fn fields_card(id: impl Into<ElementId>, trigger: impl IntoElement + 'static, fields: Vec<(SharedString, String)>) -> HoverCard {
     HoverCard::new(id).trigger_style(StyleRefinement::default().min_w_0()).trigger(trigger).content(move |_, _, _| {
-        let items = fields.iter().map(|(label, value)| DescriptionItem::new(*label).value(value.clone()));
+        let items = fields.iter().map(|(label, value)| DescriptionItem::new(label.clone()).value(value.clone()));
         div().w(px(440.)).child(DescriptionList::new().columns(1).bordered(false).small().children(items))
     })
 }

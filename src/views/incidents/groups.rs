@@ -1,6 +1,7 @@
 use camunda_core::models::ProcessIncident;
 use gpui_kit::component::accordion::Accordion;
 use gpui_kit::component::button::Button;
+use gpui_kit::component::chart::BarChart;
 use gpui_kit::component::tag::Tag;
 use gpui_kit::component::{ActiveTheme, Disableable, Sizable, h_flex, v_flex};
 use gpui_kit::*;
@@ -23,12 +24,12 @@ impl IncidentsView {
             let members: Vec<&ProcessIncident> = filtered.iter().filter(|incident| group_key(incident) == group.key.as_ref()).collect();
             let retry: Vec<ProcessIncident> =
                 members.iter().filter(|incident| retryable(incident)).map(|incident| (*incident).clone()).collect();
-            let meta = format!(
-                "{} · {} · заявок {} · {}",
-                group.process_key,
-                model::incident_type_label(&group.incident_type),
-                group.instance_ids.len(),
-                model::short_time(group.latest.as_deref())
+            let meta = tr!(
+                "incidents.group_meta",
+                process = group.process_key,
+                kind = model::incident_type_label(&group.incident_type),
+                count = group.instance_ids.len(),
+                time = model::short_time(group.latest.as_deref())
             );
             let title = h_flex().gap_3().min_w_0().child(Tag::danger().small().rounded_full().child(group.count.to_string())).child(
                 v_flex()
@@ -39,7 +40,7 @@ impl IncidentsView {
             let actions =
                 h_flex().gap_2().child(div().flex_1().truncate().text_xs().text_color(cx.theme().muted_foreground).child(meta)).child(
                     Button::new(SharedString::from(format!("retry-{}", group.key)))
-                        .label(format!("Повторить ({})", retry.len()))
+                        .label(tr!("incidents.retry_group", count = retry.len()))
                         .outline()
                         .xsmall()
                         .disabled(retry.is_empty())
@@ -58,9 +59,55 @@ impl IncidentsView {
             .border_1()
             .border_color(cx.theme().border)
             .rounded(cx.theme().radius)
-            .child(h_flex().px_4().py_3().border_b_1().border_color(cx.theme().border).font_weight(FontWeight::SEMIBOLD).child("Группы"))
+            .child(
+                h_flex()
+                    .px_4()
+                    .py_3()
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(tr!("incidents.groups")),
+            )
             .child(div().id("incident-groups-scroll").flex_1().min_h_0().overflow_y_scroll().child(accordion))
+            .child(by_process(filtered, cx))
     }
+}
+
+// Столбики инцидентов по процессам под списком групп.
+fn by_process(incidents: &[ProcessIncident], cx: &App) -> impl IntoElement {
+    let mut counts: Vec<(SharedString, f64)> = Vec::new();
+    for incident in incidents {
+        let process = incident.process_definition_id.as_deref().and_then(|id| id.split(':').next()).unwrap_or_default();
+        match counts.iter_mut().find(|(key, _)| key.as_ref() == process) {
+            Some((_, count)) => *count += 1.,
+            None => counts.push((SharedString::from(process.to_string()), 1.)),
+        }
+    }
+    counts.sort_by(|a, b| b.1.total_cmp(&a.1));
+    counts.truncate(6);
+    let danger = cx.theme().danger;
+    v_flex()
+        .px_4()
+        .py_3()
+        .gap_2()
+        .border_t_1()
+        .border_color(cx.theme().border)
+        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(tr!("incidents.by_process")))
+        .child(
+            div().h(px(150.)).child(
+                BarChart::new(counts)
+                    .band(|(process, _)| process.clone())
+                    .value(|(_, count)| *count)
+                    .fill(move |_, _, _, _| danger.opacity(0.75))
+                    .label(|(_, count)| (*count as i64).to_string())
+                    .corner_radii(px(4.))
+                    .max_band_width(px(48.))
+                    .value_axis(false)
+                    .grid(false)
+                    .appear(true)
+                    .tooltip_value(|_, count| tr!("incidents.count", count = count as i64)),
+            ),
+        )
 }
 
 pub(super) fn group_key(incident: &ProcessIncident) -> String {

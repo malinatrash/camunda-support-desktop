@@ -22,7 +22,7 @@ impl InstanceView {
             let diagram = cx.new(|_| BpmnView::new(details.diagram.clone(), highlights));
             self._subscriptions = vec![
                 cx.subscribe_in(&variables, window, |this, _, event: &VariablesChanged, window, cx| {
-                    this.notice = Some(format!("Переменная {} обновлена.", event.0).into());
+                    this.notice = Some(tr!("instance.notice.variable_updated", name = event.0));
                     this.reload(window, cx);
                 }),
                 cx.subscribe_in(&diagram, window, |this, _, event: &SelectNode, window, cx| this.select_node(event.0.clone(), window, cx)),

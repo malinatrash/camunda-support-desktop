@@ -21,6 +21,8 @@ struct ConnectionsFile {
 struct SettingsFile {
     #[serde(default)]
     theme: Option<AppThemeMode>,
+    #[serde(default)]
+    language: Option<String>,
 }
 
 // Локальное хранилище приложения: JSON-файлы в каталоге данных пользователя.
@@ -97,6 +99,18 @@ impl Storage {
         write_json(&self.settings_path(), &settings);
     }
 
+    pub fn load_language(&self) -> Option<String> {
+        let _guard = self.lock.lock().unwrap();
+        read_json::<SettingsFile>(&self.settings_path()).and_then(|settings| settings.language)
+    }
+
+    pub fn save_language(&self, language: &str) {
+        let _guard = self.lock.lock().unwrap();
+        let mut settings: SettingsFile = read_json(&self.settings_path()).unwrap_or_default();
+        settings.language = Some(language.to_string());
+        write_json(&self.settings_path(), &settings);
+    }
+
     fn catalog_path(&self, connection_rest_url: &str, process_definition_key: &str) -> PathBuf {
         let digest = Sha256::digest(format!("{connection_rest_url}\n{process_definition_key}").as_bytes());
         let name: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
@@ -168,6 +182,10 @@ mod tests {
         let storage = Storage::new(directory.path().to_path_buf());
         assert!(storage.load_theme().is_none());
         storage.save_theme(AppThemeMode::Dark);
+        assert_eq!(storage.load_theme(), Some(AppThemeMode::Dark));
+        assert!(storage.load_language().is_none());
+        storage.save_language("ru");
+        assert_eq!(storage.load_language().as_deref(), Some("ru"));
         assert_eq!(storage.load_theme(), Some(AppThemeMode::Dark));
 
         let stored = StoredProcessVariableCatalog {

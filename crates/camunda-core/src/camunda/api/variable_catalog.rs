@@ -46,7 +46,8 @@ impl CamundaApi {
             let batches = instances.chunks(VARIABLE_INSTANCE_ID_BATCH_SIZE).map(|batch| {
                 let semaphore = &semaphore;
                 async move {
-                    let _permit = semaphore.acquire().await.map_err(|_| ApiError::Other("семафор закрыт".to_string()))?;
+                    let _permit =
+                        semaphore.acquire().await.map_err(|_| ApiError::Other(rust_i18n::t!("core.http.semaphore_closed").to_string()))?;
                     let ids = encode(&batch.iter().map(|instance| instance.id.as_str()).collect::<Vec<_>>().join(","));
                     let base_url = format!(
                         "{}/variable-instance?processInstanceIdIn={ids}&deserializeValues=false&sortBy=variableName&sortOrder=asc",
@@ -121,7 +122,7 @@ fn parse_variable_descriptors(body: &str) -> ApiResult<Vec<VariableDescriptorSam
         .filter_map(|value| {
             Some(VariableDescriptorSample {
                 name: string(value, "name")?,
-                value_type: string(value, "type").unwrap_or_else(|| "Неизвестный".to_string()),
+                value_type: string(value, "type").unwrap_or_else(|| rust_i18n::t!("core.variables.unknown_type").to_string()),
             })
         })
         .collect())

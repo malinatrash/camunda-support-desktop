@@ -7,6 +7,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::IncidentsView;
+use crate::platform::locale::plural_key;
 use crate::platform::services;
 
 const RETRIES: i32 = 3;
@@ -14,10 +15,7 @@ const RETRIES: i32 = 3;
 impl IncidentsView {
     // Открывает подтверждение повтора; диалог живёт своим состоянием до завершения запроса.
     pub(super) fn ask_retry(&mut self, incidents: Vec<ProcessIncident>, window: &mut Window, cx: &mut Context<Self>) {
-        let description = format!(
-            "Выставить {RETRIES} попытки для {} инцидентов? Camunda сразу начнёт повторное выполнение заданий и внешних задач.",
-            incidents.len()
-        );
+        let description = tr!(plural_key("incidents.retry.description", incidents.len()), retries = RETRIES, count = incidents.len());
         let view = cx.entity().downgrade();
         let confirm = cx.new(|_| RetryConfirm {
             connection: self.connection.clone(),
@@ -29,7 +27,12 @@ impl IncidentsView {
             task: None,
         });
         window.open_alert_dialog(cx, move |alert, _, _| {
-            alert.title("Повторить инциденты").description(description.clone()).width(px(520.)).keyboard(false).footer(confirm.clone())
+            alert
+                .title(tr!("incidents.retry.title"))
+                .description(description.clone())
+                .width(px(520.))
+                .keyboard(false)
+                .footer(confirm.clone())
         });
     }
 }
@@ -60,12 +63,16 @@ impl RetryConfirm {
                 this.task = None;
                 match result {
                     Ok(result) => {
-                        let skipped = if result.skipped > 0 { format!(", пропущено {}", result.skipped) } else { String::new() };
-                        let notice = format!("Повтор запущен: заданий {}, внешних задач {}{skipped}.", result.jobs, result.external_tasks);
+                        let skipped = if result.skipped > 0 {
+                            tr!("incidents.retry.skipped", count = result.skipped)
+                        } else {
+                            SharedString::default()
+                        };
+                        let notice = tr!("incidents.retry.done", jobs = result.jobs, external = result.external_tasks, skipped = skipped);
                         window.close_dialog(cx);
                         this.view
                             .update(cx, |view, cx| {
-                                view.notice = Some(notice.into());
+                                view.notice = Some(notice);
                                 view.table.update(cx, |table, _| table.delegate_mut().selected.clear());
                                 view.reload(window, cx);
                             })
@@ -89,7 +96,7 @@ impl Render for RetryConfirm {
             .gap_4()
             .when_some(self.error.clone(), |this, error| this.child(Alert::error("retry-error", error)))
             .when(self.production, |this| {
-                this.child(Checkbox::new("confirm-production").label("Понимаю, что это прод").checked(self.confirmed).on_click(
+                this.child(Checkbox::new("confirm-production").label(tr!("incidents.retry.production")).checked(self.confirmed).on_click(
                     cx.listener(|this, checked: &bool, _, cx| {
                         this.confirmed = *checked;
                         cx.notify();
@@ -102,14 +109,14 @@ impl Render for RetryConfirm {
                     .gap_2()
                     .child(
                         Button::new("retry-cancel")
-                            .label("Отмена")
+                            .label(tr!("incidents.retry.cancel"))
                             .outline()
                             .disabled(running)
                             .on_click(cx.listener(|_, _, window, cx| window.close_dialog(cx))),
                     )
                     .child(
                         Button::new("retry-run")
-                            .label("Повторить")
+                            .label(tr!("incidents.retry.run"))
                             .map(|button| if self.production { button.danger() } else { button.primary() })
                             .loading(running)
                             .disabled(running || (self.production && !self.confirmed))

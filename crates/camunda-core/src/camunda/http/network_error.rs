@@ -52,7 +52,7 @@ pub enum NetworkErrorKind {
     Other(String),
 }
 
-// Переводит сетевую ошибку reqwest в русское сообщение для пользователя.
+// Переводит сетевую ошибку reqwest в локализованное сообщение для пользователя.
 #[cfg(test)]
 pub fn describe_network_error(error: &reqwest::Error) -> String {
     describe_network_kind(&classify_network_error(error))
@@ -60,13 +60,13 @@ pub fn describe_network_error(error: &reqwest::Error) -> String {
 
 pub fn describe_network_kind(kind: &NetworkErrorKind) -> String {
     match kind {
-        NetworkErrorKind::Timeout => "Время ожидания истекло. Проверьте VPN и доступность Camunda.".to_string(),
-        NetworkErrorKind::UnknownHost => "Хост Camunda не найден. Проверьте DNS, адрес и VPN.".to_string(),
-        NetworkErrorKind::TlsHandshake | NetworkErrorKind::Tls => "Ошибка TLS. Проверьте HTTPS-сертификат.".to_string(),
-        NetworkErrorKind::ConnectionRefused => "Подключение отклонено или хост недоступен. Проверьте VPN, хост и порт.".to_string(),
-        NetworkErrorKind::InvalidUrl => "Некорректный адрес запроса.".to_string(),
-        NetworkErrorKind::Io(message) => format!("Сетевая ошибка: {message}"),
-        NetworkErrorKind::Other(message) => format!("Не удалось выполнить операцию: {message}"),
+        NetworkErrorKind::Timeout => rust_i18n::t!("core.network.timeout").to_string(),
+        NetworkErrorKind::UnknownHost => rust_i18n::t!("core.network.unknown_host").to_string(),
+        NetworkErrorKind::TlsHandshake | NetworkErrorKind::Tls => rust_i18n::t!("core.network.tls").to_string(),
+        NetworkErrorKind::ConnectionRefused => rust_i18n::t!("core.network.connection_refused").to_string(),
+        NetworkErrorKind::InvalidUrl => rust_i18n::t!("core.network.invalid_url").to_string(),
+        NetworkErrorKind::Io(message) => rust_i18n::t!("core.network.io", message = message).to_string(),
+        NetworkErrorKind::Other(message) => rust_i18n::t!("core.http.operation_failed", message = message).to_string(),
     }
 }
 
@@ -80,7 +80,7 @@ mod tests {
         let client = camunda_client();
         let error = client.get("http://127.0.0.1:1/engine-rest/version").send().await.expect_err("порт закрыт");
         assert_eq!(classify_network_error(&error), NetworkErrorKind::ConnectionRefused);
-        assert_eq!(describe_network_error(&error), "Подключение отклонено или хост недоступен. Проверьте VPN, хост и порт.");
+        assert_eq!(describe_network_error(&error), "Connection refused or host unreachable. Check the VPN, host and port.");
     }
 
     #[tokio::test]
