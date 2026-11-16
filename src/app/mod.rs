@@ -6,6 +6,7 @@ mod deep_link;
 mod navigation;
 mod palette;
 mod sidebar;
+mod status;
 mod toolbar;
 
 use camunda_core::models::CamundaConnection;
@@ -14,7 +15,7 @@ use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::*;
 
 use crate::platform::services::Services;
-use crate::platform::theme;
+use crate::platform::{motion, theme};
 use crate::views::definition::DefinitionView;
 use crate::views::incidents::IncidentsView;
 use crate::views::instance::InstanceView;
@@ -26,8 +27,16 @@ use actions::{OpenIncidents, OpenOverview, OpenSearch, OpenSettings, TogglePalet
 use palette::Section;
 
 enum Page {
-    Definition(Entity<DefinitionView>),
-    Instance(Entity<InstanceView>),
+    Definition(Entity<DefinitionView>, SharedString),
+    Instance(Entity<InstanceView>, SharedString),
+}
+
+impl Page {
+    fn label(&self) -> SharedString {
+        match self {
+            Page::Definition(_, label) | Page::Instance(_, label) => label.clone(),
+        }
+    }
 }
 
 pub struct AppView {
@@ -39,6 +48,7 @@ pub struct AppView {
     incidents: Option<Entity<IncidentsView>>,
     settings: Option<Entity<SettingsView>>,
     pages: Vec<Page>,
+    route: usize,
     sidebar_collapsed: bool,
     popover_generation: usize,
     focus: FocusHandle,
@@ -63,6 +73,7 @@ impl AppView {
             incidents: None,
             settings: None,
             pages: Vec::new(),
+            route: 0,
             sidebar_collapsed: false,
             popover_generation: 0,
             focus,
@@ -77,7 +88,7 @@ impl AppView {
         view
     }
 
-    fn content(&self, cx: &App) -> AnyElement {
+    fn content(&self, cx: &mut Context<Self>) -> AnyElement {
         let section = match self.section {
             Section::Overview => self.overview.clone().map(|view| view.into_any_element()),
             Section::Search => self.search.clone().map(|view| view.into_any_element()),
@@ -85,11 +96,9 @@ impl AppView {
             Section::Settings => self.settings.clone().map(|view| view.into_any_element()),
         };
         match self.pages.last() {
-            Some(Page::Definition(page)) => page.clone().into_any_element(),
-            Some(Page::Instance(page)) => page.clone().into_any_element(),
-            None => section.unwrap_or_else(|| {
-                div().p_6().text_color(cx.theme().muted_foreground).child(tr!("shell.no_connections")).into_any_element()
-            }),
+            Some(Page::Definition(page, _)) => page.clone().into_any_element(),
+            Some(Page::Instance(page, _)) => page.clone().into_any_element(),
+            None => section.unwrap_or_else(|| self.render_welcome(cx).into_any_element()),
         }
     }
 }
@@ -116,7 +125,8 @@ impl Render for AppView {
                     .h_full()
                     .bg(theme::surface(cx))
                     .child(self.render_toolbar(cx))
-                    .child(div().flex_1().min_h_0().child(self.content(cx))),
+                    .child(div().flex_1().min_h_0().overflow_hidden().child(motion::page(self.route, div().relative().size_full().child(self.content(cx)))))
+                    .child(self.render_status(cx)),
             )
     }
 }

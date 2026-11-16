@@ -218,3 +218,24 @@ settings.form.test:
 settings.form.save:
   en: Save
   ru: Сохранить
+shell.status.live:
+  en: Live
+  ru: На связи
+shell.status.offline:
+  en: Not connected
+  ru: Нет подключения
+shell.status.engine:
+  en: Camunda %{version}
+  ru: Camunda %{version}
+shell.status.updating:
+  en: Updating…
+  ru: Обновляемся…
+shell.welcome.title:
+  en: Connect your first Camunda engine
+  ru: Подключите первый движок Camunda
+shell.welcome.description:
+  en: Point Camunda Support at any Camunda 7 REST endpoint to see incidents, instances and diagrams.
+  ru: Укажите REST-адрес Camunda 7, чтобы видеть инциденты, заявки и схемы.
+shell.welcome.add:
+  en: Add connection
+  ru: Добавить подключение

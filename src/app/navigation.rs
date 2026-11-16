@@ -17,6 +17,7 @@ impl AppView {
         self.section = section;
         self.pages.clear();
         self._page_subscriptions.clear();
+        self.route += 1;
         if section == Section::Settings && self.settings.is_none() {
             let settings = cx.new(|cx| SettingsView::new(window, cx));
             self._settings_subscription = Some(cx.subscribe_in(&settings, window, |this, _, event: &SettingsEvent, window, cx| {
@@ -36,16 +37,19 @@ impl AppView {
                 self.pages.pop();
             }
             Navigate::Definition { id, all_versions } => {
+                let label = SharedString::from(id.split(':').next().unwrap_or(&id).to_string());
                 let page = cx.new(|cx| DefinitionView::new(connection, id, all_versions, window, cx));
                 self._page_subscriptions.push(cx.subscribe_in(&page, window, Self::navigate));
-                self.pages.push(Page::Definition(page));
+                self.pages.push(Page::Definition(page, label));
             }
             Navigate::Instance(id) => {
+                let label = SharedString::from(id.chars().take(8).collect::<String>());
                 let page = cx.new(|cx| InstanceView::new(connection, id, window, cx));
                 self._page_subscriptions.push(cx.subscribe_in(&page, window, Self::navigate));
-                self.pages.push(Page::Instance(page));
+                self.pages.push(Page::Instance(page, label));
             }
         }
+        self.route += 1;
         cx.notify();
     }
 
@@ -67,7 +71,17 @@ impl AppView {
         }
         self.pages.clear();
         self._page_subscriptions.clear();
+        self.route += 1;
         cx.notify();
+    }
+
+    // Возврат по хлебным крошкам: оставляет первые depth страниц.
+    pub(super) fn truncate_pages(&mut self, depth: usize, cx: &mut Context<Self>) {
+        if depth < self.pages.len() {
+            self.pages.truncate(depth);
+            self.route += 1;
+            cx.notify();
+        }
     }
 
     // Подключение из CAMUNDA_SUPPORT_CONNECTION или первое; без подключений сразу настройки.
