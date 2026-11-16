@@ -13,10 +13,8 @@ use futures::channel::mpsc;
 use gpui_kit::component::TitleBar;
 use gpui_kit::*;
 
-use app::{AppView, OpenIncidents, OpenOverview, OpenSearch, OpenSettings, TogglePalette};
+use app::AppView;
 use platform::services::Services;
-
-actions!(camunda_support, [Quit]);
 
 fn main() {
     let (links, received) = mpsc::unbounded::<String>();
@@ -37,16 +35,7 @@ fn main() {
         let dark = services.storage.load_theme() != Some(AppThemeMode::Light);
         cx.set_global(services);
         updates::Updater::init(cx);
-        cx.bind_keys([
-            KeyBinding::new("cmd-q", Quit, None),
-            KeyBinding::new("cmd-k", TogglePalette, None),
-            KeyBinding::new("ctrl-k", TogglePalette, None),
-            KeyBinding::new("cmd-1", OpenOverview, None),
-            KeyBinding::new("cmd-2", OpenSearch, None),
-            KeyBinding::new("cmd-3", OpenIncidents, None),
-            KeyBinding::new("cmd-,", OpenSettings, None),
-        ]);
-        cx.on_action(|_: &Quit, cx| cx.quit());
+        app::bind_keys(cx);
         cx.on_window_closed(|cx, _| {
             if cx.windows().is_empty() {
                 cx.quit();
@@ -58,6 +47,11 @@ fn main() {
             window_bounds: Some(WindowBounds::centered(size(px(1440.), px(900.)), cx)),
             window_min_size: Some(size(px(1080.), px(680.))),
             app_id: Some("camunda-support".into()),
+            window_background: if cfg!(target_os = "macos") {
+                WindowBackgroundAppearance::Blurred
+            } else {
+                WindowBackgroundAppearance::Opaque
+            },
             ..TitleBar::window_options()
         };
         gpui_kit::open_window(options, cx, |window, cx| {

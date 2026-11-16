@@ -1,3 +1,5 @@
+mod open;
+
 use std::time::Duration;
 
 use camunda_core::models::{CamundaConnection, ProcessInstanceSummary};
