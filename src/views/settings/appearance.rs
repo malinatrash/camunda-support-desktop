@@ -7,7 +7,8 @@ use crate::platform::{locale, theme};
 
 pub fn page() -> SettingPage {
     let languages = locale::LANGUAGES.iter().map(|(code, name)| (SharedString::from(*code), SharedString::from(*name))).collect();
-    SettingPage::new(tr!("settings.appearance.title")).icon(Lucide::Palette)
+    SettingPage::new(tr!("settings.appearance.title"))
+        .icon(Lucide::Palette)
         .group(
             SettingGroup::new().title(tr!("settings.appearance.theme")).item(
                 SettingItem::new(tr!("settings.appearance.dark"), SettingField::switch(|cx| cx.theme().is_dark(), theme::set_dark))

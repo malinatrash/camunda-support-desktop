@@ -15,11 +15,11 @@ pub fn format_duration(millis: i64) -> String {
     let minutes = millis / 60_000;
     let (days, hours, rest) = (minutes / (24 * 60), (minutes % (24 * 60)) / 60, minutes % 60);
     if days > 0 {
-        format!("{days} д. {hours} ч.")
+        rust_i18n::t!("model.duration.days_hours", days = days, hours = hours).into_owned()
     } else if hours > 0 {
-        format!("{hours} ч. {rest} мин.")
+        rust_i18n::t!("model.duration.hours_minutes", hours = hours, minutes = rest).into_owned()
     } else {
-        format!("{rest} мин.")
+        rust_i18n::t!("model.duration.minutes", minutes = rest).into_owned()
     }
 }
 
@@ -36,5 +36,13 @@ mod tests {
     fn grouped_splits_thousands() {
         assert_eq!(grouped(1421), "1\u{202f}421");
         assert_eq!(grouped(999), "999");
+    }
+
+    #[test]
+    fn duration_in_english() {
+        let duration = |minutes: i64| format_duration(minutes * 60_000);
+        assert_eq!(duration(5), "5 min");
+        assert_eq!(duration(125), "2 h 5 min");
+        assert_eq!(duration(3 * 24 * 60 + 60), "3 d 1 h");
     }
 }

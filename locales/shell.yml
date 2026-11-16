@@ -1,0 +1,220 @@
+_version: 2
+shell.no_connections:
+  en: No connections yet. Add the first one in Settings.
+  ru: Подключений нет. Добавьте первое в настройках.
+shell.no_connection:
+  en: No connection
+  ru: Нет подключения
+shell.connections:
+  en: Connections
+  ru: Подключения
+shell.manage_connections:
+  en: Manage connections
+  ru: Управлять подключениями
+shell.deep_link_no_connection:
+  en: No connection for %{origin}. Add it in Settings.
+  ru: Нет подключения для %{origin}. Добавьте его в настройках.
+shell.find_instance:
+  en: Find instance
+  ru: Найти заявку
+sidebar.monitoring:
+  en: Monitoring
+  ru: Мониторинг
+sidebar.overview:
+  en: Overview
+  ru: Обзор
+sidebar.search:
+  en: Search
+  ru: Поиск
+sidebar.incidents:
+  en: Incidents
+  ru: Инциденты
+sidebar.application:
+  en: Application
+  ru: Приложение
+sidebar.settings:
+  en: Settings
+  ru: Настройки
+sidebar.light_theme:
+  en: Light theme
+  ru: Светлая тема
+sidebar.dark_theme:
+  en: Dark theme
+  ru: Тёмная тема
+sidebar.version:
+  en: version %{version}
+  ru: версия %{version}
+palette.sections:
+  en: Sections
+  ru: Разделы
+palette.instances:
+  en: Instances
+  ru: Заявки
+palette.no_business_key:
+  en: No business key
+  ru: Без бизнес-ключа
+palette.no_connection:
+  en: "No connection: add one in Settings"
+  ru: "Нет подключения: добавьте его в настройках"
+palette.nothing_found:
+  en: Nothing found
+  ru: Ничего не найдено
+palette.placeholder:
+  en: Business key or instance ID
+  ru: Бизнес-ключ или ID заявки
+updates.restart:
+  en: Restart
+  ru: Перезапустить
+updates.version:
+  en: Version %{version}
+  ru: Версия %{version}
+updates.ready_title:
+  en: Update ready
+  ru: Обновление готово
+updates.installed_notice:
+  en: Version %{version} is installed. Restart whenever convenient.
+  ru: Версия %{version} установлена. Перезапустите, когда будет удобно.
+updates.status.idle:
+  en: Updates are checked automatically every six hours
+  ru: Обновления проверяются автоматически раз в шесть часов
+updates.status.checking:
+  en: Checking GitHub Releases…
+  ru: Проверяем GitHub Releases…
+updates.status.up_to_date:
+  en: You have the latest version
+  ru: Установлена последняя версия
+updates.status.downloading:
+  en: "Version %{version}: %{stage}"
+  ru: "Версия %{version}: %{stage}"
+updates.status.ready:
+  en: Version %{version} is installed and applies after restart
+  ru: Версия %{version} установлена, применится после перезапуска
+updates.status.opened:
+  en: Silent install failed, opened installer %{file}
+  ru: Тихо поставить не вышло, открыт установщик %{file}
+updates.stage.preparing:
+  en: preparing download…
+  ru: готовим загрузку…
+updates.stage.downloading_of:
+  en: downloading %{downloaded} of %{total} MB
+  ru: скачиваем %{downloaded} из %{total} МБ
+updates.stage.downloading:
+  en: downloading %{downloaded} MB
+  ru: скачиваем %{downloaded} МБ
+updates.stage.verifying:
+  en: verifying checksum…
+  ru: проверяем контрольную сумму…
+updates.stage.installing:
+  en: installing…
+  ru: устанавливаем…
+model.environment.production:
+  en: Production
+  ru: Прод
+model.environment.test:
+  en: Test
+  ru: Тест
+model.environment.development:
+  en: Development
+  ru: Разработка
+model.environment.local:
+  en: Local
+  ru: Локально
+model.state.ended:
+  en: completed
+  ru: завершена
+model.state.suspended:
+  en: suspended
+  ru: приостановлена
+model.state.active:
+  en: active
+  ru: в работе
+model.duration.days_hours:
+  en: "%{days} d %{hours} h"
+  ru: "%{days} д. %{hours} ч."
+model.duration.hours_minutes:
+  en: "%{hours} h %{minutes} min"
+  ru: "%{hours} ч. %{minutes} мин."
+model.duration.minutes:
+  en: "%{minutes} min"
+  ru: "%{minutes} мин."
+model.incident_type.failed_job:
+  en: Failed job
+  ru: Ошибка задания
+model.incident_type.failed_external_task:
+  en: Failed external task
+  ru: Ошибка внешней задачи
+model.incident_type.unknown:
+  en: Unknown type
+  ru: Неизвестный тип
+model.no_message:
+  en: No message
+  ru: Без сообщения
+model.no_activity:
+  en: No activity
+  ru: Без кубика
+bpmn.fit:
+  en: Fit
+  ru: По размеру
+settings.updates.title:
+  en: Updates
+  ru: Обновления
+settings.updates.auto:
+  en: Auto-update
+  ru: Автообновление
+settings.updates.auto_hint:
+  en: New versions download and install on their own; you only need to restart the app.
+  ru: Новая версия скачивается и ставится сама, остаётся перезапустить приложение.
+settings.updates.check_now:
+  en: Check now
+  ru: Проверить сейчас
+settings.connections.title:
+  en: Connections
+  ru: Подключения
+settings.connections.group:
+  en: Camunda connections
+  ru: Подключения к Camunda
+settings.connections.group_hint:
+  en: The Cockpit URL is derived from the REST URL automatically.
+  ru: Адрес Cockpit строится из адреса REST автоматически.
+settings.connections.empty:
+  en: No connections yet — add the first one.
+  ru: Подключений пока нет — добавьте первое.
+settings.connections.add:
+  en: Add connection
+  ru: Добавить подключение
+settings.connections.delete:
+  en: Delete
+  ru: Удалить
+settings.connections.delete_title:
+  en: Delete “%{name}”?
+  ru: Удалить «%{name}»?
+settings.connections.delete_hint:
+  en: The connection will be removed from the list; you can add it again later.
+  ru: Подключение пропадёт из списка, его можно будет добавить заново.
+settings.form.title:
+  en: New connection
+  ru: Новое подключение
+settings.form.name_placeholder:
+  en: "For example: Pledges TEST"
+  ru: "Например: Залоги TEST"
+settings.form.name:
+  en: Name
+  ru: Название
+settings.form.rest_url:
+  en: Camunda REST URL
+  ru: Адрес Camunda REST
+settings.form.cockpit_url:
+  en: Cockpit URL
+  ru: Адрес Cockpit
+settings.form.environment:
+  en: Environment
+  ru: Окружение
+settings.form.tested:
+  en: Connection works · Camunda %{version}
+  ru: Подключение работает · Camunda %{version}
+settings.form.test:
+  en: Test
+  ru: Проверить
+settings.form.save:
+  en: Save
+  ru: Сохранить

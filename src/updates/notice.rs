@@ -13,9 +13,9 @@ pub fn announce<V: 'static>(window: &mut Window, cx: &mut Context<V>) -> Subscri
             _ => return,
         };
         updater.update(cx, |updater, _| updater.announced = true);
-        let note = Notification::success(format!("Версия {version} установлена. Перезапустите, когда будет удобно."))
-            .title("Обновление готово")
-            .action(|_, _, _| Button::new("restart").primary().label("Перезапустить").on_click(|_, _, cx| Updater::restart(cx)));
+        let note = Notification::success(tr!("updates.installed_notice", version = version))
+            .title(tr!("updates.ready_title"))
+            .action(|_, _, _| Button::new("restart").primary().label(tr!("updates.restart")).on_click(|_, _, cx| Updater::restart(cx)));
         window.push_notification(note, cx);
     })
 }

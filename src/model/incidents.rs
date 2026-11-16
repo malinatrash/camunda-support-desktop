@@ -28,7 +28,7 @@ pub fn group_incidents(incidents: &[ProcessIncident]) -> Vec<IncidentGroup> {
         let position = *index.entry(key.clone()).or_insert_with(|| {
             groups.push(IncidentGroup {
                 key: key.into(),
-                activity: if activity.is_empty() { "Без кубика".into() } else { activity.into() },
+                activity: if activity.is_empty() { tr!("model.no_activity") } else { activity.into() },
                 signature: signature.into(),
                 process_key: process_key.into(),
                 incident_type: incident.incident_type.clone(),

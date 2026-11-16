@@ -7,10 +7,10 @@ use gpui_kit::*;
 use crate::updates::{Status, Updater, VERSION};
 
 pub fn page() -> SettingPage {
-    SettingPage::new("Обновления").icon(Lucide::Download).group(
+    SettingPage::new(tr!("settings.updates.title")).icon(Lucide::Download).group(
         SettingGroup::new()
-            .title("Автообновление")
-            .description("Новая версия скачивается и ставится сама, остаётся перезапустить приложение.")
+            .title(tr!("settings.updates.auto"))
+            .description(tr!("settings.updates.auto_hint"))
             .item(SettingItem::render(|_, _, cx| status_row(cx))),
     )
 }
@@ -22,10 +22,10 @@ fn status_row(cx: &mut App) -> Div {
     let color = if matches!(status, Status::Failed(_)) { cx.theme().danger } else { cx.theme().muted_foreground };
     let action = match status {
         Status::Ready { .. } => {
-            Some(Button::new("restart").label("Перезапустить").primary().small().on_click(|_, _, cx| Updater::restart(cx)))
+            Some(Button::new("restart").label(tr!("updates.restart")).primary().small().on_click(|_, _, cx| Updater::restart(cx)))
         }
         status if status.is_busy() => None,
-        _ => Some(Button::new("check-update").label("Проверить сейчас").small().on_click(|_, _, cx| {
+        _ => Some(Button::new("check-update").label(tr!("settings.updates.check_now")).small().on_click(|_, _, cx| {
             Updater::global(cx).update(cx, |updater, cx| updater.check(cx));
         })),
     };
@@ -36,7 +36,7 @@ fn status_row(cx: &mut App) -> Div {
             v_flex()
                 .flex_1()
                 .min_w_0()
-                .child(div().font_weight(FontWeight::MEDIUM).child(format!("Версия {VERSION}")))
+                .child(div().font_weight(FontWeight::MEDIUM).child(tr!("updates.version", version = VERSION)))
                 .child(div().text_sm().text_color(color).child(description)),
         )
         .children(action)

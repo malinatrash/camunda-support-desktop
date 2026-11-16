@@ -4,11 +4,11 @@ use gpui_kit::component::tag::Tag;
 
 pub fn state_tag(suspended: bool, ended: bool) -> Tag {
     let (tag, label) = if ended {
-        (Tag::secondary(), "завершена")
+        (Tag::secondary(), tr!("model.state.ended"))
     } else if suspended {
-        (Tag::warning(), "приостановлена")
+        (Tag::warning(), tr!("model.state.suspended"))
     } else {
-        (Tag::success(), "в работе")
+        (Tag::success(), tr!("model.state.active"))
     };
     tag.small().rounded_full().child(label)
 }
