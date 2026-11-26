@@ -754,7 +754,7 @@ dependencies = [
 
 [[package]]
 name = "camunda-core"
-version = "2.5.0"
+version = "2.5.1"
 dependencies = [
  "chrono",
  "futures-util",
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "camunda-support"
-version = "2.5.0"
+version = "2.5.1"
 dependencies = [
  "camunda-core",
  "chrono",
