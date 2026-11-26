@@ -13,6 +13,7 @@ use gpui_kit::*;
 use super::SettingsView;
 use crate::platform::environment;
 use crate::platform::services::{self, Services};
+use crate::platform::theme;
 
 pub struct ConnectionForm {
     name: Entity<InputState>,
@@ -36,7 +37,9 @@ impl SettingsView {
             window.close_dialog(cx);
             this.reload_connections(cx);
         }));
-        window.open_dialog(cx, move |dialog, _, _| dialog.title(tr!("settings.form.title")).w(px(560.)).child(form.clone()));
+        window.open_dialog(cx, move |dialog, _, cx| {
+            dialog.bg(theme::surface(cx)).title(tr!("settings.form.title")).w(px(560.)).child(form.clone())
+        });
     }
 }
 

@@ -2,6 +2,7 @@ use gpui_kit::component::WindowExt as _;
 use gpui_kit::*;
 
 use super::{TeleportEvent, TeleportView};
+use crate::platform::theme;
 use crate::views::instance::InstanceView;
 
 impl InstanceView {
@@ -22,8 +23,9 @@ impl InstanceView {
             cx.notify();
         }));
         self.teleport = Some(teleport.clone());
-        window.open_dialog(cx, move |dialog, window, _| {
+        window.open_dialog(cx, move |dialog, window, cx| {
             dialog
+                .bg(theme::surface(cx))
                 .title(tr!("instance.teleport.title"))
                 .w(window.viewport_size().width * 0.8)
                 .max_w(px(1200.))

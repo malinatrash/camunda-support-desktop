@@ -4,6 +4,7 @@ use gpui_kit::*;
 use super::{CommandPalette, PaletteEvent};
 use crate::app::AppView;
 use crate::model::Navigate;
+use crate::platform::theme;
 
 impl AppView {
     // ⌘K: палитра в диалоге GPUI Kit, повторное нажатие закрывает.
@@ -24,6 +25,8 @@ impl AppView {
             }
             this.focus.focus(window, cx);
         }));
-        window.open_dialog(cx, move |dialog, _, _| dialog.w(px(640.)).p_0().close_button(false).child(palette.clone()));
+        window.open_dialog(cx, move |dialog, _, cx| {
+            dialog.bg(theme::surface(cx)).w(px(640.)).p_0().close_button(false).child(palette.clone())
+        });
     }
 }
